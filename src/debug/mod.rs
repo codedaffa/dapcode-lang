@@ -9,6 +9,9 @@ use std::path::Path;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 
+pub mod cli;
+pub use cli::CliDebugger;
+
 pub fn normalize_path(p: &str) -> String {
     let mut s = p.trim().replace('\\', "/");
     if let Some(stripped) = s.strip_prefix("file://") {

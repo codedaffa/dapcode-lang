@@ -129,3 +129,141 @@ fn test_dap_full_interactive_breakpoint_and_inspection() {
     // Clean up temp file
     let _ = fs::remove_file(test_file);
 }
+
+#[derive(Clone, Default)]
+struct SharedBuffer(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl std::io::Write for SharedBuffer {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().unwrap().write(buf)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.lock().unwrap().flush()
+    }
+}
+
+#[test]
+fn test_cli_debugger_stepping_and_breakpoints() {
+    use dapcodec::debug::CliDebugger;
+    use dapcodec::eval::Evaluator;
+    use dapcodec::lexer::Lexer;
+    use dapcodec::parser::Parser;
+    use dapcodec::span::SourceMap;
+    use std::io::Cursor;
+    use std::sync::{Arc, Mutex};
+
+    let code = "fungsi kali(a: u64, b: u64) -> u64 {\n    hasil := a * b\n    kembali hasil\n}\n\nfungsi utama() {\n    p := 10\n    q := 20\n    r := kali(p, q)\n    cetak(r)\n}\n";
+    let file_path = "D:/dapcode-lang/tests/fixtures/sample_debug.dap";
+
+    let mut sm = SourceMap::new();
+    let (file_id, _) = sm.add_file(file_path, code.to_string());
+
+    let mut lexer = Lexer::new(code, file_id);
+    let tokens = lexer.tokenize().expect("Tokenisasi gagal");
+    let mut parser = Parser::new(tokens, file_id);
+    let program = parser.parse_program().expect("Parsing gagal");
+
+    // Rangkaian perintah debugger simulasi pengguna:
+    // 1. Berhenti di awal eksekusi (stop-on-entry di baris 7)
+    // 2. b 9      -> pasang breakpoint pada baris 9 ('r := kali(p, q)')
+    // 3. c        -> terus jalan sampai breakpoint baris 9
+    // 4. v        -> lihat semua variabel lokal (p=10, q=20)
+    // 5. p p + q  -> evaluasi ekspresi dinamis (30)
+    // 6. s        -> langkah masuk ke fungsi 'kali'
+    // 7. bt       -> periksa jejak panggilan stack
+    // 8. out      -> keluar dari fungsi kali
+    // 9. c        -> lanjutkan eksekusi hingga akhir program
+    let input_commands = "b 9\nc\nv\np p + q\ns\nbt\nout\nc\n";
+    let reader = Box::new(Cursor::new(input_commands.as_bytes().to_vec()));
+
+    let output_store = Arc::new(Mutex::new(Vec::new()));
+    let writer = Box::new(SharedBuffer(Arc::clone(&output_store)));
+
+    let sm_arc = Arc::new(Mutex::new(sm));
+    let dbg = CliDebugger::new(
+        sm_arc,
+        file_path.to_string(),
+        vec![],
+        true,  // stop_on_entry true agar berhenti di awal dan menerima perintah
+        reader,
+        writer,
+    );
+
+    let mut evaluator = Evaluator::new();
+    evaluator.set_debug_hook(Arc::new(Mutex::new(dbg)));
+
+    let result = evaluator.run_program(&program);
+    assert!(result.is_ok(), "Evaluator harus menyelesaikan eksekusi program");
+
+    let output_bytes = output_store.lock().unwrap().clone();
+    let output_str = String::from_utf8_lossy(&output_bytes);
+
+    // Verifikasi fitur debugger:
+    // 1. Titik henti ditambahkan
+    assert!(output_str.contains("Titik henti ditambahkan"), "Harus menampilkan konfirmasi breakpoint");
+    // 2. Berhenti pada baris 9
+    assert!(output_str.contains("Berhenti karena titik henti pada baris 9"), "Harus berhenti di baris 9");
+    // 3. Inspeksi variabel lokal
+    assert!(output_str.contains("p (u64) = 10"), "Variabel p harus tercetak");
+    assert!(output_str.contains("q (u64) = 20"), "Variabel q harus tercetak");
+    // 4. Evaluasi ekspresi
+    assert!(output_str.contains("p + q (u64) = 30"), "Ekspresi p + q harus bernilai 30");
+    // 5. Langkah masuk & backtrace
+    assert!(output_str.contains("Jejak Panggilan (Call Stack):"), "Call stack harus tercetak");
+    assert!(output_str.contains("kali"), "Call stack harus memuat fungsi kali");
+    assert!(output_str.contains("utama"), "Call stack harus memuat fungsi utama");
+}
+
+#[test]
+fn test_cli_debugger_stop_on_entry_and_quit() {
+    use dapcodec::debug::CliDebugger;
+    use dapcodec::eval::Evaluator;
+    use dapcodec::lexer::Lexer;
+    use dapcodec::parser::Parser;
+    use dapcodec::span::SourceMap;
+    use std::io::Cursor;
+    use std::sync::{Arc, Mutex};
+
+    let code = "fungsi utama() {\n    a := 100\n    cetak(a)\n}\n";
+    let file_path = "D:/dapcode-lang/tests/fixtures/entry_quit.dap";
+
+    let mut sm = SourceMap::new();
+    let (file_id, _) = sm.add_file(file_path, code.to_string());
+
+    let mut lexer = Lexer::new(code, file_id);
+    let tokens = lexer.tokenize().expect("Tokenisasi gagal");
+    let mut parser = Parser::new(tokens, file_id);
+    let program = parser.parse_program().expect("Parsing gagal");
+
+    // Perintah: berhenti di awal, lalu ketik 'q' untuk berhenti
+    let input_commands = "q\n";
+    let reader = Box::new(Cursor::new(input_commands.as_bytes().to_vec()));
+
+    let output_store = Arc::new(Mutex::new(Vec::new()));
+    let writer = Box::new(SharedBuffer(Arc::clone(&output_store)));
+
+    let sm_arc = Arc::new(Mutex::new(sm));
+    let dbg = CliDebugger::new(
+        sm_arc,
+        file_path.to_string(),
+        vec![],
+        true, // stop_on_entry true
+        reader,
+        writer,
+    );
+
+    let mut evaluator = Evaluator::new();
+    evaluator.set_debug_hook(Arc::new(Mutex::new(dbg)));
+
+    let result = evaluator.run_program(&program);
+    // Program harus berhenti karena debugger menterminasi eksekusi
+    assert!(result.is_err(), "Harus menghasilkan terminasi dari debugger");
+    let err = result.err().unwrap();
+    assert_eq!(err.message, "Eksekusi dihentikan oleh debugger");
+
+    let output_bytes = output_store.lock().unwrap().clone();
+    let output_str = String::from_utf8_lossy(&output_bytes);
+    assert!(output_str.contains("henti awal (stop-on-entry)"));
+    assert!(output_str.contains("Sesi awakutu dihentikan."));
+}
+

@@ -19,6 +19,7 @@ use crate::types::TypeChecker;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 #[derive(ClapParser)]
 #[command(
@@ -93,6 +94,18 @@ pub enum Commands {
     Lsp,
     /// Menjalankan Debug Adapter Protocol (DAP) server untuk debugging interaktif
     Dap,
+    /// Memulai debugger interaktif CLI (Interactive Debugger)
+    #[command(alias = "awakutu")]
+    Debug {
+        /// Berkas sumber .dap yang akan di-debug (opsional, default: berkas utama proyek)
+        file: Option<PathBuf>,
+        /// Titik henti (baris) awal (contoh: -b 10 -b 25)
+        #[arg(short = 'b', long = "titik-henti", alias = "breakpoint")]
+        breakpoints: Vec<usize>,
+        /// Berhenti pada baris pertama eksekusi (stop-on-entry)
+        #[arg(long = "henti-awal", alias = "stop-on-entry")]
+        stop_on_entry: bool,
+    },
     /// Memulai konsol interaktif DapCode (REPL)
     Repl,
     /// Menambahkan dependensi paket baru ke DapCode.toml
@@ -223,6 +236,11 @@ pub fn run_cli() -> io::Result<()> {
         Commands::Fmt { path, check } => cmd_fmt(path.as_deref(), check),
         Commands::Lsp => cmd_lsp(),
         Commands::Dap => cmd_dap(),
+        Commands::Debug {
+            file,
+            breakpoints,
+            stop_on_entry,
+        } => cmd_debug(file.as_deref(), breakpoints, stop_on_entry),
         Commands::Repl => cmd_repl(),
         Commands::Add {
             name,
@@ -962,6 +980,86 @@ fn cmd_dap() -> io::Result<()> {
     let mut server = crate::debug::DebugServer::new();
     server.start()
 }
+
+pub fn cmd_debug(
+    file: Option<&Path>,
+    breakpoints: Vec<usize>,
+    stop_on_entry: bool,
+) -> io::Result<()> {
+    let target = resolve_target_file(file)?;
+    let mut sm = SourceMap::new();
+    let (file_id, mut program) = match load_program_and_modules(&target, &mut sm) {
+        Some(res) => res,
+        None => return Ok(()),
+    };
+
+    // 1. Comptime Metaprogramming folding
+    let mut comptime = ComptimeEvaluator::new();
+    if let Err(diag) = comptime.fold_program(&mut program) {
+        eprint!("{}", diag.render(&sm));
+        return Ok(());
+    }
+
+    // 2. Hindley-Milner Type Checking
+    let mut checker = TypeChecker::new(file_id);
+    if let Err(diag) = checker.check_program(&program) {
+        eprint!("{}", diag.render(&sm));
+        return Ok(());
+    }
+
+    // 3. Automatic Ownership & Perceus Analysis
+    let _ownership = OwnershipAnalyzer::new().analyze_program(&program);
+
+    // 4. Setup Interactive CLI Debugger
+    let target_str = target.to_string_lossy().to_string();
+    let sm_arc = Arc::new(Mutex::new(sm.clone()));
+    let effective_stop_on_entry = stop_on_entry || breakpoints.is_empty();
+    let dbg = crate::debug::CliDebugger::new_stdio(
+        Arc::clone(&sm_arc),
+        target_str.clone(),
+        breakpoints,
+        effective_stop_on_entry,
+    );
+    let hook = Arc::new(Mutex::new(dbg));
+
+    println!(
+        "{}",
+        "============================================================".cyan()
+    );
+    println!(
+        "{} {}",
+        "=== Debugger Interaktif DapCode (dapcodec debug) ===".cyan().bold(),
+        "(.dap)".green().bold()
+    );
+    println!(
+        "Berkas target: {}",
+        target.display().to_string().yellow().bold()
+    );
+    println!(
+        "Ketik '{}' atau '{}' untuk bantuan perintah, '{}' untuk keluar.",
+        "bantuan".green().bold(),
+        "h".green().bold(),
+        "keluar".yellow().bold()
+    );
+    println!(
+        "{}",
+        "============================================================".cyan()
+    );
+
+    let program_args = vec![target_str];
+    let mut evaluator = Evaluator::with_cli_args(program_args);
+    evaluator.set_debug_hook(hook);
+
+    if let Err(diag) = evaluator.run_program(&program) {
+        if diag.message != "Eksekusi dihentikan oleh debugger" {
+            eprint!("{}", diag.render(&sm));
+        }
+    }
+
+    println!("\n{}", "Sesi debugger selesai.".green().bold());
+    Ok(())
+}
+
 
 pub fn cmd_add(
     name: &str,

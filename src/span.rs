@@ -110,4 +110,13 @@ impl SourceMap {
     pub fn get_file(&self, id: usize) -> Option<Arc<SourceFile>> {
         self.files.get(id).cloned()
     }
+
+    pub fn files(&self) -> &[Arc<SourceFile>] {
+        &self.files
+    }
+
+    pub fn find_by_path(&self, path: &Path) -> Option<Arc<SourceFile>> {
+        self.files.iter().find(|f| f.path == path).cloned()
+    }
 }
+
