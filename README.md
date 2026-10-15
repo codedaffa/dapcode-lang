@@ -83,8 +83,11 @@ dapcode-lang/
 │   │   └── token.rs              # Definisi Token dan TokenKind (impor, di, dalam)
 │   ├── parser/
 │   │   └── mod.rs                # Pratt & Recursive Descent Parser
+│   ├── bin/
+│   │   └── dappkg.rs             # CLI Manajer Paket Resmi DapCode (dappkg)
 │   ├── modules/
-│   │   └── mod.rs                # ModuleLoader rekursif & Parser Manifes DapCode.toml
+│   │   ├── mod.rs                # ModuleLoader rekursif & Parser Manifes DapCode.toml
+│   │   └── lockfile.rs           # Engine Penguncian Versi & Verifikasi SHA-256 (DapCode.lock)
 │   ├── json/
 │   │   └── mod.rs                # Engine Parser & Serializer JSON Zero-Dependency
 │   ├── crypto/
@@ -108,7 +111,7 @@ dapcode-lang/
 │   ├── lsp/
 │   │   └── mod.rs                # Language Server Protocol (dapcodec lsp)
 │   └── cli/
-│       └── mod.rs                # Subperintah CLI dapcodec
+│       └── mod.rs                # Subperintah CLI dapcodec & dappkg
 └── tests/
     ├── lexer_test.rs
     ├── parser_test.rs
@@ -123,6 +126,7 @@ dapcode-lang/
     ├── lsp_test.rs               # Uji LSP (Init, Diagnostics, Hover, Completion)
     ├── net_test.rs               # Uji Jaringan & HTTP Client (GET, POST, Status, 404 Catch)
     ├── dependency_test.rs        # Uji Manajemen Dependensi & Multi-Paket (add, install, remove)
+    ├── dappkg_test.rs            # Uji Manajer Paket dappkg, DapCode.lock & Deteksi Integritas
     ├── test_runner_test.rs       # Uji Test Runner Terbawa (uji, pastikan, pastikan_sama)
     ├── repl_test.rs              # Uji REPL Interaktif (Multi-Baris, Delimiter Delta, Meta-Perintah)
     ├── doc_test.rs               # Uji Generator Dokumentasi Otomatis (Markdown & Web HTML)
@@ -255,30 +259,51 @@ Konsol interaktif modern dengan keunggulan:
   - `:reset` — Mereset environment dan fungsi ke kondisi awal.
   - `:keluar` / `:exit` — Keluar dari sesi REPL.
 
-### 11. Menambahkan Dependensi Paket (`add`)
+### 11. Manajer Paket Resmi `dappkg` & Penguncian Versi (`DapCode.lock`)
+
+DapCode dilengkapi manajer paket resmi **`dappkg`** (setara `composer` di PHP, `npm` di Node.js, `pip` di Python, atau `cargo` di Rust). Semua perintah juga dapat dipanggil melalui `dapcodec`:
+
 ```powershell
-# Tambah dependensi direktori lokal
-dapcodec add kalkulator --path ../kalkulator
+# Inisialisasi paket baru
+dappkg init kalkulator
 
-# Tambah dependensi dari Git
-dapcodec add jaringan --git https://github.com/dapcode/jaringan.git
+# Menambahkan dependensi direktori lokal, git, atau versi semver
+dappkg add kalkulator --path ../kalkulator
+dappkg add jaringan --git https://github.com/dapcode/jaringan.git
+dappkg add basisdata --version 1.0.0
 
-# Tambah dependensi versi semver
-dapcodec add basisdata --version 1.0.0
+# Memasang dependensi & mengunci integritas ke DapCode.lock
+dappkg install
+
+# Memeriksa integritas hash anti-tamper terhadap DapCode.lock
+dappkg check
+
+# Menampilkan diagram pohon dependensi proyek
+dappkg tree
+
+# Memperbarui versi & hash SHA-256 dependensi di DapCode.lock
+dappkg update
+
+# Menghapus dependensi dari DapCode.toml & DapCode.lock
+dappkg remove jaringan
 ```
 
-### 12. Memasang & Memverifikasi Dependensi (`install`)
-```powershell
-# Verifikasi semua paket lokal/git/versi yang dideklarasikan di DapCode.toml
-dapcodec install
+Format berkas penguncian versi **`DapCode.lock`**:
+```toml
+# BERKAS INI DIHASILKAN SECARA OTOMATIS OLEH DAPCODE / DAPPKG.
+# JANGAN EDIT BERKAS INI SECARA MANUAL.
+
+versi_format = 1
+
+[[paket]]
+nama = "kalkulator"
+versi = "0.5.0"
+sumber = "lokal"
+target = "../kalkulator"
+hash_sha256 = "c6b9074b62f8373bdf70265691efdf38374d75d35a96de71424ef24483ae3a7c"
 ```
 
-### 13. Menghapus Dependensi (`remove`)
-```powershell
-dapcodec remove jaringan
-```
-
-### 14. Menjalankan Unit Test Terbawa (`test`)
+### 12. Menjalankan Unit Test Terbawa (`test`)
 ```powershell
 # Jalankan seluruh pengujian di proyek atau folder tests/
 dapcodec test
@@ -349,5 +374,5 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 18 modul test (50 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 19 modul test (52 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 

@@ -54,12 +54,13 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path "target/${{ matrix.target }}/release/${{ matrix.binary_name }}", "LICENSE", "README.md" -DestinationPath "${{ matrix.archive_name }}"
+          Compress-Archive -Path "target/${{ matrix.target }}/release/dapcodec.exe", "target/${{ matrix.target }}/release/dappkg.exe", "LICENSE", "README.md" -DestinationPath "${{ matrix.archive_name }}"
 
       - name: Package Unix Binary
         if: runner.os != 'Windows'
         run: |
-          tar -czf "${{ matrix.archive_name }}" -C "target/${{ matrix.target }}/release" "${{ matrix.binary_name }}" LICENSE README.md
+          cp LICENSE README.md "target/${{ matrix.target }}/release/"
+          tar -czf "${{ matrix.archive_name }}" -C "target/${{ matrix.target }}/release" dapcodec dappkg LICENSE README.md
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

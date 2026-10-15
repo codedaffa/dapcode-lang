@@ -7,6 +7,9 @@ use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+pub mod lockfile;
+pub use lockfile::{Lockfile, LockedPackage, VerificationReport};
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum DependencyLocation {
     Path(PathBuf),

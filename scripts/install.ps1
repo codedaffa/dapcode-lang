@@ -33,27 +33,34 @@ try {
 
 $ZipPath = "$env:TEMP\dapcodec-windows.zip"
 $TargetExe = "$InstallDir\dapcodec.exe"
+$TargetPkg = "$InstallDir\dappkg.exe"
 
 if ($DownloadUrl) {
     Write-Host "==> Mengunduh DapCode ($Tag) dari $DownloadUrl..." -ForegroundColor Green
     Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath
     Expand-Archive -Path $ZipPath -DestinationPath "$env:TEMP\dapcodec_extracted" -Force
     
-    $ExtractedExe = Get-ChildItem -Path "$env:TEMP\dapcodec_extracted" -Filter "dapcodec.exe" -Recurse | Select-Object -First 1
-    if ($ExtractedExe) {
-        Copy-Item $ExtractedExe.FullName -Destination $TargetExe -Force
+    $ExtractedExes = Get-ChildItem -Path "$env:TEMP\dapcodec_extracted" -Filter "*.exe" -Recurse
+    foreach ($exe in $ExtractedExes) {
+        Copy-Item $exe.FullName -Destination "$InstallDir\$($exe.Name)" -Force
     }
     Remove-Item -Path $ZipPath -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$env:TEMP\dapcodec_extracted" -Recurse -Force -ErrorAction SilentlyContinue
 } else {
     # Fallback to local copy if run within repository
     if (Test-Path "target\release\dapcodec.exe") {
-        Write-Host "==> Menyalin biner lokal dari target\release\dapcodec.exe..." -ForegroundColor Green
+        Write-Host "==> Menyalin biner lokal dari target\release..." -ForegroundColor Green
         Copy-Item "target\release\dapcodec.exe" -Destination $TargetExe -Force
+        if (Test-Path "target\release\dappkg.exe") {
+            Copy-Item "target\release\dappkg.exe" -Destination $TargetPkg -Force
+        }
     } else {
         Write-Host "(!) Mengompilasi dengan Cargo..." -ForegroundColor Yellow
         cargo build --release
         Copy-Item "target\release\dapcodec.exe" -Destination $TargetExe -Force
+        if (Test-Path "target\release\dappkg.exe") {
+            Copy-Item "target\release\dappkg.exe" -Destination $TargetPkg -Force
+        }
     }
 }
 
@@ -66,11 +73,12 @@ if ($UserPath -notlike "*$InstallDir*") {
 }
 
 Write-Host ""
-Write-Host "[OK] Selamat! DapCode berhasil dipasang di komputer Anda." -ForegroundColor Green
-Write-Host "Lokasi Biner: $TargetExe" -ForegroundColor Gray
+Write-Host "[OK] Selamat! DapCode & dappkg berhasil dipasang di komputer Anda." -ForegroundColor Green
+Write-Host "Lokasi Kompilator: $TargetExe" -ForegroundColor Gray
+Write-Host "Lokasi Manajer Paket: $TargetPkg" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Coba jalankan perintah berikut di terminal baru Anda:" -ForegroundColor White
 Write-Host "  dapcodec --version" -ForegroundColor Cyan
-Write-Host "  dapcodec --help" -ForegroundColor Cyan
+Write-Host "  dappkg --help" -ForegroundColor Cyan
 Write-Host "  dapcodec init proyek_pertama" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan

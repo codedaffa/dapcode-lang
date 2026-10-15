@@ -9,7 +9,7 @@ use crate::fmt::Formatter;
 use crate::ir::IRBuilder;
 use crate::lexer::Lexer;
 use crate::lsp::LspServer;
-use crate::modules::{DependencyLocation, ModuleLoader, ProjectManifest};
+use crate::modules::{DependencyLocation, Lockfile, ModuleLoader, ProjectManifest};
 use crate::ownership::OwnershipAnalyzer;
 use crate::parser::{Parser, Precedence};
 use crate::span::SourceMap;
@@ -99,8 +99,15 @@ pub enum Commands {
         #[arg(short, long, alias = "versi")]
         version: Option<String>,
     },
-    /// Memverifikasi dan memasang semua dependensi yang tertera di DapCode.toml
+    /// Memverifikasi dan memasang semua dependensi yang tertera di DapCode.toml serta mengunci ke DapCode.lock
     Install,
+    /// Memperbarui versi dan hash dependensi di DapCode.lock
+    Update,
+    /// Menampilkan diagram pohon dependensi proyek
+    Tree,
+    /// Subperintah manajer paket DapCode (dappkg)
+    #[command(subcommand)]
+    Pkg(PkgCommands),
     /// Menghapus dependensi dari DapCode.toml
     Remove {
         /// Nama paket dependensi yang akan dihapus
@@ -130,6 +137,42 @@ pub enum Commands {
     },
 }
 
+#[derive(Subcommand, Debug, Clone)]
+pub enum PkgCommands {
+    /// Menginisialisasi paket DapCode baru (DapCode.toml & src/utama.dap)
+    Init {
+        /// Nama paket atau direktori target (opsional)
+        name: Option<String>,
+    },
+    /// Menambahkan dependensi paket baru ke DapCode.toml dan DapCode.lock
+    Add {
+        /// Nama paket dependensi
+        name: String,
+        /// Jalur direktori lokal ke paket (opsional)
+        #[arg(long, alias = "jalur")]
+        path: Option<PathBuf>,
+        /// URL Git repositori paket (opsional)
+        #[arg(long)]
+        git: Option<String>,
+        /// Versi semver paket (opsional)
+        #[arg(short, long, alias = "versi")]
+        version: Option<String>,
+    },
+    /// Menghapus dependensi dari DapCode.toml dan DapCode.lock
+    Remove {
+        /// Nama paket dependensi yang akan dihapus
+        name: String,
+    },
+    /// Memasang semua dependensi dan mengunci integritas ke DapCode.lock
+    Install,
+    /// Memperbarui penguncian versi dan hash SHA-256 di DapCode.lock
+    Update,
+    /// Menampilkan diagram pohon dependensi proyek
+    Tree,
+    /// Memverifikasi integritas hash SHA-256 semua dependensi terhadap DapCode.lock
+    Check,
+}
+
 pub fn run_cli() -> io::Result<()> {
     let cli = Cli::parse();
 
@@ -151,6 +194,9 @@ pub fn run_cli() -> io::Result<()> {
             version,
         } => cmd_add(&name, path, git, version),
         Commands::Install => cmd_install(),
+        Commands::Update => cmd_update(),
+        Commands::Tree => cmd_tree(),
+        Commands::Pkg(pkg_cmd) => handle_pkg_cmd(pkg_cmd),
         Commands::Remove { name } => cmd_remove(&name),
         Commands::Test { file, filter } => cmd_test(file.as_deref(), filter.as_deref()),
         Commands::Doc {
@@ -210,7 +256,7 @@ fn load_program_and_modules(file: &Path, sm: &mut SourceMap) -> Option<(usize, c
     }
 }
 
-fn cmd_init(name: Option<&str>) -> io::Result<()> {
+pub fn cmd_init(name: Option<&str>) -> io::Result<()> {
     let (target_dir, project_name) = match name {
         Some(n) if n != "." => {
             let p = Path::new(n);
@@ -228,8 +274,11 @@ fn cmd_init(name: Option<&str>) -> io::Result<()> {
             (Path::new("."), default_name)
         }
     };
+    cmd_init_in(target_dir, &project_name)
+}
 
-    match ProjectManifest::init_project(target_dir, &project_name) {
+pub fn cmd_init_in(target_dir: &Path, project_name: &str) -> io::Result<()> {
+    match ProjectManifest::init_project(target_dir, project_name) {
         Ok(_manifest_path) => {
             println!(
                 "{} Proyek DapCode '{}' berhasil diinisialisasi!",
@@ -878,6 +927,12 @@ pub fn cmd_add_in(
     manifest.add_dependency(name, loc);
     manifest.save_to_file(&manifest_path)?;
 
+    let manifest_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+    let lockfile_path = manifest_dir.join(Lockfile::LOCKFILE_FILENAME);
+    if let Ok(lock) = Lockfile::generate_or_update(&manifest, manifest_dir) {
+        let _ = lock.save_to_file(&lockfile_path);
+    }
+
     println!(
         "{} Berhasil menambahkan dependensi '{}' ({}) ke {}",
         "sukses:".green().bold(),
@@ -912,6 +967,16 @@ pub fn cmd_remove_in(dir: &Path, name: &str) -> io::Result<()> {
 
     if manifest.remove_dependency(name) {
         manifest.save_to_file(&manifest_path)?;
+
+        let manifest_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+        let lockfile_path = manifest_dir.join(Lockfile::LOCKFILE_FILENAME);
+        if lockfile_path.exists() {
+            if let Ok(mut lock) = Lockfile::from_file(&lockfile_path) {
+                lock.paket.remove(name);
+                let _ = lock.save_to_file(&lockfile_path);
+            }
+        }
+
         println!(
             "{} Berhasil menghapus dependensi '{}' dari {}",
             "sukses:".green().bold(),
@@ -1025,6 +1090,43 @@ pub fn cmd_install_in(dir: &Path) -> io::Result<()> {
         }
     }
 
+    // Kunci dependensi ke DapCode.lock dan verifikasi integritas hash
+    let lockfile_path = manifest_dir.join(Lockfile::LOCKFILE_FILENAME);
+    if lockfile_path.exists() {
+        if let Ok(lock) = Lockfile::from_file(&lockfile_path) {
+            match lock.verify_integrity(&manifest, manifest_dir) {
+                Ok(reports) => {
+                    println!(
+                        "  {} [lockfile] Integritas {} paket terverifikasi cocok dengan {}",
+                        "v".green().bold(),
+                        reports.len(),
+                        Lockfile::LOCKFILE_FILENAME.bold()
+                    );
+                }
+                Err(diag) => {
+                    eprintln!("  {} [lockfile] {}", "!".yellow().bold(), diag);
+                    println!(
+                        "  {} Memperbarui {} sesuai hash berkas terbaru...",
+                        "info:".blue().bold(),
+                        Lockfile::LOCKFILE_FILENAME.bold()
+                    );
+                    if let Ok(new_lock) = Lockfile::generate_or_update(&manifest, manifest_dir) {
+                        let _ = new_lock.save_to_file(&lockfile_path);
+                    }
+                }
+            }
+        } else if let Ok(new_lock) = Lockfile::generate_or_update(&manifest, manifest_dir) {
+            let _ = new_lock.save_to_file(&lockfile_path);
+        }
+    } else if let Ok(new_lock) = Lockfile::generate_or_update(&manifest, manifest_dir) {
+        let _ = new_lock.save_to_file(&lockfile_path);
+        println!(
+            "  {} [lockfile] Berhasil mengunci dependensi ke {}",
+            "v".green().bold(),
+            Lockfile::LOCKFILE_FILENAME.bold()
+        );
+    }
+
     println!(
         "{} {}/{} dependensi siap digunakan!",
         "sukses:".green().bold(),
@@ -1033,6 +1135,200 @@ pub fn cmd_install_in(dir: &Path) -> io::Result<()> {
     );
 
     Ok(())
+}
+
+pub fn cmd_update() -> io::Result<()> {
+    let current_dir = std::env::current_dir()?;
+    cmd_update_in(&current_dir)
+}
+
+pub fn cmd_update_in(dir: &Path) -> io::Result<()> {
+    let (manifest_path, manifest) = match ProjectManifest::find_upwards(dir) {
+        Some(m) => m,
+        None => {
+            eprintln!(
+                "{}: Tidak dapat menemukan '{}' di direktori saat ini atau induk.",
+                "kesalahan".red().bold(),
+                ProjectManifest::MANIFEST_FILENAME
+            );
+            return Err(io::Error::new(io::ErrorKind::NotFound, "DapCode.toml tidak ditemukan"));
+        }
+    };
+
+    let manifest_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+    println!(
+        "{} Memperbarui dependensi & menghitung ulang hash SHA-256 untuk '{}'...",
+        "info:".blue().bold(),
+        manifest.nama.cyan()
+    );
+
+    let lockfile = Lockfile::generate_or_update(&manifest, manifest_dir).map_err(|e| {
+        io::Error::new(io::ErrorKind::Other, e.to_string())
+    })?;
+
+    let lockfile_path = manifest_dir.join(Lockfile::LOCKFILE_FILENAME);
+    lockfile.save_to_file(&lockfile_path)?;
+
+    println!(
+        "{} Berhasil memperbarui {} ({} paket terkunci)",
+        "sukses:".green().bold(),
+        Lockfile::LOCKFILE_FILENAME.bold(),
+        lockfile.paket.len()
+    );
+
+    Ok(())
+}
+
+pub fn cmd_pkg_check() -> io::Result<()> {
+    let current_dir = std::env::current_dir()?;
+    cmd_pkg_check_in(&current_dir)
+}
+
+pub fn cmd_pkg_check_in(dir: &Path) -> io::Result<()> {
+    let (manifest_path, manifest) = match ProjectManifest::find_upwards(dir) {
+        Some(m) => m,
+        None => {
+            eprintln!(
+                "{}: Tidak dapat menemukan '{}' di direktori saat ini atau induk.",
+                "kesalahan".red().bold(),
+                ProjectManifest::MANIFEST_FILENAME
+            );
+            return Err(io::Error::new(io::ErrorKind::NotFound, "DapCode.toml tidak ditemukan"));
+        }
+    };
+
+    let manifest_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+    let lockfile_path = manifest_dir.join(Lockfile::LOCKFILE_FILENAME);
+    if !lockfile_path.exists() {
+        eprintln!(
+            "{}: Berkas '{}' belum ada. Jalankan '{}' untuk mengunci dependensi.",
+            "kesalahan".red().bold(),
+            Lockfile::LOCKFILE_FILENAME,
+            "dappkg install".cyan()
+        );
+        return Err(io::Error::new(io::ErrorKind::NotFound, "DapCode.lock tidak ditemukan"));
+    }
+
+    let lockfile = Lockfile::from_file(&lockfile_path).map_err(|e| {
+        io::Error::new(io::ErrorKind::InvalidData, e.to_string())
+    })?;
+
+    match lockfile.verify_integrity(&manifest, manifest_dir) {
+        Ok(reports) => {
+            println!(
+                "{} Integritas dependensi terverifikasi ({} paket valid):",
+                "sukses:".green().bold(),
+                reports.len()
+            );
+            for rep in reports {
+                let short_hash = if rep.hash_terkunci.len() >= 16 {
+                    format!("{}...", &rep.hash_terkunci[..16])
+                } else {
+                    rep.hash_terkunci.clone()
+                };
+                println!(
+                    "  {} {} (sha256: {})",
+                    "v".green().bold(),
+                    rep.nama.bold(),
+                    short_hash
+                );
+            }
+            Ok(())
+        }
+        Err(diag) => {
+            eprintln!("{}: {}", "kesalahan integritas".red().bold(), diag);
+            Err(io::Error::new(io::ErrorKind::InvalidData, "Integritas hash dependensi tidak cocok"))
+        }
+    }
+}
+
+pub fn cmd_tree() -> io::Result<()> {
+    let current_dir = std::env::current_dir()?;
+    cmd_tree_in(&current_dir)
+}
+
+pub fn cmd_tree_in(dir: &Path) -> io::Result<()> {
+    let (manifest_path, manifest) = match ProjectManifest::find_upwards(dir) {
+        Some(m) => m,
+        None => {
+            eprintln!(
+                "{}: Tidak dapat menemukan '{}' di direktori saat ini atau induk.",
+                "kesalahan".red().bold(),
+                ProjectManifest::MANIFEST_FILENAME
+            );
+            return Err(io::Error::new(io::ErrorKind::NotFound, "DapCode.toml tidak ditemukan"));
+        }
+    };
+
+    let manifest_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+    let lockfile_path = manifest_dir.join(Lockfile::LOCKFILE_FILENAME);
+    let lockfile = if lockfile_path.exists() {
+        Lockfile::from_file(&lockfile_path).ok()
+    } else {
+        None
+    };
+
+    println!(
+        "{} v{} ({})",
+        manifest.nama.cyan().bold(),
+        manifest.versi,
+        manifest_dir.display()
+    );
+
+    if manifest.dependensi.is_empty() {
+        println!("  └── (tidak ada dependensi yang dideklarasikan)");
+        return Ok(());
+    }
+
+    let count = manifest.dependensi.len();
+    for (i, (name, loc)) in manifest.dependensi.iter().enumerate() {
+        let is_last = i + 1 == count;
+        let prefix = if is_last { "└── " } else { "├── " };
+        let lock_info = lockfile.as_ref().and_then(|lf| lf.paket.get(name));
+        let ver = lock_info.map(|p| p.versi.as_str()).unwrap_or("?");
+        let hash_short = lock_info.map(|p| {
+            if p.hash_sha256.len() >= 12 {
+                format!("{}...", &p.hash_sha256[..12])
+            } else {
+                p.hash_sha256.clone()
+            }
+        }).unwrap_or_else(|| "tidak terkunci".to_string());
+
+        let (source_desc, target_desc) = match loc {
+            DependencyLocation::Path(p) => ("lokal", p.display().to_string()),
+            DependencyLocation::Git(url) => ("git", url.clone()),
+            DependencyLocation::Version(v) => ("versi", format!("v{}", v)),
+        };
+
+        println!(
+            "  {}{} v{} [{}] -> {} (sha256: {})",
+            prefix,
+            name.bold(),
+            ver,
+            source_desc.yellow(),
+            target_desc.cyan(),
+            hash_short
+        );
+    }
+
+    Ok(())
+}
+
+pub fn handle_pkg_cmd(cmd: PkgCommands) -> io::Result<()> {
+    match cmd {
+        PkgCommands::Init { name } => cmd_init(name.as_deref()),
+        PkgCommands::Add {
+            name,
+            path,
+            git,
+            version,
+        } => cmd_add(&name, path, git, version),
+        PkgCommands::Remove { name } => cmd_remove(&name),
+        PkgCommands::Install => cmd_install(),
+        PkgCommands::Update => cmd_update(),
+        PkgCommands::Tree => cmd_tree(),
+        PkgCommands::Check => cmd_pkg_check(),
+    }
 }
 
 pub fn cmd_test(file: Option<&Path>, filter: Option<&str>) -> io::Result<()> {

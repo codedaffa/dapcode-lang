@@ -55,16 +55,19 @@ if [ -n "$DOWNLOAD_URL" ]; then
   echo "==> Mengunduh biner dari $DOWNLOAD_URL..."
   curl -fsSL "$DOWNLOAD_URL" -o "$TMP_DIR/$TARGET_FILE"
   tar -xzf "$TMP_DIR/$TARGET_FILE" -C "$TMP_DIR"
-  mv "$TMP_DIR/dapcodec" "$INSTALL_DIR/dapcodec"
+  [ -f "$TMP_DIR/dapcodec" ] && mv "$TMP_DIR/dapcodec" "$INSTALL_DIR/dapcodec"
+  [ -f "$TMP_DIR/dappkg" ] && mv "$TMP_DIR/dappkg" "$INSTALL_DIR/dappkg"
 else
   # Fallback: jika dijalankan di dalam repositori
   if [ -f "./target/release/dapcodec" ]; then
-    echo "==> Menyalin biner lokal dari ./target/release/dapcodec..."
+    echo "==> Menyalin biner lokal dari ./target/release..."
     cp "./target/release/dapcodec" "$INSTALL_DIR/dapcodec"
+    [ -f "./target/release/dappkg" ] && cp "./target/release/dappkg" "$INSTALL_DIR/dappkg"
   elif command -v cargo >/dev/null 2>&1; then
     echo "(!) Mengompilasi dengan Cargo..."
     cargo build --release
     cp "./target/release/dapcodec" "$INSTALL_DIR/dapcodec"
+    [ -f "./target/release/dappkg" ] && cp "./target/release/dappkg" "$INSTALL_DIR/dappkg"
   else
     echo "Kesalahan: Tidak dapat mengunduh biner rilis dan Cargo tidak ditemukan."
     exit 1
@@ -72,6 +75,7 @@ else
 fi
 
 chmod +x "$INSTALL_DIR/dapcodec"
+[ -f "$INSTALL_DIR/dappkg" ] && chmod +x "$INSTALL_DIR/dappkg"
 ln -sf "$INSTALL_DIR/dapcodec" "$INSTALL_DIR/dapcode"
 
 # Konfigurasi PATH pada Shell Profile
