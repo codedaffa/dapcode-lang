@@ -9,6 +9,7 @@
         { "include": "#types" },
         { "include": "#constants" },
         { "include": "#builtins" },
+        { "include": "#methods" },
         { "include": "#function-declarations" },
         { "include": "#function-calls" },
         { "include": "#numbers" },
@@ -93,7 +94,15 @@
             "patterns": [
                 {
                     "name": "support.function.builtin.dap",
-                    "match": "\\b(cetak|ke_json|uraikan_json|urai_json|ambil_kunci_json|ambil_angka_json|ambil_bool_json|ada_kunci_json|valid_json|baca_berkas|tulis_berkas|tambah_berkas|berkas_ada|ada_berkas|buat_direktori|daftar_direktori|hapus_berkas|hapus_direktori|gabung_jalur|tidur|ambil_argumen_cli|ambil_lingkungan|atur_lingkungan|pastikan|pastikan_sama|pastikan_tidak_sama|panjang_teks|ke_huruf_besar|ke_huruf_kecil|akar_kuadrat|pangkat|nilai_mutlak|waktu_sekarang_ms|ambil_http|kirim_http_post|ambil_status_http|buat_server_http|kirim_respons_http|respons_json|respons_teks|respons_berkas|sajikan_berkas_statis|tambah_header|respons_cors|cocok_rute|ambil_param_rute|ambil_kueri_param|ada_kueri_param|buka_basis_data|db_simpan|db_ambil|db_hapus|db_ada|db_daftar_kunci|db_padatkan|dorong|tarik|panjang|ambil|sha256|sha1|md5|ke_base64|dari_base64|kunci_websocket|respons_upgrade_websocket|buat_server_websocket|adalah_websocket|tingkatkan_websocket|cocok_regex|cari_regex|ganti_regex|ekstrak_regex)\\b"
+                    "match": "\\b(cetak|ke_json|uraikan_json|urai_json|ambil_kunci_json|ambil_angka_json|ambil_bool_json|ada_kunci_json|valid_json|baca_berkas|tulis_berkas|tambah_berkas|berkas_ada|ada_berkas|buat_direktori|daftar_direktori|hapus_berkas|hapus_direktori|gabung_jalur|tidur|ambil_argumen_cli|ambil_lingkungan|atur_lingkungan|pastikan|pastikan_sama|pastikan_tidak_sama|panjang_teks|ke_huruf_besar|ke_huruf_kecil|akar_kuadrat|pangkat|nilai_mutlak|waktu_sekarang_ms|ambil_http|kirim_http_post|ambil_status_http|buat_server_http|kirim_respons_http|respons_json|respons_teks|respons_berkas|respons_401|respons_redirect|sajikan_berkas_statis|tambah_header|respons_cors|cocok_rute|ambil_param_rute|ambil_kueri_param|ada_kueri_param|kueri_param_atau|semua_kueri_param|ambil_otorisasi_bearer|cocok_awalan|sisa_jalur|buka_basis_data|buka_db|db_simpan|db_ambil|db_hapus|db_ada|db_daftar_kunci|db_padatkan|dorong|tarik|panjang|ambil|sha256|sha1|md5|ke_base64|dari_base64|kunci_websocket|respons_upgrade_websocket|buat_server_websocket|adalah_websocket|tingkatkan_websocket|cocok_regex|cari_regex|ganti_regex|ekstrak_regex|ekstrak_grup_regex|pisah_regex|kanvas_bersihkan|kanvas_warna_isi|kanvas_warna_garis|kanvas_tebal_garis|kanvas_persegi|kanvas_bingkai_persegi|kanvas_lingkaran|kanvas_bingkai_lingkaran|kanvas_garis|kanvas_titik|kanvas_teks|kanvas_lebar|kanvas_tinggi|kanvas_mouse_x|kanvas_mouse_y|kanvas_mouse_klik|kanvas_tombol_ditekan|kanvas_delta_waktu|audio_putar_nada|audio_hentikan|audio_atur_volume|kompilasi_ke_wasm|Kamus|Daftar)\\b"
+                }
+            ]
+        },
+        "methods": {
+            "patterns": [
+                {
+                    "name": "entity.name.function.member.dap",
+                    "match": "(?<=\\.)\\b(pasang|ambil_atau|daftar_kunci|daftar_nilai|bersihkan|huruf_besar|huruf_kecil|berisi|awalan|akhiran|potong|pisah|karakter_pada|ke_angka|sisipkan|hapus_pada|urutkan|balik|gabung|kosong|tambah|ada|hapus|panjang|ambil|ke_json|sajikan_statis|adalah_websocket|tingkatkan_websocket)\\b"
                 }
             ]
         },
