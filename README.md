@@ -121,6 +121,7 @@ dapcode-lang/
     ├── net_test.rs               # Uji Jaringan & HTTP Client (GET, POST, Status, 404 Catch)
     ├── dependency_test.rs        # Uji Manajemen Dependensi & Multi-Paket (add, install, remove)
     ├── test_runner_test.rs       # Uji Test Runner Terbawa (uji, pastikan, pastikan_sama)
+    ├── repl_test.rs              # Uji REPL Interaktif (Multi-Baris, Delimiter Delta, Meta-Perintah)
     └── demo_test.rs
 ```
 
@@ -207,6 +208,17 @@ Menyediakan diagnostik *real-time*, *hover type info*, *code completion*, dan *f
 ```powershell
 dapcodec repl
 ```
+Konsol interaktif modern dengan keunggulan:
+- **Masukan Multi-Baris Cerdas:** Otomatis mendeteksi pembukaan kurung kurawal/blok `{ ... }` dengan prompt lanjutan `... ` hingga blok selesai.
+- **Persistensi Deklarasi Tingkat Atas:** Definisi `fungsi`, `struktur`, atau implementasi sifat `terapkan` langsung disimpan dan dapat dipanggil di ekspresi berikutnya.
+- **Koleksi Perintah Meta:**
+  - `:bantuan` / `:help` — Menampilkan panduan dan daftar perintah meta.
+  - `:tipe <expr>` / `:type <expr>` — Memeriksa tipe data ekspresi tanpa evaluasi waktu jalan.
+  - `:fungsi` — Menampilkan daftar seluruh fungsi yang telah didefinisikan pengguna pada sesi aktif.
+  - `:riwayat` / `:history` — Menampilkan riwayat masukan perintah.
+  - `:bersih` / `:clear` — Membersihkan layar konsol terminal.
+  - `:reset` — Mereset environment dan fungsi ke kondisi awal.
+  - `:keluar` / `:exit` — Keluar dari sesi REPL.
 
 ### 11. Menambahkan Dependensi Paket (`add`)
 ```powershell
@@ -280,5 +292,5 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 15 modul test (41 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 16 modul test (44 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 

@@ -95,7 +95,7 @@ pub struct TypeChecker {
 
 impl TypeChecker {
     pub fn new(file_id: usize) -> Self {
-        TypeChecker {
+        let mut tc = TypeChecker {
             next_var_id: 0,
             subst: HashMap::new(),
             structs: HashMap::new(),
@@ -105,7 +105,9 @@ impl TypeChecker {
             scopes: vec![HashMap::new()],
             current_fn_ret: None,
             _file_id: file_id,
-        }
+        };
+        tc.register_builtins();
+        tc
     }
 
     pub fn fresh_var(&mut self) -> Type {
@@ -137,7 +139,10 @@ impl TypeChecker {
         }
     }
 
-    pub fn check_program(&mut self, program: &Program) -> Result<()> {
+    pub fn register_builtins(&mut self) {
+        if self.functions.contains_key("cetak") {
+            return;
+        }
         // Register built-in functions
         let cetak_arg = self.fresh_var();
         self.functions.insert(
@@ -344,6 +349,10 @@ impl TypeChecker {
             "pastikan_tidak_sama".to_string(),
             (vec![pastikan_tdk1, pastikan_tdk2], Type::Unit),
         );
+    }
+
+    pub fn check_program(&mut self, program: &Program) -> Result<()> {
+        self.register_builtins();
 
         // 1. First pass: Collect all struct declarations
         for decl in &program.decls {

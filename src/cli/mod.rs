@@ -394,38 +394,210 @@ fn cmd_build(file: Option<&Path>, output: Option<PathBuf>) -> io::Result<()> {
     Ok(())
 }
 
+pub fn calculate_delimiter_delta(line: &str) -> i32 {
+    let mut delta = 0;
+    let mut in_str = false;
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\\' && in_str {
+            chars.next(); // Lewati karakter escape
+            continue;
+        }
+        if c == '"' {
+            in_str = !in_str;
+            continue;
+        }
+        if !in_str {
+            if c == '/' && chars.peek() == Some(&'/') {
+                break; // Komentar baris
+            }
+            match c {
+                '{' | '(' | '[' => delta += 1,
+                '}' | ')' | ']' => delta -= 1,
+                _ => {}
+            }
+        }
+    }
+    delta
+}
+
 fn cmd_repl() -> io::Result<()> {
     println!(
         "{}",
-        "=== DapCode Interactive REPL v0.1.0 (Ketik 'keluar' untuk mengakhiri) ==="
-            .cyan()
-            .bold()
+        "============================================================".cyan()
+    );
+    println!(
+        "{} {}",
+        "=== Konsol Interaktif DapCode REPL v0.1.0 ===".cyan().bold(),
+        "(.dap)".green().bold()
+    );
+    println!(
+        "Ketik '{}' untuk bantuan, '{}' untuk keluar.",
+        ":bantuan".yellow().bold(),
+        ":keluar".yellow().bold()
+    );
+    println!(
+        "{}",
+        "============================================================".cyan()
     );
 
     let mut env = Environment::new();
     let mut evaluator = Evaluator::new();
+    let mut history: Vec<String> = Vec::new();
+    let mut accumulated = String::new();
+    let mut depth: i32 = 0;
+
+    let stdin = io::stdin();
     let mut line_buf = String::new();
 
     loop {
-        print!("{} ", "dap>".yellow().bold());
+        if depth == 0 {
+            print!("{} ", "dap>".yellow().bold());
+        } else {
+            print!("{} ", "... ".dimmed());
+        }
         io::stdout().flush()?;
 
         line_buf.clear();
-        if io::stdin().read_line(&mut line_buf)? == 0 {
+        if stdin.read_line(&mut line_buf)? == 0 {
+            // EOF (Ctrl+D / Ctrl+Z)
+            println!("\n{}", "Sampai jumpa! 👋".cyan());
             break;
         }
 
-        let trimmed = line_buf.trim();
-        if trimmed.is_empty() {
+        let trimmed_line = line_buf.trim();
+
+        // 1. Meta Commands handling (only when not currently in a multiline block)
+        if depth == 0 && accumulated.is_empty() {
+            if trimmed_line.is_empty() {
+                continue;
+            }
+            if trimmed_line == ":keluar" || trimmed_line == ":exit" || trimmed_line == "keluar" || trimmed_line == "exit" {
+                println!("{}", "Sampai jumpa! 👋".cyan());
+                break;
+            }
+            if trimmed_line == ":bantuan" || trimmed_line == ":help" {
+                println!("{}", "Panduan Penggunaan DapCode REPL:".cyan().bold());
+                println!("  {}             Tampilkan panduan perintah meta", ":bantuan / :help".yellow());
+                println!("  {} <expr>      Periksa tipe ekspresi tanpa evaluasi", ":tipe / :type".yellow());
+                println!("  {}            Daftar fungsi yang didefinisikan sesi ini", ":fungsi".yellow());
+                println!("  {}           Tampilkan riwayat perintah sesi ini", ":riwayat / :history".yellow());
+                println!("  {}            Bersihkan layar konsol terminal", ":bersih / :clear".yellow());
+                println!("  {}             Reset semua variabel dan fungsi ke awal", ":reset".yellow());
+                println!("  {}            Keluar dari REPL", ":keluar / :exit".yellow());
+                println!("\nSintaks Cepat:");
+                println!("  - Evaluasi langsung:  {}  ->  {}", "10 + 20 * 3".green(), "70".bold());
+                println!("  - Variabel:           {}  ->  {}", "nama := \"DapCode\"".green(), "\"DapCode\"".bold());
+                println!("  - Multi-baris:        Membuka kurung kurawal '{}' akan melanjutkan masukan dengan prompt '... '", "{".bold());
+                continue;
+            }
+            if trimmed_line == ":bersih" || trimmed_line == ":clear" {
+                print!("\x1B[2J\x1B[1;1H");
+                io::stdout().flush()?;
+                continue;
+            }
+            if trimmed_line == ":reset" {
+                env = Environment::new();
+                evaluator = Evaluator::new();
+                println!("{}", "Environment dan fungsi REPL berhasil di-reset ke kondisi awal.".green());
+                continue;
+            }
+            if trimmed_line == ":riwayat" || trimmed_line == ":history" {
+                if history.is_empty() {
+                    println!("{}", "Riwayat masukan masih kosong.".dimmed());
+                } else {
+                    println!("{}", "Riwayat Masukan REPL:".cyan().bold());
+                    for (idx, cmd) in history.iter().enumerate() {
+                        let preview = if cmd.contains('\n') {
+                            format!("{} ...", cmd.lines().next().unwrap_or(""))
+                        } else {
+                            cmd.clone()
+                        };
+                        println!("  {:3}. {}", (idx + 1).to_string().dimmed(), preview);
+                    }
+                }
+                continue;
+            }
+            if trimmed_line == ":fungsi" {
+                let user_fns = evaluator.get_defined_functions();
+                if user_fns.is_empty() {
+                    println!("{}", "Belum ada fungsi yang didefinisikan oleh pengguna.".dimmed());
+                } else {
+                    println!("{}", "Daftar Fungsi Terdaftar:".cyan().bold());
+                    for f in user_fns {
+                        println!("  - {}", f.bold());
+                    }
+                }
+                continue;
+            }
+            if trimmed_line.starts_with(":tipe ") || trimmed_line.starts_with(":type ") {
+                let expr_str = if trimmed_line.starts_with(":tipe ") {
+                    &trimmed_line[6..]
+                } else {
+                    &trimmed_line[6..]
+                }
+                .trim();
+                let mut sm = SourceMap::new();
+                let (file_id, _) = sm.add_file("<repl_tipe>", expr_str.to_string());
+                let mut lexer = Lexer::new(expr_str, file_id);
+                match lexer.tokenize() {
+                    Ok(tokens) => {
+                        let mut parser = Parser::new(tokens, file_id);
+                        match parser.parse_expr(Precedence::Lowest) {
+                            Ok(expr) => {
+                                let mut checker = TypeChecker::new(file_id);
+                                match checker.check_expr(&expr) {
+                                    Ok(ty) => {
+                                        let resolved = checker.resolve_type(&ty);
+                                        println!("{} {} : {}", "tipe:".cyan().bold(), expr_str, resolved.to_string().green().bold());
+                                    }
+                                    Err(diag) => eprintln!("{}", diag.render(&sm)),
+                                }
+                            }
+                            Err(diag) => eprintln!("{}", diag.render(&sm)),
+                        }
+                    }
+                    Err(diag) => eprintln!("{}", diag.render(&sm)),
+                }
+                continue;
+            }
+            if trimmed_line.starts_with(':') {
+                eprintln!("{}: Perintah meta '{}' tidak dikenal. Ketik '{}' untuk panduan.", "peringatan".yellow().bold(), trimmed_line, ":bantuan".cyan());
+                continue;
+            }
+        }
+
+        // 2. Accumulate lines and track block depth
+        let delta = calculate_delimiter_delta(trimmed_line);
+        depth += delta;
+        if depth < 0 {
+            depth = 0;
+        }
+
+        if !accumulated.is_empty() {
+            accumulated.push('\n');
+        }
+        accumulated.push_str(line_buf.trim_end());
+
+        // If we still have unclosed braces, continue reading next lines
+        if depth > 0 {
             continue;
         }
-        if trimmed == "keluar" || trimmed == "exit" {
-            break;
+
+        let input_to_run = accumulated.trim().to_string();
+        accumulated.clear();
+        depth = 0;
+
+        if input_to_run.is_empty() {
+            continue;
         }
 
+        history.push(input_to_run.clone());
+
+        // 3. Try parsing input
         let mut sm = SourceMap::new();
-        let (file_id, _) = sm.add_file("<repl>", trimmed.to_string());
-        let mut lexer = Lexer::new(trimmed, file_id);
+        let (file_id, _) = sm.add_file("<repl>", input_to_run.clone());
+        let mut lexer = Lexer::new(&input_to_run, file_id);
         let tokens = match lexer.tokenize() {
             Ok(t) => t,
             Err(diag) => {
@@ -434,40 +606,80 @@ fn cmd_repl() -> io::Result<()> {
             }
         };
 
-        let mut parser = Parser::new(tokens, file_id);
-        // Try parsing as expression first
-        match parser.parse_expr(Precedence::Lowest) {
-            Ok(expr) => match evaluator.eval_expr(&expr, &mut env) {
-                Ok(v) => println!("{} {}", "=>".green().bold(), v),
-                Err(diag) => eprintln!("{}", diag.render(&sm)),
-            },
-            Err(_) => {
-                // Try parsing as block of statements
-                let wrapped = format!("fungsi __repl_tmp() {{\n{}\n}}", trimmed);
-                let (w_id, _) = sm.add_file("<repl_wrap>", wrapped.clone());
-                let mut w_lex = Lexer::new(&wrapped, w_id);
-                if let Ok(w_tokens) = w_lex.tokenize() {
-                    let mut w_parser = Parser::new(w_tokens, w_id);
-                    if let Ok(prog) = w_parser.parse_program() {
-                        if let Some(Decl::Fn(f)) = prog.decls.into_iter().next() {
-                            match evaluator.eval_block(&f.body, &mut env) {
-                                Ok(ControlFlow::Next(v)) => {
-                                    if !matches!(v, Value::Unit) {
-                                        println!("{} {}", "=>".green().bold(), v);
-                                    }
-                                }
-                                Ok(ControlFlow::Return(v)) => {
-                                    println!("{} {}", "=>".green().bold(), v);
-                                }
-                                Ok(ControlFlow::Fail(e)) => {
-                                    eprintln!("{}: {}", "Gagal".red().bold(), e);
-                                }
-                                Err(diag) => eprintln!("{}", diag.render(&sm)),
-                            }
+        // Case A: Top-level declarations (fungsi, struktur, terapkan)
+        let mut parser_prog = Parser::new(tokens.clone(), file_id);
+        if let Ok(prog) = parser_prog.parse_program() {
+            if !prog.decls.is_empty() {
+                let mut registered_names = Vec::new();
+                for decl in &prog.decls {
+                    match decl {
+                        Decl::Fn(f) => {
+                            evaluator.register_decl(decl);
+                            registered_names.push(format!("fungsi '{}'", f.name.bold()));
+                        }
+                        Decl::Struct(s) => {
+                            evaluator.register_decl(decl);
+                            registered_names.push(format!("struktur '{}'", s.name.bold()));
+                        }
+                        Decl::Impl(i) => {
+                            evaluator.register_decl(decl);
+                            registered_names.push(format!("metode untuk '{}'", i.target_struct.bold()));
+                        }
+                        _ => {
+                            evaluator.register_decl(decl);
                         }
                     }
                 }
+                if !registered_names.is_empty() {
+                    println!("{} Berhasil mendefinisikan {}.", "=>".green().bold(), registered_names.join(", "));
+                    continue;
+                }
             }
+        }
+
+        // Case B: Single expression (10 + 20, ke_huruf_besar("abc"), dll.)
+        let mut parser_expr = Parser::new(tokens.clone(), file_id);
+        if let Ok(expr) = parser_expr.parse_expr(Precedence::Lowest) {
+            match evaluator.eval_expr(&expr, &mut env) {
+                Ok(v) => {
+                    println!("{} {}", "=>".green().bold(), v);
+                    continue;
+                }
+                Err(_) => {
+                    // Fallthrough to statement block wrap
+                }
+            }
+        }
+
+        // Case C: Sequence of statements / variable assignment (x := 42; y := x + 1)
+        let wrapped = format!("fungsi __repl_block() {{\n{}\n}}", input_to_run);
+        let mut sm_wrap = SourceMap::new();
+        let (w_id, _) = sm_wrap.add_file("<repl_wrap>", wrapped.clone());
+        let mut w_lex = Lexer::new(&wrapped, w_id);
+        if let Ok(w_tokens) = w_lex.tokenize() {
+            let mut w_parser = Parser::new(w_tokens, w_id);
+            if let Ok(prog) = w_parser.parse_program() {
+                if let Some(Decl::Fn(f)) = prog.decls.into_iter().next() {
+                    match evaluator.eval_block(&f.body, &mut env) {
+                        Ok(ControlFlow::Next(v) | ControlFlow::Return(v)) => {
+                            if !matches!(v, Value::Unit) {
+                                println!("{} {}", "=>".green().bold(), v);
+                            }
+                        }
+                        Ok(ControlFlow::Fail(e)) => {
+                            eprintln!("{}: {}", "Gagal".red().bold(), e);
+                        }
+                        Err(diag) => eprintln!("{}", diag.render(&sm_wrap)),
+                    }
+                    continue;
+                }
+            }
+        }
+
+        // If all parsing attempts failed, display parser diagnostic from direct parse
+        let mut parser_diag = Parser::new(tokens, file_id);
+        if let Err(diag) = parser_diag.parse_program() {
+            eprint!("{}", diag.render(&sm));
         }
     }
 

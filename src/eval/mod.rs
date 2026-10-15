@@ -237,6 +237,27 @@ impl Evaluator {
         self.output.lock().unwrap().clone()
     }
 
+    pub fn register_decl(&mut self, decl: &Decl) {
+        match decl {
+            Decl::Fn(f) => {
+                self.functions.insert(f.name.clone(), f.clone());
+            }
+            Decl::Impl(i) => {
+                let struct_methods = self.methods.entry(i.target_struct.clone()).or_default();
+                for m in &i.methods {
+                    struct_methods.insert(m.name.clone(), m.clone());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub fn get_defined_functions(&self) -> Vec<String> {
+        let mut list: Vec<String> = self.functions.keys().cloned().collect();
+        list.sort();
+        list
+    }
+
     pub fn run_program(&mut self, program: &Program) -> Result<Value> {
         // Collect functions and impl methods
         for decl in &program.decls {
