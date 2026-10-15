@@ -1,0 +1,6 @@
+/target
+*.exe
+*.o
+*.c
+!examples/*.c
+catatan_*.txt

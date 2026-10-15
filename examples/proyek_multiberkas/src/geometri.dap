@@ -1,0 +1,30 @@
+// Modul Geometri: Struktur dan fungsi perhitungan bentuk
+
+struktur Titik {
+    x: desimal
+    y: desimal
+}
+
+struktur Lingkaran {
+    pusat: Titik
+    radius: desimal
+}
+
+fungsi buat_titik(x: desimal, y: desimal) -> Titik {
+    kembali Titik(x: x, y: y)
+}
+
+fungsi buat_lingkaran(px: desimal, py: desimal, r: desimal) -> Lingkaran {
+    p := buat_titik(px, py)
+    kembali Lingkaran(pusat: p, radius: r)
+}
+
+fungsi luas_lingkaran(l: Lingkaran) -> desimal {
+    pi := 3.141592653589793
+    kembali pi * (l.radius * l.radius)
+}
+
+fungsi keliling_lingkaran(l: Lingkaran) -> desimal {
+    pi := 3.141592653589793
+    kembali 2.0 * pi * l.radius
+}

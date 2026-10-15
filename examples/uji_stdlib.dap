@@ -1,0 +1,109 @@
+fungsi demonstrasi_koleksi() {
+    cetak("=== 1. Uji Koleksi Dinamis (Daftar<T>) ===")
+    daftar_nilai := Daftar(85, 90, 78)
+    daftar_nilai.tambah(95)
+    total_data := daftar_nilai.panjang()
+    cetak("Total nilai tersimpan: {total_data}")
+    nilai_pertama := daftar_nilai.ambil(0) ? tangkap err {
+        cetak("Gagal mengambil data: {err}")
+        kembali
+    }
+    cetak("Nilai pertama: {nilai_pertama}")
+    nilai_luar := daftar_nilai.ambil(99) ? tangkap err {
+        cetak("Aman! Error tertangkap saat indeks di luar batas: {err}")
+    }
+    cetak("Iterasi semua nilai dengan 'untuk ... di ...':")
+    untuk nilai di daftar_nilai {
+        cetak("- Nilai siswa: {nilai}")
+    }
+}
+
+fungsi demonstrasi_string_dan_matematika() {
+    cetak("
+=== 2. Uji Utilitas String & Matematika ===")
+    judul := "bahasa pemrograman dapcode"
+    cetak("Asli: {judul}")
+    huruf_besar := ke_huruf_besar(judul)
+    cetak("Huruf Besar: {huruf_besar}")
+    pjg := panjang_teks(judul)
+    cetak("Panjang karakter: {pjg}")
+    akar := akar_kuadrat(144.0)
+    cetak("Akar kuadrat dari 144: {akar}")
+    dua_pangkat_delapan := pangkat(2.0, 8.0)
+    cetak("2 pangkat 8: {dua_pangkat_delapan}")
+    abs_val := nilai_mutlak(-99.75)
+    cetak("Nilai mutlak -99.75: {abs_val}")
+}
+
+fungsi demonstrasi_berkas_dan_waktu() {
+    cetak("
+=== 3. Uji I/O Berkas & Waktu ===")
+    waktu_awal := waktu_sekarang_ms()
+    nama_berkas := "catatan_dapcode.txt"
+    pesan := "DapCode adalah bahasa modern dengan sintaks bersih berbahasa Indonesia."
+    tulis_berkas(nama_berkas, pesan) ? tangkap err {
+        cetak("Gagal menulis berkas: {err}")
+        kembali
+    }
+    cetak("Sukses menulis ke berkas: {nama_berkas}")
+    ada := ada_berkas(nama_berkas)
+    jika ada {
+        cetak("Status berkas: ditemukan di disk.")
+    }
+    isi := baca_berkas(nama_berkas) ? tangkap err {
+        cetak("Gagal membaca berkas: {err}")
+        kembali
+    }
+    cetak("Isi berkas yang dibaca: "{isi}"")
+    waktu_akhir := waktu_sekarang_ms()
+    selisih := waktu_akhir - waktu_awal
+    cetak("Waktu eksekusi operasi: {selisih} ms")
+}
+
+struktur AkunPengguna {
+    id: u64
+    nama: Teks
+    saldo: f64
+    aktif: Bool
+}
+
+fungsi demonstrasi_json() {
+    cetak("
+=== 4. Uji Serialisasi & Penguraian JSON ===")
+    user := AkunPengguna(id: 1001, nama: "Ahmad Dahlan", saldo: 2500000.75, aktif: benar)
+    json_teks := ke_json(user)
+    cetak("Hasil ke_json struktur: {json_teks}")
+
+    nama_user := ambil_kunci_json(json_teks, "nama") ? tangkap err {
+        cetak("Gagal ambil nama: {err}")
+        kembali
+    }
+    cetak("Nama dari JSON: {nama_user}")
+
+    saldo_user := ambil_angka_json(json_teks, "saldo") ? tangkap err {
+        cetak("Gagal ambil saldo: {err}")
+        kembali
+    }
+    cetak("Saldo dari JSON: Rp{saldo_user}")
+
+    status_aktif := ambil_bool_json(json_teks, "aktif") ? tangkap err {
+        cetak("Gagal ambil aktif: {err}")
+        kembali
+    }
+    cetak("Status aktif: {status_aktif}")
+
+    apakah_valid := valid_json(json_teks)
+    cetak("Validitas JSON: {apakah_valid}")
+}
+
+fungsi utama() {
+    cetak("===========================================")
+    cetak("      DEMONSTRASI PUSTAKA STANDAR DAPCODE   ")
+    cetak("===========================================")
+    demonstrasi_koleksi()
+    demonstrasi_string_dan_matematika()
+    demonstrasi_berkas_dan_waktu()
+    demonstrasi_json()
+    cetak("
+Semua demonstrasi Pustaka Standar selesai dengan sukses!")
+}

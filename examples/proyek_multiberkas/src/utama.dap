@@ -1,0 +1,22 @@
+// Titik masuk utama program kalkulator geometri
+impor "geometri.dap"
+impor "matematika.dap"
+
+fungsi utama() {
+    cetak("=== Kalkulator Geometri & Matematika DapCode ===")
+
+    ling := buat_lingkaran(0.0, 0.0, 7.0)
+    luas := luas_lingkaran(ling)
+    keliling := keliling_lingkaran(ling)
+
+    cetak("Radius Lingkaran: {ling.radius}")
+    cetak("Luas Lingkaran: {luas}")
+    cetak("Keliling Lingkaran: {keliling}")
+
+    cetak("--- Perhitungan Numerik ---")
+    kubik := pangkat_tiga(5)
+    cetak("5 pangkat 3 = {kubik}")
+
+    total := jumlah_deret()
+    cetak("Jumlah deret [1..5] = {total}")
+}

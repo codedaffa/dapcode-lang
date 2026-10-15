@@ -1,0 +1,36 @@
+{
+    "name": "dapcode-lang",
+    "displayName": "DapCode Language Support",
+    "description": "Syntax highlighting, language configuration, and tooling for DapCode (.dap)",
+    "version": "0.1.0",
+    "publisher": "dapcode-core",
+    "engines": {
+        "vscode": "^1.75.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "dapcode",
+                "aliases": [
+                    "DapCode",
+                    "dapcode",
+                    "dap"
+                ],
+                "extensions": [
+                    ".dap"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "dapcode",
+                "scopeName": "source.dap",
+                "path": "./syntaxes/dapcode.tmLanguage.json"
+            }
+        ]
+    }
+}

@@ -1,0 +1,7 @@
+[paket]
+nama = "kalkulator_geometri"
+versi = "0.1.0"
+penulis = ["Daffa", "Tim DapCode"]
+berkas_utama = "src/utama.dap"
+
+[dependensi]

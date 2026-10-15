@@ -1,0 +1,19 @@
+pub mod ast;
+pub mod cli;
+pub mod codegen;
+pub mod comptime;
+pub mod diag;
+pub mod eval;
+pub mod fmt;
+pub mod ir;
+pub mod json;
+pub mod lexer;
+pub mod lsp;
+pub mod modules;
+pub mod ownership;
+pub mod parser;
+pub mod span;
+pub mod types;
+
+pub use diag::{Diagnostic, DiagnosticLevel, Result};
+pub use span::{SourceFile, SourceMap, Span};

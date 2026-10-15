@@ -1,0 +1,34 @@
+struktur Produk {
+    id: u64
+    nama: Teks
+    harga: f64
+}
+
+sifat BisaDidiskon {
+    fungsi hitung_diskon(ini, persen: f64) -> f64
+}
+
+terapkan BisaDidiskon untuk Produk {
+    fungsi hitung_diskon(ini, persen: f64) -> f64 {
+        ini.harga - ini.harga * persen / 100.0
+    }
+}
+
+fungsi cari_produk(id: u64) -> Produk ! Teks {
+    jika id == 0 {
+        gagal "ID produk tidak boleh nol"
+    }
+    Produk(id: id, nama: "Laptop Pro", harga: 15000000.0)
+}
+
+fungsi utama() {
+    item := cari_produk(1) ? tangkap pesan_err {
+        cetak("Terjadi kesalahan: {pesan_err}")
+        kembali
+    }
+    tugas := jalan_paralel {
+        harga_akhir := item.hitung_diskon(10.0)
+        cetak("Produk: {item.nama} | Harga Diskon: Rp{harga_akhir}")
+    }
+    tunggu(tugas)
+}

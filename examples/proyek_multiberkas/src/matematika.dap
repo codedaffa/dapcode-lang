@@ -1,0 +1,14 @@
+// Modul Matematika: Utilitas perhitungan numerik
+
+fungsi pangkat_tiga(n: u64) -> u64 {
+    kembali n * n * n
+}
+
+fungsi jumlah_deret() -> u64 {
+    angka := Daftar(1, 2, 3, 4, 5)
+    total := 0
+    untuk i di angka {
+        total = total + i
+    }
+    kembali total
+}
