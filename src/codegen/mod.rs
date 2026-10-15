@@ -45,6 +45,12 @@ impl<'a> CodeGenerator<'a> {
         self.out.push('\n');
 
         // 2. Define structs
+        let all_struct_names: std::collections::HashSet<String> = program
+            .decls
+            .iter()
+            .filter_map(|d| if let Decl::Struct(s) = d { Some(s.name.clone()) } else { None })
+            .collect();
+
         let mut struct_names = Vec::new();
         for decl in &program.decls {
             if let Decl::Struct(s) = decl {
@@ -61,11 +67,39 @@ impl<'a> CodeGenerator<'a> {
                     "typedef struct {{\n    bool is_err;\n    const char* err_msg;\n    {} ok;\n}} DapResult_{};\n\n",
                     s.name, s.name
                 ));
+            }
+        }
 
-                // Emit JSON serializer for struct
-                let fmt_parts: Vec<String> = s.fields.iter().map(|f| format!("\\\"{}\\\":%s", f.name)).collect();
+        // Forward declare dap_ke_json_<Struct>
+        for name in &struct_names {
+            self.out.push_str(&format!("static inline char* dap_ke_json_{}({} s);\n", name, name));
+        }
+        self.out.push('\n');
+
+        // Emit JSON serializer implementations for struct
+        for decl in &program.decls {
+            if let Decl::Struct(s) = decl {
+                let mut fmt_parts = Vec::new();
+                let mut arg_parts = Vec::new();
+                for f in &s.fields {
+                    let (fmt, arg) = match &f.ty {
+                        TypeExpr::Named(name, _) if all_struct_names.contains(name) => {
+                            (format!("\\\"{}\\\":%s", f.name), format!("dap_ke_json_{}(s.{})", name, f.name))
+                        }
+                        TypeExpr::Named(name, _) if name == "Teks" || name == "teks" => {
+                            (format!("\\\"{}\\\":\\\"%s\\\"", f.name), format!("dap_to_str(s.{})", f.name))
+                        }
+                        TypeExpr::Named(name, _) if name == "Bool" || name == "bool" => {
+                            (format!("\\\"{}\\\":%s", f.name), format!("(s.{} ? \"true\" : \"false\")", f.name))
+                        }
+                        _ => {
+                            (format!("\\\"{}\\\":%s", f.name), format!("dap_to_str(s.{})", f.name))
+                        }
+                    };
+                    fmt_parts.push(fmt);
+                    arg_parts.push(arg);
+                }
                 let fmt_str = format!("{{{}}}", fmt_parts.join(","));
-                let arg_parts: Vec<String> = s.fields.iter().map(|f| format!("dap_to_str(s.{})", f.name)).collect();
                 let args_joined = if arg_parts.is_empty() { String::new() } else { format!(", {}", arg_parts.join(", ")) };
                 self.out.push_str(&format!(
                     "static inline char* dap_ke_json_{}({} s) {{\n    char* _b = (char*)malloc(1024);\n    snprintf(_b, 1024, \"{}\"{});\n    return _b;\n}}\n\n",
