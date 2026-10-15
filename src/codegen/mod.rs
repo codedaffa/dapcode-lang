@@ -1102,6 +1102,44 @@ static inline ResponsHttp dap_respons_cors(ResponsHttp r) {
     return r;
 }
 
+static inline ResponsHttp dap_respons_401(const char* pesan) {
+    char buf[512];
+    snprintf(buf, sizeof(buf), "{\"galat\":\"%s\"}", pesan ? pesan : "Unauthorized");
+    ResponsHttp r = dap_kirim_respons_http(401, "application/json", buf);
+    return dap_tambah_header(r, "WWW-Authenticate", "Bearer");
+}
+
+static inline ResponsHttp dap_respons_403(const char* pesan) {
+    char buf[512];
+    snprintf(buf, sizeof(buf), "{\"galat\":\"%s\"}", pesan ? pesan : "Forbidden");
+    return dap_kirim_respons_http(403, "application/json", buf);
+}
+
+static inline ResponsHttp dap_respons_redirect(const char* lokasi, u64 kode) {
+    ResponsHttp r = dap_kirim_respons_http(kode > 0 ? kode : 302, "text/plain; charset=utf-8", "Redirecting...");
+    return dap_tambah_header(r, "Location", lokasi ? lokasi : "/");
+}
+
+static inline const char* dap_status_teks(ResponsHttp r) {
+    switch (r.status) {
+        case 200: return "OK";
+        case 201: return "Created";
+        case 204: return "No Content";
+        case 301: return "Moved Permanently";
+        case 302: return "Found";
+        case 304: return "Not Modified";
+        case 400: return "Bad Request";
+        case 401: return "Unauthorized";
+        case 403: return "Forbidden";
+        case 404: return "Not Found";
+        case 405: return "Method Not Allowed";
+        case 500: return "Internal Server Error";
+        case 502: return "Bad Gateway";
+        case 503: return "Service Unavailable";
+        default: return "Unknown Status";
+    }
+}
+
 // Cryptography & WebSocket RFC 6455
 static inline void dap_sha1_raw(const uint8_t* msg, size_t len, uint8_t out[20]) {
     uint32_t h0 = 0x67452301;
@@ -1845,6 +1883,137 @@ static inline DapResult_Teks dap_ambil_kueri_param(const char* kueri, const char
 static inline bool dap_ada_kueri_param(const char* kueri, const char* kunci) {
     DapResult_Teks r = dap_ambil_kueri_param(kueri, kunci);
     return !r.is_err;
+}
+
+static inline const char* dap_kueri_param_atau(const char* kueri, const char* kunci, const char* bawaan) {
+    DapResult_Teks r = dap_ambil_kueri_param(kueri, kunci);
+    if (!r.is_err && r.ok) return r.ok;
+    return bawaan ? bawaan : "";
+}
+
+static inline DapList* dap_semua_kueri_param(const char* kueri) {
+    DapList* list = dap_Daftar_baru();
+    if (!kueri || strlen(kueri) == 0) return list;
+    const char* q = (kueri[0] == '?') ? kueri + 1 : kueri;
+    char q_copy[1024];
+    strncpy(q_copy, q, sizeof(q_copy) - 1);
+    q_copy[sizeof(q_copy) - 1] = '\0';
+    char* ctx = NULL;
+#ifdef _WIN32
+    char* pair = strtok_s(q_copy, "&", &ctx);
+#else
+    char* pair = strtok_r(q_copy, "&", &ctx);
+#endif
+    while (pair) {
+        if (strlen(pair) > 0) {
+            char* item = (char*)malloc(strlen(pair) + 1);
+            if (item) {
+                strcpy(item, pair);
+                dap_Daftar_tambah(list, item);
+            }
+        }
+#ifdef _WIN32
+        pair = strtok_s(NULL, "&", &ctx);
+#else
+        pair = strtok_r(NULL, "&", &ctx);
+#endif
+    }
+    return list;
+}
+
+static inline DapResult_Teks dap_ambil_header_http(const char* raw_headers, const char* nama) {
+    DapResult_Teks res;
+    if (!raw_headers || !nama) {
+        res.is_err = true;
+        res.err_msg = "Header tidak ditemukan";
+        res.ok = "";
+        return res;
+    }
+    size_t n_len = strlen(nama);
+    const char* p = raw_headers;
+    while (*p) {
+        if (dap_strncasecmp(p, nama, n_len) == 0 && p[n_len] == ':') {
+            const char* start = p + n_len + 1;
+            while (*start == ' ' || *start == '\t') start++;
+            const char* end = start;
+            while (*end && *end != '\r' && *end != '\n') end++;
+            size_t len = (size_t)(end - start);
+            char* val = (char*)malloc(len + 1);
+            if (!val) break;
+            memcpy(val, start, len);
+            val[len] = '\0';
+            res.is_err = false;
+            res.err_msg = NULL;
+            res.ok = val;
+            return res;
+        }
+        const char* next = strchr(p, '\n');
+        if (!next) break;
+        p = next + 1;
+    }
+    res.is_err = true;
+    res.err_msg = "Header tidak ditemukan";
+    res.ok = "";
+    return res;
+}
+
+static inline bool dap_ada_header_http(const char* raw_headers, const char* nama) {
+    DapResult_Teks r = dap_ambil_header_http(raw_headers, nama);
+    return !r.is_err;
+}
+
+static inline const char* dap_header_atau(const char* raw_headers, const char* nama, const char* bawaan) {
+    DapResult_Teks r = dap_ambil_header_http(raw_headers, nama);
+    if (!r.is_err && r.ok) return r.ok;
+    return bawaan ? bawaan : "";
+}
+
+static inline DapResult_Teks dap_ambil_otorisasi_bearer(const char* raw_headers) {
+    DapResult_Teks res;
+    DapResult_Teks h_res = dap_ambil_header_http(raw_headers, "Authorization");
+    if (h_res.is_err) {
+        res.is_err = true;
+        res.err_msg = "Header Authorization tidak ditemukan";
+        res.ok = "";
+        return res;
+    }
+    const char* auth = h_res.ok;
+    while (*auth == ' ' || *auth == '\t') auth++;
+    if (dap_strncasecmp(auth, "Bearer ", 7) == 0) {
+        const char* token = auth + 7;
+        while (*token == ' ' || *token == '\t') token++;
+        char* ret = (char*)malloc(strlen(token) + 1);
+        if (!ret) {
+            res.is_err = true;
+            res.err_msg = "Alokasi memori gagal";
+            res.ok = "";
+            return res;
+        }
+        strcpy(ret, token);
+        res.is_err = false;
+        res.err_msg = NULL;
+        res.ok = ret;
+        return res;
+    }
+    res.is_err = true;
+    res.err_msg = "Format Authorization bukan Bearer token";
+    res.ok = "";
+    return res;
+}
+
+static inline bool dap_cocok_awalan(const char* jalur, const char* awalan) {
+    if (!jalur || !awalan) return false;
+    return strncmp(jalur, awalan, strlen(awalan)) == 0;
+}
+
+static inline const char* dap_sisa_jalur(const char* jalur, const char* awalan) {
+    if (!jalur) return "";
+    if (!awalan) return jalur;
+    size_t a_len = strlen(awalan);
+    if (strncmp(jalur, awalan, a_len) == 0) {
+        return jalur + a_len;
+    }
+    return jalur;
 }
 
 // Static Files & MIME Detection C11 Helpers
@@ -3236,6 +3405,38 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                     let k = self.emit_expr(&args[0].value);
                     return format!("dap_ada_kueri_param({}.kueri, {})", rec_str, k);
                 }
+                if method == "kueri_atau" && args.len() == 2 {
+                    let k = self.emit_expr(&args[0].value);
+                    let d = self.emit_expr(&args[1].value);
+                    return format!("dap_kueri_param_atau({}.kueri, {}, {})", rec_str, k, d);
+                }
+                if method == "semua_kueri" && args.is_empty() {
+                    return format!("dap_semua_kueri_param({}.kueri)", rec_str);
+                }
+                if method == "header" && args.len() == 1 {
+                    let k = self.emit_expr(&args[0].value);
+                    return format!("dap_ambil_header_http({}.raw_headers, {})", rec_str, k);
+                }
+                if method == "ada_header" && args.len() == 1 {
+                    let k = self.emit_expr(&args[0].value);
+                    return format!("dap_ada_header_http({}.raw_headers, {})", rec_str, k);
+                }
+                if method == "header_atau" && args.len() == 2 {
+                    let k = self.emit_expr(&args[0].value);
+                    let d = self.emit_expr(&args[1].value);
+                    return format!("dap_header_atau({}.raw_headers, {}, {})", rec_str, k, d);
+                }
+                if method == "otorisasi_bearer" && args.is_empty() {
+                    return format!("dap_ambil_otorisasi_bearer({}.raw_headers)", rec_str);
+                }
+                if method == "cocok_awalan" && args.len() == 1 {
+                    let a = self.emit_expr(&args[0].value);
+                    return format!("dap_cocok_awalan({}.jalur, {})", rec_str, a);
+                }
+                if method == "sisa_jalur" && args.len() == 1 {
+                    let a = self.emit_expr(&args[0].value);
+                    return format!("dap_sisa_jalur({}.jalur, {})", rec_str, a);
+                }
                 if method == "tambah_header" && args.len() == 2 {
                     let k = self.emit_expr(&args[0].value);
                     let v = self.emit_expr(&args[1].value);
@@ -3243,6 +3444,9 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 }
                 if method == "cors" && args.is_empty() {
                     return format!("dap_respons_cors({})", rec_str);
+                }
+                if method == "status_teks" && args.is_empty() {
+                    return format!("dap_status_teks({})", rec_str);
                 }
                 if method == "sajikan_statis" && args.len() == 1 {
                     let f = self.emit_expr(&args[0].value);

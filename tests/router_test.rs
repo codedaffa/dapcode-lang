@@ -49,7 +49,7 @@ fungsi utama() -> Teks {
     }
     pastikan_sama(p2, "ord-555")
 
-    // 3. Query String Parsing
+    // 3. Query String Parsing & Fallback
     kueri := "kategori=elektronik&halaman=5&urut=termurah"
     k1 := ambil_kueri_param(kueri, "kategori") ? tangkap err {
         kembali "gagal_kueri_1"
@@ -62,10 +62,50 @@ fungsi utama() -> Teks {
     pastikan(ada_kueri_param(kueri, "urut"))
     pastikan(!ada_kueri_param(kueri, "stok"))
 
-    // 4. Header & CORS
+    k_def1 := kueri_param_atau(kueri, "halaman", "1")
+    k_def2 := kueri_param_atau(kueri, "limit", "25")
+    pastikan_sama(k_def1, "5")
+    pastikan_sama(k_def2, "25")
+
+    semua_q := semua_kueri_param(kueri)
+    pastikan_sama(semua_q.panjang(), 3)
+    item0 := semua_q.ambil(0) ? tangkap _ { kembali "gagal_ambil" }
+    pastikan_sama(item0, "kategori=elektronik")
+
+    // 4. Header & Bearer Auth Parsing
+    raw_hdr := "Host: api.dapcode.org\r\nAuthorization: Bearer token-rahasia-999\r\nX-Custom: aktif\r\n"
+    h1 := ambil_header_http(raw_hdr, "Host") ? tangkap _ { kembali "gagal_hdr_1" }
+    pastikan_sama(h1, "api.dapcode.org")
+    pastikan(ada_header_http(raw_hdr, "authorization"))
+    pastikan(!ada_header_http(raw_hdr, "content-type"))
+    pastikan_sama(header_atau(raw_hdr, "x-custom", "nonaktif"), "aktif")
+    pastikan_sama(header_atau(raw_hdr, "user-agent", "Mozilla"), "Mozilla")
+
+    token := ambil_otorisasi_bearer(raw_hdr) ? tangkap _ { kembali "gagal_bearer" }
+    pastikan_sama(token, "token-rahasia-999")
+
+    // 5. Sub-routing (Prefix Matching)
+    pastikan(cocok_awalan("/api/v1/users/42", "/api/v1"))
+    pastikan(!cocok_awalan("/static/main.css", "/api"))
+    sisa := sisa_jalur("/api/v1/users/42", "/api/v1")
+    pastikan_sama(sisa, "/users/42")
+
+    // 6. Response Builders & Status Text
     resp := respons_teks("Halo")
     resp_cors := respons_cors(resp)
     pastikan_sama(resp_cors.status, 200)
+    pastikan_sama(resp_cors.status_teks(), "OK")
+
+    r401 := respons_401("Akses Ditolak")
+    pastikan_sama(r401.status, 401)
+    pastikan_sama(r401.status_teks(), "Unauthorized")
+
+    r403 := respons_403("Dilarang")
+    pastikan_sama(r403.status, 403)
+    pastikan_sama(r403.status_teks(), "Forbidden")
+
+    r_red := respons_redirect("/login", 307)
+    pastikan_sama(r_red.status, 307)
 
     kembali "sukses_primitif"
 }
@@ -203,6 +243,30 @@ fungsi utama() {
     }
     cetak("TEMA:{tema}")
 
+    hal := kueri_param_atau(kueri, "halaman", "99")
+    cetak("HAL_DEF:{hal}")
+
+    raw_hdr := "Authorization: Bearer token-c-native\r\nX-App: DapNative\r\n"
+    app := header_atau(raw_hdr, "x-app", "None")
+    cetak("APP:{app}")
+
+    token := ambil_otorisasi_bearer(raw_hdr) ? tangkap _ {
+        "NO_TOKEN"
+    }
+    cetak("BEARER:{token}")
+
+    jika cocok_awalan("/api/v2/items", "/api/v2") {
+        sisa := sisa_jalur("/api/v2/items", "/api/v2")
+        cetak("SISA:{sisa}")
+    }
+
+    r401 := respons_401("Ditolak")
+    cetak("STATUS_401:{r401.status}")
+    cetak("TEKS_401:{r401.status_teks()}")
+
+    r_red := respons_redirect("/login", 301)
+    cetak("STATUS_RED:{r_red.status}")
+
     resp := respons_json("\{\"status\":\"ok\"\}")
     resp_cors := respons_cors(resp)
     cetak("STATUS:{resp_cors.status}")
@@ -249,5 +313,12 @@ fungsi utama() {
     assert!(stdout.contains("COCOK:BENAR"));
     assert!(stdout.contains("ID:789"));
     assert!(stdout.contains("TEMA:gelap"));
+    assert!(stdout.contains("HAL_DEF:99"));
+    assert!(stdout.contains("APP:DapNative"));
+    assert!(stdout.contains("BEARER:token-c-native"));
+    assert!(stdout.contains("SISA:/items"));
+    assert!(stdout.contains("STATUS_401:401"));
+    assert!(stdout.contains("TEKS_401:Unauthorized"));
+    assert!(stdout.contains("STATUS_RED:301"));
     assert!(stdout.contains("STATUS:200"));
 }

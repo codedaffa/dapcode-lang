@@ -530,11 +530,40 @@ impl TypeChecker {
                 Type::Struct("ResponsHttp".to_string()),
             ),
         );
+        self.functions.insert(
+            "respons_401".to_string(),
+            (
+                vec![Type::String],
+                Type::Struct("ResponsHttp".to_string()),
+            ),
+        );
+        self.functions.insert(
+            "respons_403".to_string(),
+            (
+                vec![Type::String],
+                Type::Struct("ResponsHttp".to_string()),
+            ),
+        );
+        self.functions.insert(
+            "respons_redirect".to_string(),
+            (
+                vec![Type::String, Type::U64],
+                Type::Struct("ResponsHttp".to_string()),
+            ),
+        );
 
         // Standard Library: Web Router & URL Query Primitives
         self.functions.insert(
             "cocok_rute".to_string(),
             (vec![Type::String, Type::String], Type::Bool),
+        );
+        self.functions.insert(
+            "cocok_awalan".to_string(),
+            (vec![Type::String, Type::String], Type::Bool),
+        );
+        self.functions.insert(
+            "sisa_jalur".to_string(),
+            (vec![Type::String, Type::String], Type::String),
         );
         self.functions.insert(
             "ambil_param_rute".to_string(),
@@ -553,6 +582,48 @@ impl TypeChecker {
         self.functions.insert(
             "ada_kueri_param".to_string(),
             (vec![Type::String, Type::String], Type::Bool),
+        );
+        self.functions.insert(
+            "kueri_param_atau".to_string(),
+            (
+                vec![Type::String, Type::String, Type::String],
+                Type::String,
+            ),
+        );
+        self.functions.insert(
+            "semua_kueri_param".to_string(),
+            (
+                vec![Type::String],
+                Type::List(Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "ambil_header_http".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "ada_header_http".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::Bool,
+            ),
+        );
+        self.functions.insert(
+            "header_atau".to_string(),
+            (
+                vec![Type::String, Type::String, Type::String],
+                Type::String,
+            ),
+        );
+        self.functions.insert(
+            "ambil_otorisasi_bearer".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
+            ),
         );
         self.functions.insert(
             "respons_berkas".to_string(),
@@ -1668,6 +1739,70 @@ impl TypeChecker {
                                 self.unify(&k_ty, &Type::String, args[0].span)?;
                                 Ok(Type::Bool)
                             }
+                            "kueri_atau" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'kueri_atau' membutuhkan 2 argumen (kunci: Teks, bawaan: Teks)").with_span(*span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                let d_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&d_ty, &Type::String, args[1].span)?;
+                                Ok(Type::String)
+                            }
+                            "semua_kueri" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'semua_kueri' tidak membutuhkan argumen").with_span(*span));
+                                }
+                                Ok(Type::List(Box::new(Type::String)))
+                            }
+                            "header" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'header' membutuhkan 1 argumen (nama_header: Teks)").with_span(*span));
+                                }
+                                let n_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&n_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "ada_header" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ada_header' membutuhkan 1 argumen (nama_header: Teks)").with_span(*span));
+                                }
+                                let n_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&n_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "header_atau" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'header_atau' membutuhkan 2 argumen (nama_header: Teks, bawaan: Teks)").with_span(*span));
+                                }
+                                let n_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&n_ty, &Type::String, args[0].span)?;
+                                let d_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&d_ty, &Type::String, args[1].span)?;
+                                Ok(Type::String)
+                            }
+                            "otorisasi_bearer" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'otorisasi_bearer' tidak membutuhkan argumen").with_span(*span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "cocok_awalan" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'cocok_awalan' membutuhkan 1 argumen (awalan: Teks)").with_span(*span));
+                                }
+                                let a_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&a_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "sisa_jalur" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'sisa_jalur' membutuhkan 1 argumen (awalan: Teks)").with_span(*span));
+                                }
+                                let a_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&a_ty, &Type::String, args[0].span)?;
+                                Ok(Type::String)
+                            }
                             "sajikan_statis" => {
                                 if args.len() != 1 {
                                     return Err(Diagnostic::error("Metode 'sajikan_statis' membutuhkan 1 argumen (folder_dasar: Teks)").with_span(*span));
@@ -1722,6 +1857,12 @@ impl TypeChecker {
                                     return Err(Diagnostic::error("Metode 'cors' tidak menerima argumen").with_span(*span));
                                 }
                                 Ok(Type::Struct("ResponsHttp".to_string()))
+                            }
+                            "status_teks" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'status_teks' tidak membutuhkan argumen").with_span(*span));
+                                }
+                                Ok(Type::String)
                             }
                             other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada ResponsHttp", other)).with_span(*span)),
                         }

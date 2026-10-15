@@ -1,61 +1,87 @@
 // ===================================================================
-// Contoh Aplikasi Web Framework DapCode (DapRouter & REST API)
+// Contoh Aplikasi Web Framework DapCode (DapRouter, Middleware & Query)
 // ===================================================================
 // Menunjukkan:
 // 1. Pencocokan Rute Dinamis dengan Segmen Parameter (:id)
-// 2. Penguraian URL Query String mentah (?kategori=kopi&halaman=2)
-// 3. Middleware CORS & Injeksi Header Kustom HTTP
+// 2. Middleware Autentikasi Token Bearer (req.otorisasi_bearer & respons_401)
+// 3. Penguraian URL Query String dengan Nilai Bawaan (req.kueri_atau, req.semua_kueri)
+// 4. Sub-routing Awalan Jalur (req.cocok_awalan, req.sisa_jalur)
+// 5. Pengalihan HTTP (respons_redirect) & Pemeriksaan Header
 // ===================================================================
 
 fungsi tangani_web(req: PermintaanHttp) -> ResponsHttp {
-    cetak("[HTTP] {req.metode} {req.jalur}")
+    klien := req.header_atau("User-Agent", "Klien Tidak Dikenal")
+    cetak("[HTTP] {req.metode} {req.jalur} (Klien: {klien})")
 
     // 1. Rute Beranda
     jika req.jalur == "/" {
         kembali respons_teks("Selamat datang di Web Framework DapCode!").cors()
     }
 
-    // 2. Rute Dinamis: /api/produk/:id
+    // 2. Pengalihan URL (Redirect Middleware)
+    jika req.jalur == "/beranda" || req.jalur == "/index" {
+        kembali respons_redirect("/", 301).cors()
+    }
+
+    // 3. Middleware Autentikasi untuk Jalur Terproteksi (/api/admin/*)
+    jika req.cocok_awalan("/api/admin") {
+        token := req.otorisasi_bearer() ? tangkap err {
+            kembali respons_401("Akses ditolak: Token Bearer diperlukan").cors()
+        }
+
+        jika token != "dapcode-rahasia-2026" {
+            kembali respons_403("Akses dilarang: Token otorisasi tidak valid").cors()
+        }
+
+        sisa := req.sisa_jalur("/api/admin")
+        kembali respons_json("\{\"status\":\"sukses\",\"pesan\":\"Selamat datang Admin\",\"sub_jalur\":\"{sisa}\"\}").cors()
+    }
+
+    // 4. Rute Dinamis: /api/produk/:id
     jika req.cocok("/api/produk/:id") {
         id := req.param("/api/produk/:id", "id") ? tangkap err {
-            kembali kirim_respons_http(400, "text/plain", "ID tidak valid: {err}")
+            kembali kirim_respons_http(400, "text/plain", "ID tidak valid: {err}").cors()
         }
 
         data_json := "\{\"id\":\"{id}\",\"nama\":\"Kopi Arabika Gayo\",\"harga\":35000\}"
-        kembali respons_json(data_json).tambah_header("X-DapCode-Router", "Aktif").cors()
+        resp := respons_json(data_json).tambah_header("X-DapCode-Router", "Aktif").cors()
+        cetak("Status respons produk: {resp.status_teks()}")
+        kembali resp
     }
 
-    // 3. Rute Pencarian dengan Query String: /api/cari?kata=kopi&halaman=1
+    // 5. Rute Pencarian dengan Query Parameters: /api/cari?kata=kopi&halaman=2&urut=murah
     jika req.jalur == "/api/cari" {
-        kata := req.kueri_param("kata") ? tangkap err {
-            kembali kirim_respons_http(400, "text/plain", "Parameter query 'kata' diperlukan")
-        }
-        halaman := req.kueri_param("halaman") ? tangkap err {
-            "1"
-        }
+        kata := req.kueri_atau("kata", "semua")
+        halaman := req.kueri_atau("halaman", "1")
+        urut := req.kueri_atau("urut", "terbaru")
 
-        hasil := "\{\"kueri\":\"{kata}\",\"halaman\":{halaman},\"total\":12\}"
+        semua := req.semua_kueri()
+        total_kueri := semua.panjang()
+
+        hasil := "\{\"kueri\":\"{kata}\",\"halaman\":{halaman},\"urut\":\"{urut}\",\"total_param\":{total_kueri}\}"
         kembali respons_json(hasil).cors()
     }
 
-    // 4. Preflight CORS untuk request lintas domain (OPTIONS)
+    // 6. Preflight CORS untuk request lintas domain (OPTIONS)
     jika req.metode == "OPTIONS" {
         kembali respons_teks("OK").cors()
     }
 
-    // 5. Fallback 404 Tidak Ditemukan
+    // 7. Fallback 404 Tidak Ditemukan
     kembali kirim_respons_http(404, "text/plain", "404 Rute Tidak Ditemukan: {req.jalur}").cors()
 }
 
 fungsi utama() {
     cetak("==================================================")
-    cetak("   DapCode Web Framework & DapRouter v0.1.0       ")
+    cetak("   DapCode Web Framework, Router & Middleware     ")
     cetak("==================================================")
     cetak("Mendengarkan pada port 8080...")
     cetak("Uji rute berikut:")
     cetak("1. GET http://localhost:8080/")
     cetak("2. GET http://localhost:8080/api/produk/42")
-    cetak("3. GET http://localhost:8080/api/cari?kata=dapcode&halaman=2")
+    cetak("3. GET http://localhost:8080/api/cari?kata=dapcode&halaman=2&urut=murah")
+    cetak("4. GET http://localhost:8080/api/admin/dashboard (dengan header Authorization)")
+    cetak("5. GET http://localhost:8080/beranda (Redirect 301 ke /)")
     cetak("==================================================")
 
     // Menjalankan server web untuk melayani hingga 5 permintaan contoh

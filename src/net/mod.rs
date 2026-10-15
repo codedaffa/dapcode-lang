@@ -659,6 +659,98 @@ pub fn url_decode(s: &str) -> String {
     String::from_utf8_lossy(&res).to_string()
 }
 
+/// Mengambil nilai parameter kueri dengan fallback nilai bawaan jika tidak ditemukan
+pub fn kueri_param_atau(kueri: &str, kunci: &str, bawaan: &str) -> String {
+    ambil_kueri_param(kueri, kunci).unwrap_or_else(|_| bawaan.to_string())
+}
+
+/// Mengembalikan daftar seluruh parameter kueri dalam format "kunci=nilai"
+pub fn semua_kueri_param(kueri: &str) -> Vec<String> {
+    let clean_query = kueri.strip_prefix('?').unwrap_or(kueri);
+    let mut hasil = Vec::new();
+    for pair in clean_query.split('&') {
+        if pair.is_empty() {
+            continue;
+        }
+        if let Some((k, v)) = pair.split_once('=') {
+            hasil.push(format!("{}={}", k, url_decode(v)));
+        } else {
+            hasil.push(pair.to_string());
+        }
+    }
+    hasil
+}
+
+/// Mengambil header HTTP dari teks baris-baris header (case-insensitive)
+pub fn ambil_header_http(raw_headers: &str, nama: &str) -> Result<String, String> {
+    for line in raw_headers.lines() {
+        if let Some((k, v)) = line.split_once(':') {
+            if k.trim().eq_ignore_ascii_case(nama) {
+                return Ok(v.trim().to_string());
+            }
+        }
+    }
+    Err(format!("Header '{}' tidak ditemukan", nama))
+}
+
+/// Memeriksa apakah header HTTP ada (case-insensitive)
+pub fn ada_header_http(raw_headers: &str, nama: &str) -> bool {
+    ambil_header_http(raw_headers, nama).is_ok()
+}
+
+/// Mengambil header HTTP atau mengembalikan nilai bawaan
+pub fn header_atau(raw_headers: &str, nama: &str, bawaan: &str) -> String {
+    ambil_header_http(raw_headers, nama).unwrap_or_else(|_| bawaan.to_string())
+}
+
+/// Mengekstrak token otorisasi Bearer dari header Authorization
+pub fn ambil_otorisasi_bearer(raw_headers: &str) -> Result<String, String> {
+    let auth = ambil_header_http(raw_headers, "Authorization")?;
+    let trimmed = auth.trim();
+    if let Some(token) = trimmed.strip_prefix("Bearer ") {
+        Ok(token.trim().to_string())
+    } else if let Some(token) = trimmed.strip_prefix("bearer ") {
+        Ok(token.trim().to_string())
+    } else {
+        Err("Header Authorization tidak menggunakan skema 'Bearer'".to_string())
+    }
+}
+
+/// Memeriksa apakah jalur diawali dengan awalan tertentu
+pub fn cocok_awalan(jalur: &str, awalan: &str) -> bool {
+    jalur.starts_with(awalan)
+}
+
+/// Mengambil sisa jalur setelah awalan
+pub fn sisa_jalur(jalur: &str, awalan: &str) -> String {
+    if let Some(rest) = jalur.strip_prefix(awalan) {
+        rest.to_string()
+    } else {
+        jalur.to_string()
+    }
+}
+
+/// Mengembalikan deskripsi teks status HTTP standar
+pub fn status_ke_teks(status: u64) -> &'static str {
+    match status {
+        200 => "OK",
+        201 => "Created",
+        204 => "No Content",
+        301 => "Moved Permanently",
+        302 => "Found",
+        304 => "Not Modified",
+        400 => "Bad Request",
+        401 => "Unauthorized",
+        403 => "Forbidden",
+        404 => "Not Found",
+        405 => "Method Not Allowed",
+        500 => "Internal Server Error",
+        502 => "Bad Gateway",
+        503 => "Service Unavailable",
+        _ => "Unknown Status",
+    }
+}
+
 /// Menentukan MIME Content-Type berdasarkan ekstensi berkas
 pub fn deteksi_tipe_mime(jalur: &str) -> &'static str {
     let ext = std::path::Path::new(jalur)
@@ -995,6 +1087,37 @@ mod tests {
         let ping_frame = baca_frame_websocket(&mut ping_cur).unwrap().unwrap();
         assert_eq!(ping_frame.opcode, 0x9);
         assert_eq!(ping_frame.payload, b"ping-data");
+    }
+
+    #[test]
+    fn test_query_and_middleware_helpers() {
+        let q = "kategori=elektronik&halaman=5&urut=murah";
+        assert_eq!(kueri_param_atau(q, "halaman", "1"), "5");
+        assert_eq!(kueri_param_atau(q, "limit", "20"), "20");
+
+        let all_q = semua_kueri_param(q);
+        assert_eq!(all_q.len(), 3);
+        assert_eq!(all_q[0], "kategori=elektronik");
+        assert_eq!(all_q[1], "halaman=5");
+        assert_eq!(all_q[2], "urut=murah");
+
+        let raw_hdr = "Host: localhost:8080\r\nAuthorization: Bearer my-secret-token-123\r\nX-Api-Key: dap-999\r\n";
+        assert_eq!(ambil_header_http(raw_hdr, "Host").unwrap(), "localhost:8080");
+        assert_eq!(ambil_header_http(raw_hdr, "x-api-key").unwrap(), "dap-999");
+        assert!(ada_header_http(raw_hdr, "authorization"));
+        assert!(!ada_header_http(raw_hdr, "content-type"));
+        assert_eq!(header_atau(raw_hdr, "content-type", "text/plain"), "text/plain");
+
+        let token = ambil_otorisasi_bearer(raw_hdr).unwrap();
+        assert_eq!(token, "my-secret-token-123");
+
+        assert!(cocok_awalan("/api/v1/users", "/api/v1"));
+        assert!(!cocok_awalan("/web/index", "/api"));
+        assert_eq!(sisa_jalur("/api/v1/users", "/api/v1"), "/users");
+
+        assert_eq!(status_ke_teks(200), "OK");
+        assert_eq!(status_ke_teks(401), "Unauthorized");
+        assert_eq!(status_ke_teks(403), "Forbidden");
     }
 }
 
