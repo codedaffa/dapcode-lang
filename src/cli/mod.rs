@@ -208,8 +208,30 @@ pub fn run_cli() -> io::Result<()> {
     }
 }
 
-fn resolve_target_file(file: Option<&Path>) -> io::Result<PathBuf> {
+pub fn resolve_target_file(file: Option<&Path>) -> io::Result<PathBuf> {
     if let Some(f) = file {
+        if f.is_dir() {
+            if let Some(manifest_path) = ProjectManifest::find_in_dir(f) {
+                if let Ok(manifest) = ProjectManifest::from_file(&manifest_path) {
+                    let entry = f.join(&manifest.berkas_utama);
+                    if entry.exists() {
+                        return Ok(entry);
+                    }
+                }
+            }
+            let default_entry = f.join("src").join("utama.dap");
+            if default_entry.exists() {
+                return Ok(default_entry);
+            }
+        } else if f.file_name().and_then(|n| n.to_str()) == Some(ProjectManifest::MANIFEST_FILENAME) {
+            let dir = f.parent().unwrap_or_else(|| Path::new("."));
+            if let Ok(manifest) = ProjectManifest::from_file(f) {
+                let entry = dir.join(&manifest.berkas_utama);
+                if entry.exists() {
+                    return Ok(entry);
+                }
+            }
+        }
         return Ok(f.to_path_buf());
     }
 

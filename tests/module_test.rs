@@ -139,3 +139,22 @@ fungsi utama() {
     // Clean up
     let _ = fs::remove_dir_all(&temp_dir);
 }
+
+#[test]
+fn test_project_dir_and_manifest_resolution() {
+    let manifest_path = std::path::Path::new("examples/proyek_multiberkas/DapCode.toml");
+    let dir_path = std::path::Path::new("examples/proyek_multiberkas");
+    assert!(manifest_path.exists());
+    assert!(dir_path.exists());
+
+    let entry_from_dir = dapcodec::cli::resolve_target_file(Some(dir_path))
+        .expect("Failed to resolve entry from dir");
+    let s_dir = entry_from_dir.to_string_lossy();
+    assert!(s_dir.ends_with("src\\utama.dap") || s_dir.ends_with("src/utama.dap"));
+
+    let entry_from_manifest = dapcodec::cli::resolve_target_file(Some(manifest_path))
+        .expect("Failed to resolve entry from manifest file");
+    let s_manifest = entry_from_manifest.to_string_lossy();
+    assert!(s_manifest.ends_with("src\\utama.dap") || s_manifest.ends_with("src/utama.dap"));
+}
+
