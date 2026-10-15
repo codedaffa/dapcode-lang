@@ -1,8 +1,8 @@
 {
     "name": "dapcode-lang",
     "displayName": "DapCode Language Support",
-    "description": "Syntax highlighting, language server (LSP) with Go to Definition & Document Symbols outline, snippets, doc generator, test runner, and interactive REPL for DapCode (.dap)",
-    "version": "0.3.0",
+    "description": "Syntax highlighting, language server (LSP) with Code Actions & Quick Fixes, Go to Definition, Document Symbols outline, snippets, doc generator, test runner, and interactive REPL for DapCode (.dap)",
+    "version": "0.4.0",
     "publisher": "dapcode-core",
     "engines": {
         "vscode": "^1.75.0"

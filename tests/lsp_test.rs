@@ -12,6 +12,7 @@ fn test_lsp_initialize_and_capabilities() {
     assert!(resp_str.contains("\"completionProvider\""));
     assert!(resp_str.contains("\"definitionProvider\":true"));
     assert!(resp_str.contains("\"documentSymbolProvider\":true"));
+    assert!(resp_str.contains("\"codeActionProvider\":true"));
 }
 
 #[test]
@@ -213,3 +214,71 @@ fn test_lsp_document_symbols_outline_hierarchy() {
     assert!(resp.contains("\"name\":\"uji \\\"uji_mhs\\\"\""));
     assert!(resp.contains("\"detail\":\"pengujian unit\""));
 }
+
+#[test]
+fn test_lsp_code_action_typo_math() {
+    let mut server = LspServer::new();
+    let code = "fungsi utama() {\\n    h := akar_kuadratt(16.0)\\n}";
+    let open_msg = format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///action_typo.dap","text":"{}"}}}}}}"#,
+        code
+    );
+    server.process_message(&open_msg);
+
+    let ca_req = r#"{"jsonrpc":"2.0","id":70,"method":"textDocument/codeAction","params":{"textDocument":{"uri":"file:///action_typo.dap"},"range":{"start":{"line":1,"character":9},"end":{"line":1,"character":22}},"context":{"diagnostics":[]}}}"#;
+    let resp = server.process_message(ca_req).unwrap();
+    assert!(resp.contains("Perbaiki ejaan menjadi 'akar_kuadrat'"));
+    assert!(resp.contains("\"kind\":\"quickfix\""));
+    assert!(resp.contains("\"newText\":\"akar_kuadrat\""));
+    assert!(resp.contains("\"isPreferred\":true"));
+}
+
+#[test]
+fn test_lsp_code_action_assignment_operator_correction() {
+    let mut server = LspServer::new();
+    let code = "fungsi utama() {\\n    nilai = 100\\n}";
+    let open_msg = format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///action_assign.dap","text":"{}"}}}}}}"#,
+        code
+    );
+    server.process_message(&open_msg);
+
+    let ca_req = r#"{"jsonrpc":"2.0","id":71,"method":"textDocument/codeAction","params":{"textDocument":{"uri":"file:///action_assign.dap"},"range":{"start":{"line":1,"character":4},"end":{"line":1,"character":9}},"context":{"diagnostics":[]}}}"#;
+    let resp = server.process_message(ca_req).unwrap();
+    assert!(resp.contains("Ganti '=' dengan ':='"));
+    assert!(resp.contains("\"newText\":\":=\""));
+}
+
+#[test]
+fn test_lsp_code_action_auto_stub_function() {
+    let mut server = LspServer::new();
+    let code = "fungsi utama() {\\n    hitung_total_belanja(10)\\n}";
+    let open_msg = format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///action_stub.dap","text":"{}"}}}}}}"#,
+        code
+    );
+    server.process_message(&open_msg);
+
+    let ca_req = r#"{"jsonrpc":"2.0","id":72,"method":"textDocument/codeAction","params":{"textDocument":{"uri":"file:///action_stub.dap"},"range":{"start":{"line":1,"character":4},"end":{"line":1,"character":24}},"context":{"diagnostics":[]}}}"#;
+    let resp = server.process_message(ca_req).unwrap();
+    assert!(resp.contains("Buat stub fungsi 'hitung_total_belanja()'"));
+    assert!(resp.contains("fungsi hitung_total_belanja()"));
+}
+
+#[test]
+fn test_lsp_code_action_missing_utama() {
+    let mut server = LspServer::new();
+    let code = "fungsi pembantu() {\\n    cetak(\\\"Halo\\\")\\n}";
+    let open_msg = format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///action_utama.dap","text":"{}"}}}}}}"#,
+        code
+    );
+    server.process_message(&open_msg);
+
+    // Provide diagnostic explicitly in context
+    let ca_req = r#"{"jsonrpc":"2.0","id":73,"method":"textDocument/codeAction","params":{"textDocument":{"uri":"file:///action_utama.dap"},"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":5}},"context":{"diagnostics":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":5}},"message":"Fungsi 'utama()' tidak ditemukan"}]}}}"#;
+    let resp = server.process_message(ca_req).unwrap();
+    assert!(resp.contains("Tambahkan fungsi 'utama()'"));
+    assert!(resp.contains("fungsi utama()"));
+}
+

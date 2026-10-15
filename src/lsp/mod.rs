@@ -66,7 +66,7 @@ impl LspServer {
             "initialize" => {
                 let id = id.unwrap_or(1);
                 Some(format!(
-                    r#"{{"jsonrpc":"2.0","id":{},"result":{{"capabilities":{{"textDocumentSync":1,"hoverProvider":true,"completionProvider":{{"triggerCharacters":[".",":","\""]}},"documentFormattingProvider":true,"definitionProvider":true,"documentSymbolProvider":true}}}}}}"#,
+                    r#"{{"jsonrpc":"2.0","id":{},"result":{{"capabilities":{{"textDocumentSync":1,"hoverProvider":true,"completionProvider":{{"triggerCharacters":[".",":","\""]}},"documentFormattingProvider":true,"definitionProvider":true,"documentSymbolProvider":true,"codeActionProvider":true}}}}}}"#,
                     id
                 ))
             }
@@ -197,6 +197,18 @@ impl LspServer {
                     .unwrap_or("");
                 let symbols = self.compute_document_symbols(uri);
                 Some(format!(r#"{{"jsonrpc":"2.0","id":{},"result":[{}]}}"#, id, symbols))
+            }
+            "textDocument/codeAction" => {
+                let id = id.unwrap_or(1);
+                let actions = self.compute_code_actions(msg.get("params"));
+                if actions.is_empty() {
+                    Some(format!(r#"{{"jsonrpc":"2.0","id":{},"result":[]}}"#, id))
+                } else {
+                    Some(format!(
+                        r#"{{"jsonrpc":"2.0","id":{},"result":[{}]}}"#,
+                        id, actions
+                    ))
+                }
             }
             "shutdown" => {
                 let id = id.unwrap_or(1);
@@ -1353,5 +1365,358 @@ impl LspServer {
         }
 
         symbols.join(",")
+    }
+
+    pub fn compute_code_actions(&self, params: Option<&JsonValue>) -> String {
+        let Some(params) = params else { return String::new(); };
+        let uri = params
+            .get("textDocument")
+            .and_then(|t| t.get("uri"))
+            .and_then(|u| u.as_str())
+            .unwrap_or("");
+        if uri.is_empty() {
+            return String::new();
+        }
+
+        let text = match self.get_document_text(uri) {
+            Some(t) => t,
+            None => return String::new(),
+        };
+
+        struct DiagItem {
+            message: String,
+            start_line: usize,
+            start_col: usize,
+        }
+
+        let mut diag_items = Vec::new();
+        if let Some(JsonValue::Array(diag_arr)) = params.get("context").and_then(|c| c.get("diagnostics")) {
+            for d in diag_arr {
+                let msg = d.get("message").and_then(|m| m.as_str()).unwrap_or("");
+                let sl = d.get("range").and_then(|r| r.get("start")).and_then(|s| s.get("line")).and_then(|l| l.as_f64()).map(|n| n as usize).unwrap_or(0);
+                let sc = d.get("range").and_then(|r| r.get("start")).and_then(|s| s.get("character")).and_then(|c| c.as_f64()).map(|n| n as usize).unwrap_or(0);
+                if !msg.is_empty() {
+                    diag_items.push(DiagItem {
+                        message: msg.to_string(),
+                        start_line: sl,
+                        start_col: sc,
+                    });
+                }
+            }
+        }
+
+        // If no diagnostics were provided in context, compute diagnostics from source
+        if diag_items.is_empty() {
+            let mut sm = SourceMap::new();
+            let (file_id, _) = sm.add_file(uri, text.clone());
+            let mut lexer = Lexer::new(&text, file_id);
+            if let Ok(tokens) = lexer.tokenize() {
+                let mut parser = Parser::new(tokens, file_id);
+                match parser.parse_program() {
+                    Ok(prog) => {
+                        let mut checker = TypeChecker::new(file_id);
+                        if let Err(diag) = checker.check_program(&prog) {
+                            let (sl, sc, _, _) = diag.span.map(|s| Self::span_to_lsp_range(s, &sm)).unwrap_or((0, 0, 0, 0));
+                            diag_items.push(DiagItem {
+                                message: diag.message,
+                                start_line: sl,
+                                start_col: sc,
+                            });
+                        }
+                    }
+                    Err(diag) => {
+                        let (sl, sc, _, _) = diag.span.map(|s| Self::span_to_lsp_range(s, &sm)).unwrap_or((0, 0, 0, 0));
+                        diag_items.push(DiagItem {
+                            message: diag.message,
+                            start_line: sl,
+                            start_col: sc,
+                        });
+                    }
+                }
+            } else if let Err(diag) = lexer.tokenize() {
+                let (sl, sc, _, _) = diag.span.map(|s| Self::span_to_lsp_range(s, &sm)).unwrap_or((0, 0, 0, 0));
+                diag_items.push(DiagItem {
+                    message: diag.message,
+                    start_line: sl,
+                    start_col: sc,
+                });
+            }
+        }
+
+        let mut candidate_symbols: Vec<String> = vec![
+            // Math
+            "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "log", "log10", "log2", "exp",
+            "akar_kuadrat", "akar_kubik", "pangkat", "nilai_mutlak", "bulat", "lantai", "langit_langit",
+            "tanda", "min", "max", "ke_radian", "ke_derajat", "PI", "TAU", "E",
+            // Stdlib
+            "cetak", "panjang", "tambah", "ke_teks", "ke_angka", "ke_json", "uraikan_json",
+            "ambil_kunci_json", "ambil_angka_json", "ambil_bool_json", "ada_kunci_json", "valid_json",
+            "baca_berkas", "tulis_berkas", "ada_berkas", "hapus_berkas", "buat_direktori",
+            "daftar_direktori", "hapus_direktori", "gabung_jalur", "tidur", "ambil_argumen_cli",
+            "ambil_lingkungan", "atur_lingkungan", "waktu_sekarang_ms", "ambil_http", "kirim_http_post",
+            "ambil_status_http", "buat_server_http", "kirim_respons_http", "respons_json", "respons_teks",
+            "tambah_header", "respons_cors", "cocok_rute", "ambil_param_rute", "ambil_kueri_param",
+            "ada_kueri_param", "respons_berkas", "sajikan_berkas_statis", "buka_basis_data",
+            "db_simpan", "db_ambil", "db_hapus", "db_ada", "db_daftar_kunci", "db_padatkan",
+            "sha256", "sha1", "md5", "ke_base64", "dari_base64", "kunci_websocket",
+            "respons_upgrade_websocket", "buat_server_websocket", "adalah_websocket",
+            "tingkatkan_websocket", "cocok_regex", "cari_regex", "ganti_regex", "ekstrak_regex",
+            "pastikan", "pastikan_sama", "pastikan_tidak_sama",
+            // Keywords & Types
+            "fungsi", "struktur", "sifat", "terapkan", "untuk", "dalam", "jika", "selain_itu",
+            "selama", "kembali", "gagal", "tangkap", "jalan_paralel", "tunggu", "comptime",
+            "impor", "ini", "benar", "salah", "uji", "u64", "i64", "f64", "Teks", "Bool", "Unit", "Daftar",
+        ].into_iter().map(|s| s.to_string()).collect();
+
+        // Also gather identifiers from the document tokens
+        let mut sm_tokens = SourceMap::new();
+        let (fid, _) = sm_tokens.add_file(uri, text.clone());
+        let mut token_lexer = Lexer::new(&text, fid);
+        if let Ok(toks) = token_lexer.tokenize() {
+            for tok in toks {
+                if let crate::lexer::TokenKind::Ident(ref name) = tok.kind {
+                    if !candidate_symbols.contains(name) {
+                        candidate_symbols.push(name.clone());
+                    }
+                }
+            }
+        }
+
+        let mut actions: Vec<String> = Vec::new();
+        let lines: Vec<&str> = text.lines().collect();
+
+        let add_action = |actions: &mut Vec<String>, title: &str, kind: &str, is_preferred: bool, sl: usize, sc: usize, el: usize, ec: usize, new_text: &str| {
+            let act_json = format!(
+                r#"{{"title":"{}","kind":"{}","isPreferred":{},"edit":{{"changes":{{"{}":[{{"range":{{"start":{{"line":{},"character":{}}},"end":{{"line":{},"character":{}}}}},"newText":"{}"}}]}}}}}}"#,
+                Self::escape_lsp_json(title),
+                Self::escape_lsp_json(kind),
+                is_preferred,
+                Self::escape_lsp_json(uri),
+                sl,
+                sc,
+                el,
+                ec,
+                Self::escape_lsp_json(new_text)
+            );
+            if !actions.iter().any(|a| a.contains(&format!("\"title\":\"{}\"", Self::escape_lsp_json(title)))) {
+                actions.push(act_json);
+            }
+        };
+
+        for diag in &diag_items {
+            // Check for missing 'utama()'
+            if diag.message.contains("utama()") || diag.message.contains("Fungsi 'utama()' tidak ditemukan") {
+                let last_line = lines.len();
+                let stub = if text.ends_with('\n') {
+                    "\nfungsi utama() {\n    cetak(\"Halo dari DapCode!\")\n}\n"
+                } else {
+                    "\n\nfungsi utama() {\n    cetak(\"Halo dari DapCode!\")\n}\n"
+                };
+                add_action(
+                    &mut actions,
+                    "Tambahkan fungsi 'utama()'",
+                    "quickfix",
+                    true,
+                    last_line,
+                    0,
+                    last_line,
+                    0,
+                    stub,
+                );
+            }
+
+            // Extract identifier from quotes e.g. 'XYZ'
+            if let Some(typo) = Self::extract_quoted_identifier(&diag.message) {
+                let target_line_idx = diag.start_line;
+                let line_str = lines.get(target_line_idx).copied().unwrap_or("");
+
+                // Locate typo position on target line
+                let typo_range = Self::find_identifier_range_on_line(line_str, &typo, diag.start_col)
+                    .unwrap_or((diag.start_col, diag.start_col + typo.len()));
+
+                // 1. Check for assignment `=` instead of `:=`
+                // e.g. line has: <typo> = <val>
+                if let Some(eq_col) = Self::find_single_equals_on_line(line_str, typo_range.1) {
+                    add_action(
+                        &mut actions,
+                        "Ganti '=' dengan ':=' untuk mendeklarasikan variabel baru",
+                        "quickfix",
+                        true,
+                        target_line_idx,
+                        eq_col,
+                        target_line_idx,
+                        eq_col + 1,
+                        ":=",
+                    );
+                }
+
+                // 2. Levenshtein typo suggestions
+                let mut matches: Vec<(usize, &String)> = candidate_symbols
+                    .iter()
+                    .filter(|c| c.as_str() != typo.as_str())
+                    .filter_map(|c| {
+                        let dist = Self::levenshtein(&typo, c);
+                        let max_allowed = if typo.len() <= 3 { 1 } else if typo.len() <= 6 { 2 } else { 3 };
+                        if dist <= max_allowed {
+                            Some((dist, c))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                matches.sort_by(|a, b| {
+                    a.0.cmp(&b.0)
+                        .then_with(|| (a.1.len() as isize - typo.len() as isize).abs().cmp(&(b.1.len() as isize - typo.len() as isize).abs()))
+                });
+
+                for (idx, (dist, cand)) in matches.iter().take(3).enumerate() {
+                    let is_pref = idx == 0 && *dist <= 2;
+                    let title = format!("Perbaiki ejaan menjadi '{}'", cand);
+                    add_action(
+                        &mut actions,
+                        &title,
+                        "quickfix",
+                        is_pref,
+                        target_line_idx,
+                        typo_range.0,
+                        target_line_idx,
+                        typo_range.1,
+                        cand,
+                    );
+                }
+
+                // 3. Auto-stub function if it looks like a function call `typo(`
+                let after_typo = if typo_range.1 < line_str.len() { &line_str[typo_range.1..] } else { "" };
+                if after_typo.trim_start().starts_with('(') {
+                    let last_line = lines.len();
+                    let stub = format!("\n\nfungsi {}() {{\n    // TODO: implementasi fungsi {}\n}}\n", typo, typo);
+                    let title = format!("Buat stub fungsi '{}()'", typo);
+                    add_action(
+                        &mut actions,
+                        &title,
+                        "quickfix",
+                        false,
+                        last_line,
+                        0,
+                        last_line,
+                        0,
+                        &stub,
+                    );
+                }
+            }
+        }
+
+        // Formatting document action
+        let fmt_edit = self.compute_formatting(uri);
+        if !fmt_edit.is_empty() {
+            let act_json = format!(
+                r#"{{"title":"Format dokumen DapCode","kind":"source.fixAll","isPreferred":false,"edit":{{"changes":{{"{}":[{}]}}}}}}"#,
+                Self::escape_lsp_json(uri),
+                fmt_edit
+            );
+            actions.push(act_json);
+        }
+
+        actions.join(",")
+    }
+
+    pub fn levenshtein(a: &str, b: &str) -> usize {
+        let a_chars: Vec<char> = a.chars().collect();
+        let b_chars: Vec<char> = b.chars().collect();
+        let m = a_chars.len();
+        let n = b_chars.len();
+
+        let mut dp = vec![vec![0; n + 1]; m + 1];
+
+        for i in 0..=m {
+            dp[i][0] = i;
+        }
+        for j in 0..=n {
+            dp[0][j] = j;
+        }
+
+        for i in 1..=m {
+            for j in 1..=n {
+                let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+                dp[i][j] = (dp[i - 1][j] + 1)
+                    .min(dp[i][j - 1] + 1)
+                    .min(dp[i - 1][j - 1] + cost);
+            }
+        }
+
+        dp[m][n]
+    }
+
+    pub fn extract_quoted_identifier(msg: &str) -> Option<String> {
+        if let Some(start) = msg.find('\'') {
+            let rest = &msg[start + 1..];
+            if let Some(end) = rest.find('\'') {
+                let mut id = &rest[..end];
+                if id.ends_with("()") {
+                    id = &id[..id.len() - 2];
+                }
+                if !id.is_empty() {
+                    return Some(id.to_string());
+                }
+            }
+        }
+        None
+    }
+
+    pub fn find_identifier_range_on_line(line_str: &str, ident: &str, target_col: usize) -> Option<(usize, usize)> {
+        let ident_len = ident.chars().count();
+        let chars: Vec<char> = line_str.chars().collect();
+        let n = chars.len();
+        let ident_chars: Vec<char> = ident.chars().collect();
+
+        if ident_len == 0 || ident_len > n {
+            return None;
+        }
+
+        let mut matches = Vec::new();
+        for i in 0..=n - ident_len {
+            if chars[i..i + ident_len] == ident_chars[..] {
+                let prev_ok = i == 0 || (!chars[i - 1].is_alphanumeric() && chars[i - 1] != '_');
+                let next_ok = (i + ident_len == n) || (!chars[i + ident_len].is_alphanumeric() && chars[i + ident_len] != '_');
+                if prev_ok && next_ok {
+                    matches.push(i);
+                }
+            }
+        }
+
+        if matches.is_empty() {
+            for i in 0..=n - ident_len {
+                if chars[i..i + ident_len] == ident_chars[..] {
+                    matches.push(i);
+                }
+            }
+        }
+
+        matches.into_iter().min_by_key(|&pos| (pos as isize - target_col as isize).abs())
+            .map(|pos| (pos, pos + ident_len))
+    }
+
+    pub fn find_single_equals_on_line(line_str: &str, after_col: usize) -> Option<usize> {
+        let chars: Vec<char> = line_str.chars().collect();
+        let start = after_col.min(chars.len());
+        for i in start..chars.len() {
+            if chars[i] == '=' {
+                let prev = if i > 0 { chars[i - 1] } else { ' ' };
+                let next = if i + 1 < chars.len() { chars[i + 1] } else { ' ' };
+                if prev != '=' && prev != '!' && prev != '<' && prev != '>' && prev != ':' && next != '=' && next != '>' {
+                    return Some(i);
+                }
+            }
+        }
+        None
+    }
+
+    pub fn escape_lsp_json(s: &str) -> String {
+        s.replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', "\\n")
+            .replace('\r', "\\r")
+            .replace('\t', "\\t")
     }
 }
