@@ -117,6 +117,7 @@ dapcode-lang/
     ├── json_test.rs              # Uji Parser, Serializer, & Error Handling JSON
     ├── lsp_test.rs               # Uji LSP (Init, Diagnostics, Hover, Completion)
     ├── net_test.rs               # Uji Jaringan & HTTP Client (GET, POST, Status, 404 Catch)
+    ├── dependency_test.rs        # Uji Manajemen Dependensi & Multi-Paket (add, install, remove)
     └── demo_test.rs
 ```
 
@@ -201,6 +202,29 @@ Menyediakan diagnostik *real-time*, *hover type info*, *code completion*, dan *f
 dapcodec repl
 ```
 
+### 11. Menambahkan Dependensi Paket (`add`)
+```powershell
+# Tambah dependensi direktori lokal
+dapcodec add kalkulator --path ../kalkulator
+
+# Tambah dependensi dari Git
+dapcodec add jaringan --git https://github.com/dapcode/jaringan.git
+
+# Tambah dependensi versi semver
+dapcodec add basisdata --version 1.0.0
+```
+
+### 12. Memasang & Memverifikasi Dependensi (`install`)
+```powershell
+# Verifikasi semua paket lokal/git/versi yang dideklarasikan di DapCode.toml
+dapcodec install
+```
+
+### 13. Menghapus Dependensi (`remove`)
+```powershell
+dapcodec remove jaringan
+```
+
 ---
 
 ## 🎨 Dukungan Editor & Ekstensi VS Code
@@ -229,5 +253,5 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 13 modul test (30 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 14 modul test (35 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 

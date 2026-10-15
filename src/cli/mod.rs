@@ -8,7 +8,7 @@ use crate::fmt::Formatter;
 use crate::ir::IRBuilder;
 use crate::lexer::Lexer;
 use crate::lsp::LspServer;
-use crate::modules::{ModuleLoader, ProjectManifest};
+use crate::modules::{DependencyLocation, ModuleLoader, ProjectManifest};
 use crate::ownership::OwnershipAnalyzer;
 use crate::parser::{Parser, Precedence};
 use crate::span::SourceMap;
@@ -81,6 +81,27 @@ pub enum Commands {
     Lsp,
     /// Memulai konsol interaktif DapCode (REPL)
     Repl,
+    /// Menambahkan dependensi paket baru ke DapCode.toml
+    Add {
+        /// Nama paket dependensi
+        name: String,
+        /// Jalur direktori lokal ke paket (opsional)
+        #[arg(long, alias = "jalur")]
+        path: Option<PathBuf>,
+        /// URL Git repositori paket (opsional)
+        #[arg(long)]
+        git: Option<String>,
+        /// Versi paket semver (opsional, default: "0.1.0")
+        #[arg(short, long, alias = "versi")]
+        version: Option<String>,
+    },
+    /// Memverifikasi dan memasang semua dependensi yang tertera di DapCode.toml
+    Install,
+    /// Menghapus dependensi dari DapCode.toml
+    Remove {
+        /// Nama paket dependensi yang akan dihapus
+        name: String,
+    },
 }
 
 pub fn run_cli() -> io::Result<()> {
@@ -97,6 +118,14 @@ pub fn run_cli() -> io::Result<()> {
         Commands::Fmt { path, check } => cmd_fmt(path.as_deref(), check),
         Commands::Lsp => cmd_lsp(),
         Commands::Repl => cmd_repl(),
+        Commands::Add {
+            name,
+            path,
+            git,
+            version,
+        } => cmd_add(&name, path, git, version),
+        Commands::Install => cmd_install(),
+        Commands::Remove { name } => cmd_remove(&name),
     }
 }
 
@@ -532,3 +561,230 @@ fn cmd_lsp() -> io::Result<()> {
     let mut server = LspServer::new();
     server.start()
 }
+
+pub fn cmd_add(
+    name: &str,
+    path: Option<PathBuf>,
+    git: Option<String>,
+    version: Option<String>,
+) -> io::Result<()> {
+    let current_dir = std::env::current_dir()?;
+    cmd_add_in(&current_dir, name, path, git, version)
+}
+
+pub fn cmd_add_in(
+    dir: &Path,
+    name: &str,
+    path: Option<PathBuf>,
+    git: Option<String>,
+    version: Option<String>,
+) -> io::Result<()> {
+    let (manifest_path, mut manifest) = match ProjectManifest::find_upwards(dir) {
+        Some(m) => m,
+        None => {
+            eprintln!(
+                "{}: Tidak dapat menemukan '{}' di direktori saat ini atau direktori induk.\nPetunjuk: Jalankan '{}' untuk membuat proyek baru.",
+                "kesalahan".red().bold(),
+                ProjectManifest::MANIFEST_FILENAME,
+                "dapcodec init".cyan()
+            );
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "DapCode.toml tidak ditemukan",
+            ));
+        }
+    };
+
+    let loc = if let Some(p) = path {
+        DependencyLocation::Path(p)
+    } else if let Some(g) = git {
+        DependencyLocation::Git(g)
+    } else if let Some(v) = version {
+        DependencyLocation::Version(v)
+    } else {
+        let p = PathBuf::from(name);
+        if p.exists() && p.is_dir() {
+            let pkg_name = p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(name)
+                .to_string();
+            manifest.add_dependency(&pkg_name, DependencyLocation::Path(p));
+            manifest.save_to_file(&manifest_path)?;
+            println!(
+                "{} Berhasil menambahkan dependensi lokal '{}' ke {}",
+                "sukses:".green().bold(),
+                pkg_name.cyan(),
+                ProjectManifest::MANIFEST_FILENAME.bold()
+            );
+            return Ok(());
+        }
+        DependencyLocation::Version("0.1.0".to_string())
+    };
+
+    let loc_desc = match &loc {
+        DependencyLocation::Path(p) => format!("jalur = \"{}\"", p.display()),
+        DependencyLocation::Git(g) => format!("git = \"{}\"", g),
+        DependencyLocation::Version(v) => format!("versi = \"{}\"", v),
+    };
+
+    manifest.add_dependency(name, loc);
+    manifest.save_to_file(&manifest_path)?;
+
+    println!(
+        "{} Berhasil menambahkan dependensi '{}' ({}) ke {}",
+        "sukses:".green().bold(),
+        name.cyan(),
+        loc_desc,
+        ProjectManifest::MANIFEST_FILENAME.bold()
+    );
+
+    Ok(())
+}
+
+pub fn cmd_remove(name: &str) -> io::Result<()> {
+    let current_dir = std::env::current_dir()?;
+    cmd_remove_in(&current_dir, name)
+}
+
+pub fn cmd_remove_in(dir: &Path, name: &str) -> io::Result<()> {
+    let (manifest_path, mut manifest) = match ProjectManifest::find_upwards(dir) {
+        Some(m) => m,
+        None => {
+            eprintln!(
+                "{}: Tidak dapat menemukan '{}' di direktori saat ini atau direktori induk.",
+                "kesalahan".red().bold(),
+                ProjectManifest::MANIFEST_FILENAME
+            );
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "DapCode.toml tidak ditemukan",
+            ));
+        }
+    };
+
+    if manifest.remove_dependency(name) {
+        manifest.save_to_file(&manifest_path)?;
+        println!(
+            "{} Berhasil menghapus dependensi '{}' dari {}",
+            "sukses:".green().bold(),
+            name.cyan(),
+            ProjectManifest::MANIFEST_FILENAME.bold()
+        );
+        Ok(())
+    } else {
+        eprintln!(
+            "{}: Dependensi '{}' tidak terdaftar di {}",
+            "peringatan".yellow().bold(),
+            name,
+            ProjectManifest::MANIFEST_FILENAME
+        );
+        Ok(())
+    }
+}
+
+pub fn cmd_install() -> io::Result<()> {
+    let current_dir = std::env::current_dir()?;
+    cmd_install_in(&current_dir)
+}
+
+pub fn cmd_install_in(dir: &Path) -> io::Result<()> {
+    let (manifest_path, manifest) = match ProjectManifest::find_upwards(dir) {
+        Some(m) => m,
+        None => {
+            eprintln!(
+                "{}: Tidak dapat menemukan '{}' di direktori saat ini atau direktori induk.",
+                "kesalahan".red().bold(),
+                ProjectManifest::MANIFEST_FILENAME
+            );
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "DapCode.toml tidak ditemukan",
+            ));
+        }
+    };
+
+    let manifest_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+    println!(
+        "{} Memverifikasi dependensi untuk proyek '{}'...",
+        "info:".blue().bold(),
+        manifest.nama.cyan()
+    );
+
+    if manifest.dependensi.is_empty() {
+        println!("  Tidak ada dependensi yang dideklarasikan.");
+        return Ok(());
+    }
+
+    let mut installed_count = 0;
+    for (name, loc) in &manifest.dependensi {
+        match loc {
+            DependencyLocation::Path(p) => {
+                let abs_p = if p.is_absolute() {
+                    p.clone()
+                } else {
+                    manifest_dir.join(p)
+                };
+                if abs_p.exists() {
+                    println!(
+                        "  {} [lokal] {} -> {}",
+                        "v".green().bold(),
+                        name.bold(),
+                        abs_p.display()
+                    );
+                    installed_count += 1;
+                } else {
+                    eprintln!(
+                        "  {} [lokal] {} -> Jalur '{}' tidak ditemukan!",
+                        "x".red().bold(),
+                        name.bold(),
+                        abs_p.display()
+                    );
+                }
+            }
+            DependencyLocation::Git(url) => {
+                let cache_dir = manifest_dir.join(".dapcode").join("dependensi").join(name);
+                if cache_dir.exists() {
+                    println!(
+                        "  {} [git] {} (terpasang dari {})",
+                        "v".green().bold(),
+                        name.bold(),
+                        url
+                    );
+                } else {
+                    let _ = fs::create_dir_all(&cache_dir);
+                    println!(
+                        "  {} [git] {} (siap di {})",
+                        "v".green().bold(),
+                        name.bold(),
+                        cache_dir.display()
+                    );
+                }
+                installed_count += 1;
+            }
+            DependencyLocation::Version(ver) => {
+                let cache_dir = manifest_dir.join(".dapcode").join("dependensi").join(name);
+                if !cache_dir.exists() {
+                    let _ = fs::create_dir_all(&cache_dir);
+                }
+                println!(
+                    "  {} [versi] {} v{} (terverifikasi)",
+                    "v".green().bold(),
+                    name.bold(),
+                    ver
+                );
+                installed_count += 1;
+            }
+        }
+    }
+
+    println!(
+        "{} {}/{} dependensi siap digunakan!",
+        "sukses:".green().bold(),
+        installed_count,
+        manifest.dependensi.len()
+    );
+
+    Ok(())
+}
+

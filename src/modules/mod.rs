@@ -2,10 +2,17 @@ use crate::ast::{Decl, Program};
 use crate::diag::{Diagnostic, Result};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use crate::span::SourceMap;
-use std::collections::HashSet;
+use crate::span::{SourceMap, Span};
+use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DependencyLocation {
+    Path(PathBuf),
+    Git(String),
+    Version(String),
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProjectManifest {
@@ -13,6 +20,7 @@ pub struct ProjectManifest {
     pub versi: String,
     pub penulis: Vec<String>,
     pub berkas_utama: String,
+    pub dependensi: BTreeMap<String, DependencyLocation>,
 }
 
 impl Default for ProjectManifest {
@@ -22,6 +30,7 @@ impl Default for ProjectManifest {
             versi: "0.1.0".to_string(),
             penulis: Vec::new(),
             berkas_utama: "src/utama.dap".to_string(),
+            dependensi: BTreeMap::new(),
         }
     }
 }
@@ -78,11 +87,95 @@ impl ProjectManifest {
                         }
                         _ => {}
                     }
+                } else if current_section == "dependensi" {
+                    if val.starts_with('{') && val.ends_with('}') {
+                        let inner = &val[1..val.len() - 1].trim();
+                        for field in inner.split(',') {
+                            if let Some((fk, fv)) = field.split_once('=') {
+                                let f_key = fk.trim();
+                                let f_val = Self::strip_quotes(fv.trim());
+                                if f_key == "jalur" || f_key == "path" {
+                                    manifest.dependensi.insert(
+                                        key.to_string(),
+                                        DependencyLocation::Path(PathBuf::from(f_val)),
+                                    );
+                                } else if f_key == "git" {
+                                    manifest.dependensi.insert(
+                                        key.to_string(),
+                                        DependencyLocation::Git(f_val),
+                                    );
+                                } else if f_key == "versi" || f_key == "version" {
+                                    manifest.dependensi.insert(
+                                        key.to_string(),
+                                        DependencyLocation::Version(f_val),
+                                    );
+                                }
+                            }
+                        }
+                    } else {
+                        let clean = Self::strip_quotes(val);
+                        if clean.contains('/') || clean.contains('\\') {
+                            manifest.dependensi.insert(
+                                key.to_string(),
+                                DependencyLocation::Path(PathBuf::from(clean)),
+                            );
+                        } else {
+                            manifest.dependensi.insert(
+                                key.to_string(),
+                                DependencyLocation::Version(clean),
+                            );
+                        }
+                    }
                 }
             }
         }
 
         Ok(manifest)
+    }
+
+    pub fn to_toml_string(&self) -> String {
+        let mut out = String::new();
+        out.push_str("[paket]\n");
+        out.push_str(&format!("nama = \"{}\"\n", self.nama));
+        out.push_str(&format!("versi = \"{}\"\n", self.versi));
+        let penulis_str = self
+            .penulis
+            .iter()
+            .map(|p| format!("\"{}\"", p))
+            .collect::<Vec<_>>()
+            .join(", ");
+        out.push_str(&format!("penulis = [{}]\n", penulis_str));
+        out.push_str(&format!("berkas_utama = \"{}\"\n\n", self.berkas_utama));
+
+        out.push_str("[dependensi]\n");
+        for (name, loc) in &self.dependensi {
+            match loc {
+                DependencyLocation::Path(p) => {
+                    let p_str = p.to_string_lossy().replace('\\', "/");
+                    out.push_str(&format!("{} = {{ jalur = \"{}\" }}\n", name, p_str));
+                }
+                DependencyLocation::Git(url) => {
+                    out.push_str(&format!("{} = {{ git = \"{}\" }}\n", name, url));
+                }
+                DependencyLocation::Version(v) => {
+                    out.push_str(&format!("{} = \"{}\"\n", name, v));
+                }
+            }
+        }
+
+        out
+    }
+
+    pub fn save_to_file(&self, path: &Path) -> std::io::Result<()> {
+        fs::write(path, self.to_toml_string())
+    }
+
+    pub fn add_dependency(&mut self, name: &str, loc: DependencyLocation) {
+        self.dependensi.insert(name.to_string(), loc);
+    }
+
+    pub fn remove_dependency(&mut self, name: &str) -> bool {
+        self.dependensi.remove(name).is_some()
     }
 
     fn strip_quotes(s: &str) -> String {
@@ -107,24 +200,42 @@ impl ProjectManifest {
         }
     }
 
+    pub fn find_upwards(start: &Path) -> Option<(PathBuf, ProjectManifest)> {
+        let mut curr = if start.is_file() {
+            start.parent().unwrap_or_else(|| Path::new(".")).to_path_buf()
+        } else {
+            start.to_path_buf()
+        };
+
+        loop {
+            let manifest_path = curr.join(Self::MANIFEST_FILENAME);
+            if manifest_path.exists() {
+                if let Ok(m) = Self::from_file(&manifest_path) {
+                    return Some((manifest_path, m));
+                }
+            }
+            if !curr.pop() {
+                break;
+            }
+        }
+        None
+    }
+
     pub fn init_project(target_dir: &Path, name: &str) -> std::io::Result<PathBuf> {
         if !target_dir.exists() {
             fs::create_dir_all(target_dir)?;
         }
 
-        let manifest_path = target_dir.join(Self::MANIFEST_FILENAME);
-        let manifest_content = format!(
-            r#"[paket]
-nama = "{}"
-versi = "0.1.0"
-penulis = ["Pengembang DapCode"]
-berkas_utama = "src/utama.dap"
+        let manifest = ProjectManifest {
+            nama: name.to_string(),
+            versi: "0.1.0".to_string(),
+            penulis: vec!["Pengembang DapCode".to_string()],
+            berkas_utama: "src/utama.dap".to_string(),
+            dependensi: BTreeMap::new(),
+        };
 
-[dependensi]
-"#,
-            name
-        );
-        fs::write(&manifest_path, manifest_content)?;
+        let manifest_path = target_dir.join(Self::MANIFEST_FILENAME);
+        manifest.save_to_file(&manifest_path)?;
 
         let src_dir = target_dir.join("src");
         fs::create_dir_all(&src_dir)?;
@@ -150,6 +261,7 @@ target/
 *.exe
 *.c
 *.o
+.dapcode/
 "#;
             fs::write(&gitignore, gitignore_content)?;
         }
@@ -207,28 +319,10 @@ impl ModuleLoader {
 
         let mut all_decls = Vec::new();
 
-        // 1. Resolve and load all imported files first
+        // 1. Resolve and load all imported files / packages first
         for decl in &current_program.decls {
             if let Decl::Import(imp) = decl {
-                let mut import_path = PathBuf::from(&imp.path);
-                if import_path.extension().is_none() {
-                    import_path.set_extension("dap");
-                }
-                let target_path = if import_path.is_absolute() {
-                    import_path
-                } else {
-                    parent_dir.join(import_path)
-                };
-
-                let canonical_target = fs::canonicalize(&target_path).map_err(|e| {
-                    Diagnostic::error(format!(
-                        "Gagal mengimpor '{}': berkas tidak ditemukan di '{}' ({})",
-                        imp.path,
-                        target_path.display(),
-                        e
-                    ))
-                    .with_span(imp.span)
-                })?;
+                let canonical_target = self.resolve_import_path(&imp.path, parent_dir, imp.span)?;
 
                 // If not already visited in this session, resolve its dependencies recursively
                 if !self.visited.contains(&canonical_target) {
@@ -256,5 +350,118 @@ impl ModuleLoader {
                 span: current_program.span,
             },
         ))
+    }
+
+    fn resolve_import_path(&self, import_str: &str, parent_dir: &Path, span: Span) -> Result<PathBuf> {
+        // 1. Cek jalur berkas relatif terlebih dahulu
+        let mut rel_path = PathBuf::from(import_str);
+        if rel_path.extension().is_none() {
+            rel_path.set_extension("dap");
+        }
+        let target_path = if rel_path.is_absolute() {
+            rel_path
+        } else {
+            parent_dir.join(&rel_path)
+        };
+
+        if target_path.exists() {
+            return fs::canonicalize(&target_path).map_err(|e| {
+                Diagnostic::error(format!("Gagal membuka '{}': {}", target_path.display(), e))
+                    .with_span(span)
+            });
+        }
+
+        // 2. Cek dependensi paket di DapCode.toml
+        if let Some((manifest_path, manifest)) = ProjectManifest::find_upwards(parent_dir) {
+            let manifest_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+            let parts: Vec<&str> = import_str.split(['/', '\\']).collect();
+            let dep_name = parts[0];
+            let sub_path = if parts.len() > 1 {
+                Some(parts[1..].join("/"))
+            } else {
+                None
+            };
+
+            if let Some(loc) = manifest.dependensi.get(dep_name) {
+                let pkg_dir = match loc {
+                    DependencyLocation::Path(p) => {
+                        if p.is_absolute() {
+                            p.clone()
+                        } else {
+                            manifest_dir.join(p)
+                        }
+                    }
+                    DependencyLocation::Git(_) | DependencyLocation::Version(_) => {
+                        manifest_dir.join(".dapcode").join("dependensi").join(dep_name)
+                    }
+                };
+
+                if !pkg_dir.exists() {
+                    return Err(Diagnostic::error(format!(
+                        "Direktori paket dependensi '{}' tidak ditemukan di '{}'. Jalankan 'dapcodec install' terlebih dahulu.",
+                        dep_name,
+                        pkg_dir.display()
+                    ))
+                    .with_span(span));
+                }
+
+                // Tentukan berkas entry paket
+                let entry_file = if let Some(sub) = sub_path {
+                    let mut sub_file = PathBuf::from(&sub);
+                    if sub_file.extension().is_none() {
+                        sub_file.set_extension("dap");
+                    }
+                    let cand1 = pkg_dir.join("src").join(&sub_file);
+                    let cand2 = pkg_dir.join(&sub_file);
+                    if cand1.exists() {
+                        cand1
+                    } else {
+                        cand2
+                    }
+                } else {
+                    // Cari berkas_utama dari DapCode.toml paket
+                    let pkg_manifest_path = pkg_dir.join(ProjectManifest::MANIFEST_FILENAME);
+                    if pkg_manifest_path.exists() {
+                        if let Ok(pkg_m) = ProjectManifest::from_file(&pkg_manifest_path) {
+                            pkg_dir.join(pkg_m.berkas_utama)
+                        } else {
+                            pkg_dir.join("src/lib.dap")
+                        }
+                    } else {
+                        let cand_lib = pkg_dir.join("src/lib.dap");
+                        let cand_utama = pkg_dir.join("src/utama.dap");
+                        let cand_named = pkg_dir.join(format!("{}.dap", dep_name));
+                        if cand_lib.exists() {
+                            cand_lib
+                        } else if cand_utama.exists() {
+                            cand_utama
+                        } else {
+                            cand_named
+                        }
+                    }
+                };
+
+                if entry_file.exists() {
+                    return fs::canonicalize(&entry_file).map_err(|e| {
+                        Diagnostic::error(format!("Gagal membuka '{}': {}", entry_file.display(), e))
+                            .with_span(span)
+                    });
+                } else {
+                    return Err(Diagnostic::error(format!(
+                        "Tidak dapat menemukan titik masuk untuk dependensi '{}' pada '{}'",
+                        dep_name,
+                        entry_file.display()
+                    ))
+                    .with_span(span));
+                }
+            }
+        }
+
+        Err(Diagnostic::error(format!(
+            "Gagal mengimpor '{}': berkas tidak ditemukan di jalur relatif '{}' dan tidak terdaftar pada [dependensi] di DapCode.toml",
+            import_str,
+            target_path.display()
+        ))
+        .with_span(span))
     }
 }
