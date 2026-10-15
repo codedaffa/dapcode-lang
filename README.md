@@ -458,6 +458,53 @@ fungsi utama() {
 }
 ```
 
+### 20. Subsistem WebSocket & Komunikasi Real-Time (`buat_server_websocket`, `req.adalah_websocket`, `req.kunci_websocket`, `req.tingkatkan_websocket`, `respons_upgrade_websocket`)
+DapCode menyediakan subsistem WebSocket berbasis standar RFC 6455 untuk komunikasi dua arah (*bidirectional*) real-time berkecepatan tinggi, baik melalui rute HTTP terpadu (*unified routing*) maupun server mandiri (*dedicated server*):
+
+#### A. Rute Terpadu HTTP + WebSocket (Handshake 101 Switching Protocols)
+```dap
+fungsi tangani_pesan_ws(pesan: Teks) -> Teks {
+    cetak("💬 Pesan diterima: {pesan}")
+    kembali "DapCode Echo: {pesan}"
+}
+
+fungsi tangani_web(req: PermintaanHttp) -> ResponsHttp {
+    // 1. Upgrade permintaan HTTP ke WebSocket RFC 6455
+    jika req.jalur == "/ws" && req.adalah_websocket() {
+        kembali req.tingkatkan_websocket("tangani_pesan_ws") ? tangkap err {
+            kirim_respons_http(400, "text/plain", "Gagal upgrade: {err}")
+        }
+    }
+
+    // 2. Sajikan aset statis dan REST API
+    aset := req.sajikan_statis("publik") ? tangkap err {
+        kirim_respons_http(404, "text/html", "<h1>404 Tidak Ditemukan</h1>")
+    }
+    kembali aset
+}
+
+fungsi utama() {
+    buat_server_http(8080, "tangani_web") ? tangkap err {
+        cetak("Server error: {err}")
+    }
+}
+```
+
+#### B. Dedicated Standalone WebSocket Server
+```dap
+fungsi tangani_pesan(pesan: Teks) -> Teks {
+    kembali "Echo: {pesan}"
+}
+
+fungsi utama() {
+    buat_server_websocket(9001, "tangani_pesan") ? tangkap err {
+        cetak("Gagal menjalankan server WebSocket: {err}")
+    }
+}
+```
+- **Kepatuhan Penuh RFC 6455:** Mendukung kalkulasi SHA-1 + GUID `258EAFA5-E914-47DA-95CA-C5AB0DC85B11` Base64 key, decoding frame bertopeng (*masked frame*), payload 7-bit, 16-bit, dan 64-bit, unmasking XOR 4-byte, auto-reply ping (opcode `0x9`) ke pong (opcode `0xA`), serta penutupan koneksi graceful (opcode `0x8`).
+- **Native C11 Zero-Dependency:** Kompilasi langsung ke biner native C11 berkecepatan tinggi via GCC (`-lws2_32` di Windows dan POSIX BSD sockets di Linux/macOS).
+
 ---
 
 ## 🎨 Dukungan Editor & Ekstensi VS Code
@@ -469,10 +516,10 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
   ```
 - **Integrasi LSP Cerdas (`extension.js`):**
   - **Diagnostik Real-Time:** Pelaporan kesalahan sintaks, kepemilikan (*borrow check*), dan tipe secara langsung saat mengetik.
-  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`), fungsi pustaka standar (`buka_basis_data`, `db_simpan`, `db_ambil`, `db_hapus`, `db_ada`, `buat_server_http`, `kirim_respons_http`, `respons_json`, `respons_teks`, `respons_berkas`, `sajikan_berkas_statis`, `cocok_rute`, `ambil_param_rute`, `ambil_kueri_param`, `ada_kueri_param`, `tambah_header`, `respons_cors`, `ke_json`, `cetak`, dll), dan simbol lokal.
+  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`), fungsi pustaka standar (`buka_basis_data`, `db_simpan`, `db_ambil`, `db_hapus`, `db_ada`, `buat_server_http`, `buat_server_websocket`, `kirim_respons_http`, `respons_json`, `respons_teks`, `respons_berkas`, `sajikan_berkas_statis`, `cocok_rute`, `ambil_param_rute`, `ambil_kueri_param`, `ada_kueri_param`, `tambah_header`, `respons_cors`, `kunci_websocket`, `respons_upgrade_websocket`, `sha1`, `ke_json`, `cetak`, dll), dan simbol lokal.
   - **Auto-Completion Kontekstual:** Rekomendasi otomatis kata kunci bahasa Indonesia, tipe data, fungsi pustaka standar, serta deklarasi lokal.
   - **Document Formatting:** Format kode sumber otomatis saat dokumen diformat atau disimpan.
-- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `server_http`, `buka_db`, `db_simpan`, `db_ambil`, `respons_json`, `respons_teks`, `respons_berkas`, `sajikan_berkas_statis`, `req.sajikan_statis`, `cocok_rute`, `ambil_kueri_param`, `respons_cors`, `ke_json`, unit test `uji`, asersi `pastikan`, komentar dokumen `///` & `//!`, operasi direktori `buat_direktori`, dan argumen CLI `ambil_argumen_cli`.
+- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `server_http`, `buat_server_websocket`, `tingkatkan_websocket`, `buka_db`, `db_simpan`, `db_ambil`, `respons_json`, `respons_teks`, `respons_berkas`, `sajikan_berkas_statis`, `req.sajikan_statis`, `cocok_rute`, `ambil_kueri_param`, `respons_cors`, `ke_json`, unit test `uji`, asersi `pastikan`, komentar dokumen `///` & `//!`, operasi direktori `buat_direktori`, dan argumen CLI `ambil_argumen_cli`.
 - **Integrasi Menu & Perintah Cepat:**
   - `dapcode.run` -> Jalankan berkas aktif dengan `dapcodec run`.
   - `dapcode.test` -> Jalankan pengujian unit aktif dengan `dapcodec test`.
@@ -489,5 +536,6 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 23 modul test (67+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & CORS, Static Files & MIME Asset Serving, Embedded Database (BasisData & DapDb), Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 24 modul test (72+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & CORS, Static Files & MIME Asset Serving, Subsistem WebSocket RFC 6455 & Real-Time Communication, Embedded Database (BasisData & DapDb), Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+
 

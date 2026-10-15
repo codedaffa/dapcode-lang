@@ -393,5 +393,35 @@
             "}"
         ],
         "description": "Metode permintaan HTTP untuk menyajikan berkas statis dari folder"
+    },
+    "WebSocket Server Dedicated": {
+        "prefix": "buat_server_websocket",
+        "body": [
+            "fungsi tangani_pesan(pesan: Teks) -> Teks {",
+            "\tcetak(\"Pesan diterima: {pesan}\")",
+            "\tkembali \"Echo: {pesan}\"",
+            "}",
+            "",
+            "fungsi utama() -> u64 {",
+            "\thasil := buat_server_websocket(${1:8080}, \"tangani_pesan\") ? tangkap err {",
+            "\t\tcetak(\"Gagal memulai WebSocket: {err}\")",
+            "\t\tkembali 0",
+            "\t}",
+            "\tkembali hasil",
+            "}"
+        ],
+        "description": "Server WebSocket mandiri (dedicated WebSocket server)"
+    },
+    "WebSocket Route Upgrade": {
+        "prefix": "req.tingkatkan_websocket",
+        "body": [
+            "jika ${1:req}.adalah_websocket() {",
+            "\tkembali ${1:req}.tingkatkan_websocket(\"${2:tangani_pesan}\") ? tangkap err {",
+            "\t\tkirim_respons_http(400, \"text/plain\", \"Gagal upgrade ke WebSocket: {err}\")",
+            "\t}",
+            "}"
+        ],
+        "description": "Upgrade HTTP route ke WebSocket real-time frame connection"
     }
 }
+

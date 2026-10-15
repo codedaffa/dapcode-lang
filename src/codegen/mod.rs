@@ -125,6 +125,35 @@ impl<'a> CodeGenerator<'a> {
         // Emit functions
         self.out.push_str(&functions_buf);
 
+        // Emit WebSocket Dispatcher
+        self.out.push_str("static Teks dap_dispatch_ws_handler(const char* name, const char* msg) {\n");
+        self.out.push_str("    if (!name || strlen(name) == 0) return msg;\n");
+        for decl in &program.decls {
+            if let Decl::Fn(f) = decl {
+                if f.params.len() == 1 {
+                    let is_string_param = match &f.params[0].ty {
+                        Some(pty) => self.type_to_c(pty) == "Teks",
+                        None => true,
+                    };
+                    if is_string_param {
+                        let ret_ty = self.ret_type_to_c(&f.ret_ty);
+                        if ret_ty == "void" {
+                            self.out.push_str(&format!(
+                                "    if (strcmp(name, \"{}\") == 0) {{ dap_{}(msg); return \"\"; }}\n",
+                                f.name, f.name
+                            ));
+                        } else {
+                            self.out.push_str(&format!(
+                                "    if (strcmp(name, \"{}\") == 0) return dap_{}(msg);\n",
+                                f.name, f.name
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        self.out.push_str("    return msg;\n}\n\n");
+
         // 5. Emit main entry point
         self.out.push_str(
             r#"int main(int argc, char** argv) {
@@ -172,6 +201,12 @@ typedef int socklen_t;
 #define SOCKET_ERROR -1
 #endif
 
+#ifdef _MSC_VER
+#define dap_strncasecmp _strnicmp
+#else
+#define dap_strncasecmp strncasecmp
+#endif
+
 typedef uint64_t u64;
 typedef int64_t  i64;
 typedef double   f64;
@@ -190,6 +225,7 @@ typedef struct {
     Teks jalur;
     Teks kueri;
     Teks isi;
+    Teks raw_headers;
 } PermintaanHttp;
 
 typedef struct {
@@ -197,6 +233,7 @@ typedef struct {
     Teks tipe_konten;
     Teks konten;
     Teks header;
+    Teks ws_handler;
 } ResponsHttp;
 
 typedef struct { bool is_err; const char* err_msg; ResponsHttp ok; } DapResult_ResponsHttp;
@@ -874,6 +911,7 @@ static inline ResponsHttp dap_kirim_respons_http(u64 status, const char* tipe_ko
     r.tipe_konten = tipe_konten ? (Teks)tipe_konten : "text/plain";
     r.konten = konten ? (Teks)konten : "";
     r.header = "";
+    r.ws_handler = "";
     return r;
 }
 
@@ -910,6 +948,347 @@ static inline ResponsHttp dap_respons_cors(ResponsHttp r) {
     r = dap_tambah_header(r, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     r = dap_tambah_header(r, "Access-Control-Allow-Headers", "Content-Type, Authorization");
     return r;
+}
+
+// Cryptography & WebSocket RFC 6455
+static inline void dap_sha1_raw(const uint8_t* msg, size_t len, uint8_t out[20]) {
+    uint32_t h0 = 0x67452301;
+    uint32_t h1 = 0xEFCDAB89;
+    uint32_t h2 = 0x98BADCFE;
+    uint32_t h3 = 0x10325476;
+    uint32_t h4 = 0xC3D2E1F0;
+
+    uint64_t bitlen = (uint64_t)len * 8;
+    size_t new_len = len + 1;
+    while ((new_len % 64) != 56) new_len++;
+    size_t total_len = new_len + 8;
+
+    uint8_t* p = (uint8_t*)calloc(total_len, 1);
+    if (!p) return;
+    if (len > 0 && msg) memcpy(p, msg, len);
+    p[len] = 0x80;
+
+    for (int i = 0; i < 8; i++) {
+        p[total_len - 1 - i] = (uint8_t)((bitlen >> (i * 8)) & 0xFF);
+    }
+
+    for (size_t chunk = 0; chunk < total_len; chunk += 64) {
+        uint32_t w[80];
+        for (int i = 0; i < 16; i++) {
+            w[i] = ((uint32_t)p[chunk + i * 4] << 24)
+                 | ((uint32_t)p[chunk + i * 4 + 1] << 16)
+                 | ((uint32_t)p[chunk + i * 4 + 2] << 8)
+                 | ((uint32_t)p[chunk + i * 4 + 3]);
+        }
+        for (int i = 16; i < 80; i++) {
+            uint32_t temp = w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16];
+            w[i] = (temp << 1) | (temp >> 31);
+        }
+
+        uint32_t a = h0;
+        uint32_t b = h1;
+        uint32_t c = h2;
+        uint32_t d = h3;
+        uint32_t e = h4;
+
+        for (int i = 0; i < 80; i++) {
+            uint32_t f, k;
+            if (i < 20) {
+                f = (b & c) | ((~b) & d);
+                k = 0x5A827999;
+            } else if (i < 40) {
+                f = b ^ c ^ d;
+                k = 0x6ED9EBA1;
+            } else if (i < 60) {
+                f = (b & c) | (b & d) | (c & d);
+                k = 0x8F1BBCDC;
+            } else {
+                f = b ^ c ^ d;
+                k = 0xCA62C1D6;
+            }
+
+            uint32_t temp = ((a << 5) | (a >> 27)) + f + e + k + w[i];
+            e = d;
+            d = c;
+            c = (b << 30) | (b >> 2);
+            b = a;
+            a = temp;
+        }
+
+        h0 += a;
+        h1 += b;
+        h2 += c;
+        h3 += d;
+        h4 += e;
+    }
+
+    free(p);
+
+    uint32_t h[5] = { h0, h1, h2, h3, h4 };
+    for (int i = 0; i < 5; i++) {
+        out[i * 4]     = (uint8_t)((h[i] >> 24) & 0xFF);
+        out[i * 4 + 1] = (uint8_t)((h[i] >> 16) & 0xFF);
+        out[i * 4 + 2] = (uint8_t)((h[i] >> 8) & 0xFF);
+        out[i * 4 + 3] = (uint8_t)(h[i] & 0xFF);
+    }
+}
+
+static inline const char* dap_sha1(const char* s) {
+    if (!s) return "";
+    uint8_t hash[20];
+    dap_sha1_raw((const uint8_t*)s, strlen(s), hash);
+    char* out = (char*)malloc(41);
+    if (!out) return "";
+    for (int i = 0; i < 20; i++) {
+        sprintf(out + (i * 2), "%02x", hash[i]);
+    }
+    out[40] = '\0';
+    return out;
+}
+
+static inline const char* dap_b64_encode_bytes(const uint8_t* data, size_t len) {
+    static const char tbl[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    size_t out_len = 4 * ((len + 2) / 3);
+    char* out = (char*)malloc(out_len + 1);
+    if (!out) return "";
+    size_t j = 0;
+    for (size_t i = 0; i < len; i += 3) {
+        uint32_t a = data[i];
+        uint32_t b = (i + 1 < len) ? data[i + 1] : 0;
+        uint32_t c = (i + 2 < len) ? data[i + 2] : 0;
+        uint32_t triple = (a << 16) | (b << 8) | c;
+
+        out[j++] = tbl[(triple >> 18) & 0x3F];
+        out[j++] = tbl[(triple >> 12) & 0x3F];
+        out[j++] = (i + 1 < len) ? tbl[(triple >> 6) & 0x3F] : '=';
+        out[j++] = (i + 2 < len) ? tbl[triple & 0x3F] : '=';
+    }
+    out[j] = '\0';
+    return out;
+}
+
+static inline const char* dap_kunci_websocket(const char* client_key) {
+    if (!client_key) return "";
+    while (*client_key == ' ' || *client_key == '\t' || *client_key == '\r' || *client_key == '\n') client_key++;
+    size_t klen = strlen(client_key);
+    while (klen > 0 && (client_key[klen-1] == ' ' || client_key[klen-1] == '\t' || client_key[klen-1] == '\r' || client_key[klen-1] == '\n')) {
+        klen--;
+    }
+    const char* guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+    size_t guid_len = strlen(guid);
+    size_t combined_len = klen + guid_len;
+    char* combined = (char*)malloc(combined_len + 1);
+    if (!combined) return "";
+    memcpy(combined, client_key, klen);
+    memcpy(combined + klen, guid, guid_len);
+    combined[combined_len] = '\0';
+
+    uint8_t hash[20];
+    dap_sha1_raw((const uint8_t*)combined, combined_len, hash);
+    free(combined);
+
+    return dap_b64_encode_bytes(hash, 20);
+}
+
+static inline DapResult_ResponsHttp dap_respons_upgrade_websocket(const char* client_key, const char* ws_handler) {
+    DapResult_ResponsHttp res;
+    if (!client_key || strlen(client_key) == 0) {
+        res.is_err = true;
+        res.err_msg = "Kunci WebSocket tidak valid";
+        return res;
+    }
+    res.is_err = false;
+    res.err_msg = NULL;
+
+    ResponsHttp r;
+    r.status = 101;
+    r.tipe_konten = "";
+    r.konten = "";
+    r.ws_handler = ws_handler ? (Teks)ws_handler : "";
+
+    const char* accept_key = dap_kunci_websocket(client_key);
+    size_t needed = strlen(accept_key) + 128;
+    char* h = (char*)malloc(needed);
+    if (!h) {
+        res.is_err = true;
+        res.err_msg = "Alokasi memori gagal";
+        return res;
+    }
+    snprintf(h, needed,
+        "Upgrade: websocket\r\n"
+        "Connection: Upgrade\r\n"
+        "Sec-WebSocket-Accept: %s\r\n",
+        accept_key);
+    r.header = h;
+    res.ok = r;
+    return res;
+}
+
+static inline bool dap_req_adalah_websocket(const PermintaanHttp* req) {
+    if (!req || !req->raw_headers) return false;
+    const char* p = req->raw_headers;
+    while (*p) {
+        if (dap_strncasecmp(p, "Upgrade:", 8) == 0) {
+            const char* val = p + 8;
+            while (*val && (*val == ' ' || *val == '\t')) val++;
+            if (dap_strncasecmp(val, "websocket", 9) == 0) return true;
+        }
+        const char* next = strchr(p, '\n');
+        if (!next) break;
+        p = next + 1;
+    }
+    return false;
+}
+
+static inline DapResult_Teks dap_req_kunci_websocket(const PermintaanHttp* req) {
+    DapResult_Teks res;
+    if (!req || !req->raw_headers) {
+        res.is_err = true;
+        res.err_msg = "Header Sec-WebSocket-Key tidak ditemukan";
+        res.ok = "";
+        return res;
+    }
+    const char* p = req->raw_headers;
+    while (*p) {
+        if (dap_strncasecmp(p, "Sec-WebSocket-Key:", 18) == 0) {
+            const char* start = p + 18;
+            while (*start == ' ' || *start == '\t') start++;
+            const char* end = start;
+            while (*end && *end != '\r' && *end != '\n') end++;
+            size_t len = (size_t)(end - start);
+            char* key = (char*)malloc(len + 1);
+            if (!key) break;
+            memcpy(key, start, len);
+            key[len] = '\0';
+            res.is_err = false;
+            res.err_msg = NULL;
+            res.ok = key;
+            return res;
+        }
+        const char* next = strchr(p, '\n');
+        if (!next) break;
+        p = next + 1;
+    }
+    res.is_err = true;
+    res.err_msg = "Header Sec-WebSocket-Key tidak ditemukan";
+    res.ok = "";
+    return res;
+}
+
+static inline DapResult_ResponsHttp dap_req_tingkatkan_websocket(const PermintaanHttp* req, const char* handler_name) {
+    DapResult_Teks k_res = dap_req_kunci_websocket(req);
+    if (k_res.is_err) {
+        DapResult_ResponsHttp res;
+        res.is_err = true;
+        res.err_msg = k_res.err_msg;
+        return res;
+    }
+    return dap_respons_upgrade_websocket(k_res.ok, handler_name);
+}
+
+static Teks dap_dispatch_ws_handler(const char* name, const char* msg);
+
+static inline void dap_ws_send_frame(SOCKET sock, uint8_t opcode, const uint8_t* payload, size_t len) {
+    uint8_t hdr[10];
+    size_t hdr_len = 0;
+    hdr[0] = 0x80 | (opcode & 0x0F);
+
+    if (len <= 125) {
+        hdr[1] = (uint8_t)len;
+        hdr_len = 2;
+    } else if (len <= 65535) {
+        hdr[1] = 126;
+        hdr[2] = (uint8_t)((len >> 8) & 0xFF);
+        hdr[3] = (uint8_t)(len & 0xFF);
+        hdr_len = 4;
+    } else {
+        hdr[1] = 127;
+        for (int i = 0; i < 8; i++) {
+            hdr[2 + i] = (uint8_t)((len >> ((7 - i) * 8)) & 0xFF);
+        }
+        hdr_len = 10;
+    }
+
+    send(sock, (const char*)hdr, (int)hdr_len, 0);
+    if (len > 0 && payload) {
+        send(sock, (const char*)payload, (int)len, 0);
+    }
+}
+
+static inline int dap_recv_exact(SOCKET fd, char* buf, int len) {
+    int total = 0;
+    while (total < len) {
+        int r = recv(fd, buf + total, len - total, 0);
+        if (r <= 0) return r;
+        total += r;
+    }
+    return total;
+}
+
+static inline void dap_ws_run_loop(SOCKET client_fd, const char* ws_handler_name) {
+    while (1) {
+        uint8_t hdr[2];
+        int r = dap_recv_exact(client_fd, (char*)hdr, 2);
+        if (r <= 0) break;
+
+        uint8_t opcode = hdr[0] & 0x0F;
+        bool masked = (hdr[1] & 0x80) != 0;
+        uint64_t payload_len = hdr[1] & 0x7F;
+
+        if (payload_len == 126) {
+            uint8_t ext[2];
+            if (dap_recv_exact(client_fd, (char*)ext, 2) <= 0) break;
+            payload_len = ((uint64_t)ext[0] << 8) | (uint64_t)ext[1];
+        } else if (payload_len == 127) {
+            uint8_t ext[8];
+            if (dap_recv_exact(client_fd, (char*)ext, 8) <= 0) break;
+            payload_len = 0;
+            for (int i = 0; i < 8; i++) {
+                payload_len = (payload_len << 8) | ext[i];
+            }
+        }
+
+        uint8_t mask[4] = {0, 0, 0, 0};
+        if (masked) {
+            if (dap_recv_exact(client_fd, (char*)mask, 4) <= 0) break;
+        }
+
+        uint8_t* payload = (uint8_t*)malloc((size_t)payload_len + 1);
+        if (!payload) break;
+
+        if (payload_len > 0) {
+            if (dap_recv_exact(client_fd, (char*)payload, (int)payload_len) <= 0) {
+                free(payload);
+                break;
+            }
+        }
+
+        if (masked) {
+            for (size_t i = 0; i < payload_len; i++) {
+                payload[i] ^= mask[i % 4];
+            }
+        }
+        payload[payload_len] = '\0';
+
+        if (opcode == 0x8) {
+            dap_ws_send_frame(client_fd, 0x8, payload, (size_t)payload_len);
+            free(payload);
+            break;
+        } else if (opcode == 0x9) {
+            dap_ws_send_frame(client_fd, 0xA, payload, (size_t)payload_len);
+            free(payload);
+        } else if (opcode == 0xA) {
+            free(payload);
+        } else if (opcode == 0x1) {
+            Teks resp_text = dap_dispatch_ws_handler(ws_handler_name, (const char*)payload);
+            if (resp_text && strlen(resp_text) > 0) {
+                dap_ws_send_frame(client_fd, 0x1, (const uint8_t*)resp_text, strlen(resp_text));
+            }
+            free(payload);
+        } else {
+            free(payload);
+        }
+    }
 }
 
 static inline DapResult_u64 dap_buat_server_http(u64 port, dap_http_handler_t handler, u64 max_req) {
@@ -1007,32 +1386,138 @@ static inline DapResult_u64 dap_buat_server_http(u64 port, dap_http_handler_t ha
             req.jalur = jalur;
             req.kueri = kueri;
             req.isi = (Teks)req_body;
+            req.raw_headers = (Teks)buffer;
 
             ResponsHttp resp = handler(req);
 
-            const char* status_text = "OK";
-            if (resp.status == 404) status_text = "Not Found";
-            else if (resp.status == 400) status_text = "Bad Request";
-            else if (resp.status == 403) status_text = "Forbidden";
-            else if (resp.status == 500) status_text = "Internal Server Error";
-            else if (resp.status == 201) status_text = "Created";
+            if (resp.status == 101) {
+                char header_buf[4096];
+                snprintf(header_buf, sizeof(header_buf),
+                    "HTTP/1.1 101 Switching Protocols\r\n"
+                    "%s\r\n",
+                    resp.header ? resp.header : "");
+                send(client_fd, header_buf, (int)strlen(header_buf), 0);
+                dap_ws_run_loop(client_fd, resp.ws_handler);
+            } else {
+                const char* status_text = "OK";
+                if (resp.status == 404) status_text = "Not Found";
+                else if (resp.status == 400) status_text = "Bad Request";
+                else if (resp.status == 403) status_text = "Forbidden";
+                else if (resp.status == 500) status_text = "Internal Server Error";
+                else if (resp.status == 201) status_text = "Created";
 
-            size_t body_len = resp.konten ? strlen(resp.konten) : 0;
-            char header_buf[4096];
-            snprintf(header_buf, sizeof(header_buf),
-                "HTTP/1.1 %llu %s\r\n"
-                "Content-Type: %s\r\n"
-                "Content-Length: %zu\r\n"
-                "%s"
-                "Connection: close\r\n\r\n",
-                (unsigned long long)resp.status, status_text,
-                resp.tipe_konten ? resp.tipe_konten : "text/plain",
-                body_len,
-                resp.header ? resp.header : "");
+                size_t body_len = resp.konten ? strlen(resp.konten) : 0;
+                char header_buf[4096];
+                snprintf(header_buf, sizeof(header_buf),
+                    "HTTP/1.1 %llu %s\r\n"
+                    "Content-Type: %s\r\n"
+                    "Content-Length: %zu\r\n"
+                    "%s"
+                    "Connection: close\r\n\r\n",
+                    (unsigned long long)resp.status, status_text,
+                    resp.tipe_konten ? resp.tipe_konten : "text/plain",
+                    body_len,
+                    resp.header ? resp.header : "");
 
-            send(client_fd, header_buf, (int)strlen(header_buf), 0);
-            if (body_len > 0) {
-                send(client_fd, resp.konten, (int)body_len, 0);
+                send(client_fd, header_buf, (int)strlen(header_buf), 0);
+                if (body_len > 0) {
+                    send(client_fd, resp.konten, (int)body_len, 0);
+                }
+            }
+        }
+        closesocket(client_fd);
+        count++;
+    }
+
+    closesocket(server_fd);
+#ifdef _WIN32
+    WSACleanup();
+#endif
+    res.ok = count;
+    return res;
+}
+
+static inline DapResult_u64 dap_buat_server_websocket(u64 port, const char* handler_name, u64 max_req) {
+    DapResult_u64 res;
+    res.is_err = false;
+    res.err_msg = NULL;
+    res.ok = 0;
+
+#ifdef _WIN32
+    WSADATA wsa;
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        res.is_err = true;
+        res.err_msg = "Gagal inisialisasi Winsock";
+        return res;
+    }
+#endif
+
+    SOCKET server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd == INVALID_SOCKET) {
+        res.is_err = true;
+        res.err_msg = "Gagal membuat socket TCP";
+        return res;
+    }
+
+    int opt = 1;
+#ifdef _WIN32
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+#else
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+#endif
+
+    struct sockaddr_in address;
+    memset(&address, 0, sizeof(address));
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons((uint16_t)port);
+
+    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) == SOCKET_ERROR) {
+        closesocket(server_fd);
+        res.is_err = true;
+        res.err_msg = "Gagal bind port server WebSocket (mungkin port sedang digunakan)";
+        return res;
+    }
+
+    if (listen(server_fd, 64) == SOCKET_ERROR) {
+        closesocket(server_fd);
+        res.is_err = true;
+        res.err_msg = "Gagal listen pada socket WebSocket";
+        return res;
+    }
+
+    u64 count = 0;
+    while (max_req == 0 || count < max_req) {
+        struct sockaddr_in client_addr;
+        socklen_t addrlen = sizeof(client_addr);
+        SOCKET client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &addrlen);
+        if (client_fd == INVALID_SOCKET) {
+            break;
+        }
+
+        char buffer[8192];
+        memset(buffer, 0, sizeof(buffer));
+        int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+        if (bytes_read > 0) {
+            PermintaanHttp req;
+            req.metode = "GET";
+            req.jalur = "/";
+            req.kueri = "";
+            req.isi = "";
+            req.raw_headers = (Teks)buffer;
+
+            DapResult_ResponsHttp up = dap_req_tingkatkan_websocket(&req, handler_name);
+            if (!up.is_err) {
+                char header_buf[4096];
+                snprintf(header_buf, sizeof(header_buf),
+                    "HTTP/1.1 101 Switching Protocols\r\n"
+                    "%s\r\n",
+                    up.ok.header ? up.ok.header : "");
+                send(client_fd, header_buf, (int)strlen(header_buf), 0);
+                dap_ws_run_loop(client_fd, handler_name);
+            } else {
+                const char* bad = "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\nUpgrade to WebSocket required\r\n";
+                send(client_fd, bad, (int)strlen(bad), 0);
             }
         }
         closesocket(client_fd);
@@ -1787,8 +2272,30 @@ static inline char* dap_md5(const char* input) {
             }
             Stmt::Return { value, .. } => {
                 if let Some(v) = value {
-                    let v_str = self.emit_expr(v);
-                    self.out.push_str(&format!("    return {};\n", v_str));
+                    if let Expr::Catch { inner, err_var, handler, .. } = v {
+                        let in_str = self.emit_expr(inner);
+                        let res_var = format!("_res_ret_{}", self._temp_counter);
+                        self._temp_counter += 1;
+                        self.out.push_str(&format!("    __auto_type {} = {};\n", res_var, in_str));
+                        self.out.push_str(&format!("    if ({}.is_err) {{\n", res_var));
+                        self.out.push_str(&format!("        const char* {} = {}.err_msg;\n", err_var, res_var));
+                        for s in &handler.stmts {
+                            self.emit_stmt(s, fn_ret_ty);
+                        }
+                        if let Some(he) = &handler.expr {
+                            let he_str = self.emit_expr(he);
+                            if fn_ret_ty == "void" {
+                                self.out.push_str(&format!("        {};\n", he_str));
+                            } else {
+                                self.out.push_str(&format!("        return {};\n", he_str));
+                            }
+                        }
+                        self.out.push_str("    }\n");
+                        self.out.push_str(&format!("    return {}.ok;\n", res_var));
+                    } else {
+                        let v_str = self.emit_expr(v);
+                        self.out.push_str(&format!("    return {};\n", v_str));
+                    }
                 } else {
                     self.out.push_str("    return;\n");
                 }
@@ -1898,6 +2405,29 @@ static inline char* dap_md5(const char* input) {
                         };
                         return format!("dap_buat_server_http({}, {}, {})", port_str, handler_fn, max_str);
                     }
+                    if name == "sha1" && args.len() == 1 {
+                        let arg_str = self.emit_expr(&args[0].value);
+                        return format!("dap_sha1({})", arg_str);
+                    }
+                    if name == "kunci_websocket" && args.len() == 1 {
+                        let arg_str = self.emit_expr(&args[0].value);
+                        return format!("dap_kunci_websocket({})", arg_str);
+                    }
+                    if name == "respons_upgrade_websocket" && !args.is_empty() {
+                        let k = self.emit_expr(&args[0].value);
+                        let h = if args.len() > 1 { self.emit_expr(&args[1].value) } else { "\"\"".to_string() };
+                        return format!("dap_respons_upgrade_websocket({}, {})", k, h);
+                    }
+                    if name == "buat_server_websocket" && args.len() >= 2 {
+                        let port_str = self.emit_expr(&args[0].value);
+                        let handler_str = self.emit_expr(&args[1].value);
+                        let max_str = if args.len() > 2 {
+                            self.emit_expr(&args[2].value)
+                        } else {
+                            "0".to_string()
+                        };
+                        return format!("dap_buat_server_websocket({}, {}, {})", port_str, handler_str, max_str);
+                    }
                     if name == "Daftar" {
                         if args.is_empty() {
                             return "dap_Daftar_baru()".to_string();
@@ -1995,6 +2525,16 @@ static inline char* dap_md5(const char* input) {
                     let f = self.emit_expr(&args[0].value);
                     return format!("dap_sajikan_berkas_statis({}, {}.jalur)", f, rec_str);
                 }
+                if method == "adalah_websocket" && args.is_empty() {
+                    return format!("dap_req_adalah_websocket(&{})", rec_str);
+                }
+                if method == "kunci_websocket" && args.is_empty() {
+                    return format!("dap_req_kunci_websocket(&{})", rec_str);
+                }
+                if method == "tingkatkan_websocket" && args.len() == 1 {
+                    let h = self.emit_expr(&args[0].value);
+                    return format!("dap_req_tingkatkan_websocket(&{}, {})", rec_str, h);
+                }
                 if method == "ambil" {
                     let arg_str = if !args.is_empty() { self.emit_expr(&args[0].value) } else { "0".to_string() };
                     if arg_str.starts_with('"') || arg_str.contains("teks") || arg_str.contains("kunci") || rec_str.contains("db") {
@@ -2044,7 +2584,7 @@ static inline char* dap_md5(const char* input) {
                 for a in arg_vals {
                     formatted.push_str(&format!(", {}", a));
                 }
-                format!("({{\n        char _buf[1024];\n        snprintf(_buf, sizeof(_buf), {});\n        _buf;\n    }})", formatted)
+                format!("({{\n        char* _buf = (char*)malloc(1024);\n        snprintf(_buf, 1024, {});\n        _buf;\n    }})", formatted)
             }
             Expr::ErrorPropagate { inner, .. } => self.emit_expr(inner),
             Expr::Catch { inner, .. } => self.emit_expr(inner),

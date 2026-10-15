@@ -352,6 +352,10 @@ impl TypeChecker {
 
         // Standard Library: Cryptography & Encoding
         self.functions.insert(
+            "sha1".to_string(),
+            (vec![Type::String], Type::String),
+        );
+        self.functions.insert(
             "sha256".to_string(),
             (vec![Type::String], Type::String),
         );
@@ -488,6 +492,27 @@ impl TypeChecker {
                     Box::new(Type::Struct("ResponsHttp".to_string())),
                     Box::new(Type::String),
                 ),
+            ),
+        );
+        self.functions.insert(
+            "kunci_websocket".to_string(),
+            (vec![Type::String], Type::String),
+        );
+        self.functions.insert(
+            "respons_upgrade_websocket".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(
+                    Box::new(Type::Struct("ResponsHttp".to_string())),
+                    Box::new(Type::String),
+                ),
+            ),
+        );
+        self.functions.insert(
+            "buat_server_websocket".to_string(),
+            (
+                vec![Type::U64, Type::String],
+                Type::ErrorUnion(Box::new(Type::U64), Box::new(Type::String)),
             ),
         );
 
@@ -1127,10 +1152,10 @@ impl TypeChecker {
                         self.unify(&a_ty, &b_ty, *span)?;
                         return Ok(Type::Unit);
                     }
-                    if name == "buat_server_http" {
+                    if name == "buat_server_http" || name == "buat_server_websocket" {
                         if args.len() < 2 || args.len() > 3 {
                             return Err(Diagnostic::error(
-                                "'buat_server_http' membutuhkan 2 atau 3 argumen: (port, nama_penangan, maks_permintaan: opsional)",
+                                format!("'{}' membutuhkan 2 atau 3 argumen: (port, nama_penangan, maks_permintaan: opsional)", name),
                             )
                             .with_span(*span));
                         }
@@ -1304,6 +1329,29 @@ impl TypeChecker {
                                 }
                                 let f_ty = self.check_expr(&args[0].value)?;
                                 self.unify(&f_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(
+                                    Box::new(Type::Struct("ResponsHttp".to_string())),
+                                    Box::new(Type::String),
+                                ))
+                            }
+                            "adalah_websocket" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'adalah_websocket' tidak membutuhkan argumen").with_span(*span));
+                                }
+                                Ok(Type::Bool)
+                            }
+                            "kunci_websocket" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'kunci_websocket' tidak membutuhkan argumen").with_span(*span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "tingkatkan_websocket" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'tingkatkan_websocket' membutuhkan 1 argumen (nama_penangan: Teks)").with_span(*span));
+                                }
+                                let h_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&h_ty, &Type::String, args[0].span)?;
                                 Ok(Type::ErrorUnion(
                                     Box::new(Type::Struct("ResponsHttp".to_string())),
                                     Box::new(Type::String),

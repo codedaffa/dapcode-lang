@@ -329,6 +329,19 @@ pub fn parse_http_request(raw: &[u8]) -> Result<HttpServerRequest, String> {
 }
 
 pub fn format_http_response(resp: &HttpServerResponse) -> Vec<u8> {
+    if resp.status == 101 {
+        let mut header = format!(
+            "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nServer: DapCode-HTTP/1.0\r\n"
+        );
+        for (k, v) in &resp.headers {
+            if !k.starts_with('_') {
+                header.push_str(&format!("{}: {}\r\n", k, v));
+            }
+        }
+        header.push_str("\r\n");
+        return header.into_bytes();
+    }
+
     let status_text = match resp.status {
         200 => "OK",
         201 => "Created",
@@ -356,13 +369,181 @@ pub fn format_http_response(resp: &HttpServerResponse) -> Vec<u8> {
         resp.status, status_text, resp.content_type, body_bytes.len()
     );
     for (k, v) in &resp.headers {
-        header.push_str(&format!("{}: {}\r\n", k, v));
+        if !k.starts_with('_') {
+            header.push_str(&format!("{}: {}\r\n", k, v));
+        }
     }
     header.push_str("Connection: close\r\n\r\n");
 
     let mut out = header.into_bytes();
     out.extend_from_slice(body_bytes);
     out
+}
+
+// ==========================================
+// --- WebSocket Subsystem (RFC 6455) ---
+// ==========================================
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WebSocketFrame {
+    pub fin: bool,
+    pub opcode: u8,
+    pub payload: Vec<u8>,
+}
+
+impl WebSocketFrame {
+    pub fn text(payload: &str) -> Self {
+        WebSocketFrame {
+            fin: true,
+            opcode: 0x1,
+            payload: payload.as_bytes().to_vec(),
+        }
+    }
+
+    pub fn binary(payload: Vec<u8>) -> Self {
+        WebSocketFrame {
+            fin: true,
+            opcode: 0x2,
+            payload,
+        }
+    }
+
+    pub fn close() -> Self {
+        WebSocketFrame {
+            fin: true,
+            opcode: 0x8,
+            payload: Vec::new(),
+        }
+    }
+
+    pub fn ping() -> Self {
+        WebSocketFrame {
+            fin: true,
+            opcode: 0x9,
+            payload: Vec::new(),
+        }
+    }
+
+    pub fn pong(payload: Vec<u8>) -> Self {
+        WebSocketFrame {
+            fin: true,
+            opcode: 0xA,
+            payload,
+        }
+    }
+}
+
+/// Membaca satu frame WebSocket (RFC 6455) dari stream
+pub fn baca_frame_websocket<R: Read>(reader: &mut R) -> Result<Option<WebSocketFrame>, String> {
+    let mut header = [0u8; 2];
+    match reader.read_exact(&mut header) {
+        Ok(_) => {},
+        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof || e.kind() == std::io::ErrorKind::ConnectionReset => return Ok(None),
+        Err(e) => return Err(format!("Gagal membaca header WebSocket: {}", e)),
+    }
+
+    let b0 = header[0];
+    let b1 = header[1];
+
+    let fin = (b0 & 0x80) != 0;
+    let opcode = b0 & 0x0F;
+    let masked = (b1 & 0x80) != 0;
+    let len_byte = b1 & 0x7F;
+
+    let payload_len: usize = if len_byte <= 125 {
+        len_byte as usize
+    } else if len_byte == 126 {
+        let mut ext = [0u8; 2];
+        reader.read_exact(&mut ext).map_err(|e| format!("Gagal membaca extended len 16: {}", e))?;
+        u16::from_be_bytes(ext) as usize
+    } else {
+        let mut ext = [0u8; 8];
+        reader.read_exact(&mut ext).map_err(|e| format!("Gagal membaca extended len 64: {}", e))?;
+        u64::from_be_bytes(ext) as usize
+    };
+
+    let mask_key: Option<[u8; 4]> = if masked {
+        let mut key = [0u8; 4];
+        reader.read_exact(&mut key).map_err(|e| format!("Gagal membaca masking key: {}", e))?;
+        Some(key)
+    } else {
+        None
+    };
+
+    let mut payload = vec![0u8; payload_len];
+    if payload_len > 0 {
+        reader.read_exact(&mut payload).map_err(|e| format!("Gagal membaca payload WebSocket: {}", e))?;
+        if let Some(mask) = mask_key {
+            for (i, b) in payload.iter_mut().enumerate() {
+                *b ^= mask[i % 4];
+            }
+        }
+    }
+
+    Ok(Some(WebSocketFrame {
+        fin,
+        opcode,
+        payload,
+    }))
+}
+
+/// Menulis frame WebSocket ke writer (server-to-client tanpa masking sesuai RFC 6455)
+pub fn tulis_frame_websocket<W: Write>(writer: &mut W, opcode: u8, payload: &[u8]) -> Result<(), String> {
+    let mut header = Vec::with_capacity(10);
+    // FIN = 1
+    let b0: u8 = 0x80 | (opcode & 0x0F);
+    header.push(b0);
+
+    let len = payload.len();
+    if len <= 125 {
+        header.push(len as u8);
+    } else if len <= 65535 {
+        header.push(126);
+        header.extend_from_slice(&(len as u16).to_be_bytes());
+    } else {
+        header.push(127);
+        header.extend_from_slice(&(len as u64).to_be_bytes());
+    }
+
+    writer.write_all(&header).map_err(|e| format!("Gagal menulis header frame WS: {}", e))?;
+    if !payload.is_empty() {
+        writer.write_all(payload).map_err(|e| format!("Gagal menulis payload frame WS: {}", e))?;
+    }
+    writer.flush().map_err(|e| format!("Gagal flush frame WS: {}", e))?;
+    Ok(())
+}
+
+/// Memeriksa apakah permintaan HTTP merupakan handshake WebSocket upgrade
+pub fn adalah_permintaan_websocket(req: &HttpServerRequest) -> bool {
+    let is_upgrade = req.headers.get("upgrade")
+        .map(|v| v.to_lowercase().contains("websocket"))
+        .unwrap_or(false);
+    let has_key = req.headers.contains_key("sec-websocket-key");
+    is_upgrade && has_key
+}
+
+/// Mengambil nilai Sec-WebSocket-Key dari request HTTP
+pub fn ambil_kunci_websocket(req: &HttpServerRequest) -> Option<String> {
+    req.headers.get("sec-websocket-key").cloned()
+}
+
+/// Membuat respons HTTP 101 Switching Protocols untuk upgrade ke WebSocket
+pub fn buat_respons_upgrade_websocket(kunci_client: &str) -> Result<HttpServerResponse, String> {
+    if kunci_client.trim().is_empty() {
+        return Err("Kunci Sec-WebSocket-Key client tidak boleh kosong".to_string());
+    }
+    let accept_key = crate::crypto::hitung_kunci_websocket(kunci_client);
+
+    let mut headers = std::collections::HashMap::new();
+    headers.insert("Sec-WebSocket-Accept".to_string(), accept_key);
+
+    Ok(HttpServerResponse {
+        status: 101,
+        content_type: "".to_string(),
+        body: "".to_string(),
+        raw_body: None,
+        headers,
+    })
 }
 
 // ==========================================
@@ -574,13 +755,15 @@ pub fn sajikan_berkas_statis(folder_dasar: &str, jalur_permintaan: &str) -> Resu
     respons_berkas(&path_str)
 }
 
-pub fn run_http_server<F>(
+pub fn run_http_server<F, W>(
     port: u16,
     max_requests: u64,
     mut handler: F,
+    mut ws_handler: W,
 ) -> Result<u64, String>
 where
     F: FnMut(HttpServerRequest) -> Result<HttpServerResponse, String>,
+    W: FnMut(&str, &str) -> Option<String>,
 {
     use std::net::TcpListener;
 
@@ -637,6 +820,41 @@ where
         let resp_bytes = format_http_response(&resp);
         let _ = stream.write_all(&resp_bytes);
         let _ = stream.flush();
+
+        // Jika respons 101 Switching Protocols, jalankan loop frame WebSocket RFC 6455
+        if resp.status == 101 {
+            let _ = stream.set_read_timeout(None);
+            let _ = stream.set_write_timeout(None);
+
+            if let Some(ws_fn) = resp.headers.get("_ws_handler").cloned() {
+                loop {
+                    match baca_frame_websocket(&mut stream) {
+                        Ok(Some(frame)) => {
+                            match frame.opcode {
+                                0x1 => {
+                                    // Frame Teks
+                                    let incoming_str = String::from_utf8_lossy(&frame.payload).to_string();
+                                    if let Some(reply) = ws_handler(&ws_fn, &incoming_str) {
+                                        let _ = tulis_frame_websocket(&mut stream, 0x1, reply.as_bytes());
+                                    }
+                                }
+                                0x8 => {
+                                    // Frame Tutup (Close)
+                                    let _ = tulis_frame_websocket(&mut stream, 0x8, &[]);
+                                    break;
+                                }
+                                0x9 => {
+                                    // Frame Ping -> Balas Pong (0xA)
+                                    let _ = tulis_frame_websocket(&mut stream, 0xA, &frame.payload);
+                                }
+                                _ => {}
+                            }
+                        }
+                        _ => break,
+                    }
+                }
+            }
+        }
 
         served_count += 1;
         if max_requests > 0 && served_count >= max_requests {
@@ -744,6 +962,39 @@ mod tests {
 
         let traversal = sajikan_berkas_statis(temp_dir.to_str().unwrap(), "/../rahasia.txt");
         assert!(traversal.is_err());
+    }
+
+    #[test]
+    fn test_websocket_framing_and_handshake() {
+        // 1. Uji Handshake
+        let client_key = "dGhlIHNhbXBsZSBub25jZQ==";
+        let resp = buat_respons_upgrade_websocket(client_key).unwrap();
+        assert_eq!(resp.status, 101);
+        assert_eq!(resp.headers.get("Sec-WebSocket-Accept").unwrap(), "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=");
+
+        let raw_bytes = format_http_response(&resp);
+        let resp_str = String::from_utf8_lossy(&raw_bytes);
+        assert!(resp_str.contains("HTTP/1.1 101 Switching Protocols"));
+        assert!(resp_str.contains("Upgrade: websocket"));
+        assert!(resp_str.contains("Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo="));
+
+        // 2. Uji Tulis & Baca Frame Teks
+        let mut buffer = Vec::new();
+        tulis_frame_websocket(&mut buffer, 0x1, b"Halo WebSocket DapCode!").unwrap();
+
+        let mut cursor = std::io::Cursor::new(buffer);
+        let frame = baca_frame_websocket(&mut cursor).unwrap().expect("Frame harus valid");
+        assert!(frame.fin);
+        assert_eq!(frame.opcode, 0x1);
+        assert_eq!(String::from_utf8(frame.payload).unwrap(), "Halo WebSocket DapCode!");
+
+        // 3. Uji Ping & Pong
+        let mut ping_buf = Vec::new();
+        tulis_frame_websocket(&mut ping_buf, 0x9, b"ping-data").unwrap();
+        let mut ping_cur = std::io::Cursor::new(ping_buf);
+        let ping_frame = baca_frame_websocket(&mut ping_cur).unwrap().unwrap();
+        assert_eq!(ping_frame.opcode, 0x9);
+        assert_eq!(ping_frame.payload, b"ping-data");
     }
 }
 

@@ -627,6 +627,118 @@ impl Evaluator {
                 }
             }
             Expr::Call { callee, args, span } => {
+                self.eval_call(callee, args, *span, env)
+            }
+            Expr::MethodCall { receiver, method, args, span } => {
+                self.eval_method_call(receiver, method, args, *span, env)
+            }
+            Expr::FieldAccess { receiver, field, span } => {
+                let rec_val = self.eval_expr(receiver, env)?;
+                if let Value::Struct { fields, .. } = rec_val {
+                    if let Some(fv) = fields.get(field) {
+                        Ok(fv.clone())
+                    } else {
+                        Err(Diagnostic::error(format!("Field '{}' tidak ditemukan", field)).with_span(*span))
+                    }
+                } else {
+                    Err(Diagnostic::error("Akses field pada tipe non-struktur").with_span(*span))
+                }
+            }
+            Expr::ErrorPropagate { inner, span } => {
+                let inner_val = self.eval_expr(inner, env)?;
+                match inner_val {
+                    Value::ErrorUnion(Ok(ok_val)) => Ok(*ok_val),
+                    Value::ErrorUnion(Err(err_val)) => {
+                        // Return early with error
+                        Err(Diagnostic::error(format!("Kesalahan tidak ditangani: {}", err_val))
+                            .with_span(*span))
+                    }
+                    other => Ok(other),
+                }
+            }
+            Expr::Catch { inner, err_var, handler, .. } => {
+                let inner_val = self.eval_expr(inner, env)?;
+                match inner_val {
+                    Value::ErrorUnion(Err(err_val)) => {
+                        env.enter_scope();
+                        env.insert(err_var, *err_val);
+                        let res = self.eval_block(handler, env)?;
+                        env.exit_scope();
+                        match res {
+                            ControlFlow::Next(v) => Ok(v),
+                            ControlFlow::Return(v) => Ok(v),
+                            ControlFlow::Fail(e) => Ok(Value::ErrorUnion(Err(Box::new(e)))),
+                        }
+                    }
+                    Value::ErrorUnion(Ok(ok_val)) => Ok(*ok_val),
+                    other => Ok(other),
+                }
+            }
+            Expr::Parallel { body, .. } => {
+                // Spawn colorless stackless coroutine task using thread
+                let body_clone = body.clone();
+                let mut captured_env = env.clone();
+                let mut sub_eval = Evaluator {
+                    output: Arc::clone(&self.output),
+                    functions: self.functions.clone(),
+                    methods: self.methods.clone(),
+                    cli_args: self.cli_args.clone(),
+                };
+
+                let handle = thread::spawn(move || {
+                    match sub_eval.eval_block(&body_clone, &mut captured_env) {
+                        Ok(ControlFlow::Next(v) | ControlFlow::Return(v)) => v,
+                        Ok(ControlFlow::Fail(e)) => Value::ErrorUnion(Err(Box::new(e))),
+                        Err(_) => Value::Unit,
+                    }
+                });
+
+                Ok(Value::Task(Arc::new(Mutex::new(Some(handle)))))
+            }
+            Expr::Await { task, span } => {
+                let task_val = self.eval_expr(task, env)?;
+                self.await_task(task_val, *span)
+            }
+            Expr::Comptime { body, .. } => {
+                // Comptime evaluated directly
+                match self.eval_block(body, env)? {
+                    ControlFlow::Next(v) | ControlFlow::Return(v) => Ok(v),
+                    ControlFlow::Fail(e) => Ok(Value::ErrorUnion(Err(Box::new(e)))),
+                }
+            }
+            Expr::Block(b) => match self.eval_block(b, env)? {
+                ControlFlow::Next(v) | ControlFlow::Return(v) => Ok(v),
+                ControlFlow::Fail(e) => Ok(Value::ErrorUnion(Err(Box::new(e)))),
+            },
+        }
+    }
+
+    fn await_task(&self, task_val: Value, span: Span) -> Result<Value> {
+        if let Value::Task(lock) = task_val {
+            let mut guard = lock.lock().unwrap();
+            if let Some(handle) = guard.take() {
+                match handle.join() {
+                    Ok(val) => Ok(val),
+                    Err(_) => Err(Diagnostic::error("Tugas paralel panik saat eksekusi").with_span(span)),
+                }
+            } else {
+                Ok(Value::Unit)
+            }
+        } else {
+            Err(Diagnostic::error("Bukan objek tugas").with_span(span))
+        }
+    }
+
+    #[inline(never)]
+    pub fn eval_call(
+        &mut self,
+        callee: &Box<Expr>,
+        args: &[CallArg],
+        span: Span,
+        env: &mut Environment,
+    ) -> Result<Value> {
+        let span = &span;
+
                 // 1. Built-in: cetak
                 if let Expr::Ident(name, _) = &**callee {
                     if name == "cetak" {
@@ -1343,6 +1455,56 @@ impl Evaluator {
                     }
 
                     // Cryptography & Encoding Utilities
+                    if name == "sha1" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'sha1' membutuhkan 1 argumen (teks)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        let s = match val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return Ok(Value::String(crate::crypto::sha1(&s)));
+                    }
+                    if name == "kunci_websocket" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'kunci_websocket' membutuhkan 1 argumen (kunci_klien)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        let s = match val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return Ok(Value::String(crate::crypto::hitung_kunci_websocket(&s)));
+                    }
+                    if name == "respons_upgrade_websocket" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'respons_upgrade_websocket' membutuhkan 1 argumen (kunci_klien)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        let s = match val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return match crate::net::buat_respons_upgrade_websocket(&s) {
+                            Ok(http_resp) => {
+                                let mut fields = HashMap::new();
+                                fields.insert("status".to_string(), Value::Int(101));
+                                fields.insert("tipe_konten".to_string(), Value::String(String::new()));
+                                fields.insert("konten".to_string(), Value::String(String::new()));
+                                let mut h_buf = String::new();
+                                for (k, v) in &http_resp.headers {
+                                    h_buf.push_str(&format!("{}: {}\r\n", k, v));
+                                }
+                                fields.insert("header".to_string(), Value::String(h_buf));
+                                Ok(Value::ErrorUnion(Ok(Box::new(Value::Struct {
+                                    name: "ResponsHttp".to_string(),
+                                    fields,
+                                }))))
+                            }
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
                     if name == "sha256" {
                         if args.len() != 1 {
                             return Err(Diagnostic::error("'sha256' membutuhkan 1 argumen (teks)").with_span(*span));
@@ -1504,147 +1666,36 @@ impl Evaluator {
                             0
                         };
 
-                        let target_fn = match self.functions.get(&handler_name).cloned() {
-                            Some(f) => f,
-                            None => {
-                                return Err(Diagnostic::error(format!(
-                                    "Fungsi penangan HTTP '{}' tidak ditemukan pada kode sumber",
-                                    handler_name
-                                )).with_span(*span));
+                        return self.eval_builtin_buat_server_http(port, max_requests, &handler_name, *span);
+                    }
+
+                    if name == "buat_server_websocket" {
+                        if args.len() < 2 || args.len() > 3 {
+                            return Err(Diagnostic::error("'buat_server_websocket' membutuhkan 2 atau 3 argumen: (port, nama_penangan, maks_permintaan: opsional)").with_span(*span));
+                        }
+                        let port_val = self.eval_expr(&args[0].value, env)?;
+                        let port = match port_val {
+                            Value::Int(n) => n as u16,
+                            Value::Float(f) => f as u16,
+                            _ => return Err(Diagnostic::error("Port harus bernilai bilangan (u64)").with_span(*span)),
+                        };
+                        let handler_val = self.eval_expr(&args[1].value, env)?;
+                        let handler_name = match handler_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        let max_requests = if args.len() == 3 {
+                            let m_val = self.eval_expr(&args[2].value, env)?;
+                            match m_val {
+                                Value::Int(n) => n,
+                                Value::Float(f) => f as u64,
+                                _ => 0,
                             }
+                        } else {
+                            0
                         };
 
-                        let output_arc = self.output.clone();
-                        let functions_clone = self.functions.clone();
-                        let methods_clone = self.methods.clone();
-                        let cli_args_clone = self.cli_args.clone();
-
-                        let server_res = crate::net::run_http_server(port, max_requests, move |req| {
-                            let mut eval = Evaluator {
-                                output: output_arc.clone(),
-                                functions: functions_clone.clone(),
-                                methods: methods_clone.clone(),
-                                cli_args: cli_args_clone.clone(),
-                            };
-                            let mut inner_env = Environment::new();
-
-                            let fn_args = if target_fn.params.len() == 1 {
-                                let mut req_fields = HashMap::new();
-                                req_fields.insert("metode".to_string(), Value::String(req.method.clone()));
-                                req_fields.insert("jalur".to_string(), Value::String(req.path.clone()));
-                                req_fields.insert("kueri".to_string(), Value::String(req.query.clone()));
-                                req_fields.insert("isi".to_string(), Value::String(req.body.clone()));
-                                vec![Value::Struct {
-                                    name: "PermintaanHttp".to_string(),
-                                    fields: req_fields,
-                                }]
-                            } else if target_fn.params.len() == 2 {
-                                vec![Value::String(req.method.clone()), Value::String(req.path.clone())]
-                            } else if target_fn.params.len() == 3 {
-                                vec![
-                                    Value::String(req.method.clone()),
-                                    Value::String(req.path.clone()),
-                                    Value::String(req.body.clone()),
-                                ]
-                            } else {
-                                vec![
-                                    Value::String(req.method.clone()),
-                                    Value::String(req.path.clone()),
-                                    Value::String(req.query.clone()),
-                                    Value::String(req.body.clone()),
-                                ]
-                            };
-
-                            let result_val = match eval.eval_fn(&target_fn, fn_args, &mut inner_env) {
-                                Ok(ControlFlow::Next(v) | ControlFlow::Return(v)) => v,
-                                Ok(ControlFlow::Fail(e)) => Value::ErrorUnion(Err(Box::new(e))),
-                                Err(d) => Value::ErrorUnion(Err(Box::new(Value::String(d.to_string())))),
-                            };
-
-                            match result_val {
-                                Value::Struct { name, fields } if name == "ResponsHttp" => {
-                                    let status = fields.get("status").and_then(|v| match v {
-                                        Value::Int(n) => Some(*n),
-                                        Value::Float(f) => Some(*f as u64),
-                                        _ => None,
-                                    }).unwrap_or(200);
-                                    let content_type = fields.get("tipe_konten").map(|v| v.to_string()).unwrap_or_else(|| "text/plain; charset=utf-8".to_string());
-                                    let body = fields.get("konten").map(|v| v.to_string()).unwrap_or_default();
-                                    let mut headers = HashMap::new();
-                                    if let Some(h_val) = fields.get("header") {
-                                        let h_str = h_val.to_string();
-                                        for line in h_str.lines() {
-                                            let line = line.trim();
-                                            if let Some((k, v)) = line.split_once(':') {
-                                                headers.insert(k.trim().to_string(), v.trim().to_string());
-                                            }
-                                        }
-                                    }
-                                    let raw_body = if let Some(h_p) = fields.get("_jalur_berkas") {
-                                        std::fs::read(h_p.to_string()).ok()
-                                    } else {
-                                        None
-                                    };
-                                    Ok(crate::net::HttpServerResponse {
-                                        status,
-                                        content_type,
-                                        body,
-                                        raw_body,
-                                        headers,
-                                    })
-                                }
-                                Value::String(s) => {
-                                    let trimmed = s.trim();
-                                    let is_json = (trimmed.starts_with('{') && trimmed.ends_with('}'))
-                                        || (trimmed.starts_with('[') && trimmed.ends_with(']'));
-                                    let content_type = if is_json {
-                                        "application/json; charset=utf-8".to_string()
-                                    } else {
-                                        "text/plain; charset=utf-8".to_string()
-                                    };
-                                    Ok(crate::net::HttpServerResponse {
-                                        status: 200,
-                                        content_type,
-                                        body: s,
-                                        raw_body: None,
-                                        headers: HashMap::new(),
-                                    })
-                                }
-                                Value::ErrorUnion(Err(e)) => {
-                                    Ok(crate::net::HttpServerResponse {
-                                        status: 500,
-                                        content_type: "text/plain; charset=utf-8".to_string(),
-                                        body: format!("500 Internal Server Error: {}", e),
-                                        raw_body: None,
-                                        headers: HashMap::new(),
-                                    })
-                                }
-                                Value::ErrorUnion(Ok(ok_v)) => {
-                                    let s = ok_v.to_string();
-                                    Ok(crate::net::HttpServerResponse {
-                                        status: 200,
-                                        content_type: "text/plain; charset=utf-8".to_string(),
-                                        body: s,
-                                        raw_body: None,
-                                        headers: HashMap::new(),
-                                    })
-                                }
-                                other => {
-                                    Ok(crate::net::HttpServerResponse {
-                                        status: 200,
-                                        content_type: "application/json; charset=utf-8".to_string(),
-                                        body: value_to_json(&other),
-                                        raw_body: None,
-                                        headers: HashMap::new(),
-                                    })
-                                }
-                            }
-                        });
-
-                        return match server_res {
-                            Ok(count) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Int(count))))),
-                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
-                        };
+                        return self.eval_builtin_buat_server_websocket(port, max_requests, &handler_name);
                     }
                 }
 
@@ -1702,8 +1753,19 @@ impl Evaluator {
                 } else {
                     Err(Diagnostic::error("Bukan fungsi").with_span(*span))
                 }
-            }
-            Expr::MethodCall { receiver, method, args, span } => {
+    }
+
+    #[inline(never)]
+    pub fn eval_method_call(
+        &mut self,
+        receiver: &Expr,
+        method: &String,
+        args: &[CallArg],
+        span: Span,
+        env: &mut Environment,
+    ) -> Result<Value> {
+        let span = &span;
+
                 let rec_val = self.eval_expr(receiver, env)?;
 
                 // Check methods on Daftar
@@ -1846,6 +1908,60 @@ impl Evaluator {
                                     Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
                                 };
                             }
+                            "adalah_websocket" => {
+                                let raw = fields.get("_raw_headers").map(|v| v.to_string()).unwrap_or_default();
+                                let lower = raw.to_lowercase();
+                                let is_ws = lower.contains("upgrade: websocket") && lower.contains("sec-websocket-key:");
+                                return Ok(Value::Bool(is_ws));
+                            }
+                            "kunci_websocket" => {
+                                let raw = fields.get("_raw_headers").map(|v| v.to_string()).unwrap_or_default();
+                                for line in raw.lines() {
+                                    if let Some((k, v)) = line.split_once(':') {
+                                        if k.trim().eq_ignore_ascii_case("sec-websocket-key") {
+                                            return Ok(Value::ErrorUnion(Ok(Box::new(Value::String(v.trim().to_string())))));
+                                        }
+                                    }
+                                }
+                                return Ok(Value::ErrorUnion(Err(Box::new(Value::String("Header Sec-WebSocket-Key tidak ditemukan".to_string())))));
+                            }
+                            "tingkatkan_websocket" => {
+                                let ws_fn = self.eval_expr(&args[0].value, env)?.to_string();
+                                let raw = fields.get("_raw_headers").map(|v| v.to_string()).unwrap_or_default();
+                                let mut client_key = None;
+                                for line in raw.lines() {
+                                    if let Some((k, v)) = line.split_once(':') {
+                                        if k.trim().eq_ignore_ascii_case("sec-websocket-key") {
+                                            client_key = Some(v.trim().to_string());
+                                            break;
+                                        }
+                                    }
+                                }
+                                let key = match client_key {
+                                    Some(k) => k,
+                                    None => return Ok(Value::ErrorUnion(Err(Box::new(Value::String("Header Sec-WebSocket-Key tidak ditemukan".to_string()))))),
+                                };
+
+                                return match crate::net::buat_respons_upgrade_websocket(&key) {
+                                    Ok(http_resp) => {
+                                        let mut r_fields = HashMap::new();
+                                        r_fields.insert("status".to_string(), Value::Int(101));
+                                        r_fields.insert("tipe_konten".to_string(), Value::String(String::new()));
+                                        r_fields.insert("konten".to_string(), Value::String(String::new()));
+                                        let mut h_buf = String::new();
+                                        for (k, v) in &http_resp.headers {
+                                            h_buf.push_str(&format!("{}: {}\r\n", k, v));
+                                        }
+                                        r_fields.insert("header".to_string(), Value::String(h_buf));
+                                        r_fields.insert("_ws_handler".to_string(), Value::String(ws_fn));
+                                        Ok(Value::ErrorUnion(Ok(Box::new(Value::Struct {
+                                            name: "ResponsHttp".to_string(),
+                                            fields: r_fields,
+                                        }))))
+                                    }
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
+                            }
                             other => return Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada PermintaanHttp", other)).with_span(*span)),
                         }
                     }
@@ -1902,101 +2018,265 @@ impl Evaluator {
                     ))
                     .with_span(*span))
                 }
+    }
+
+    #[inline(never)]
+    fn eval_builtin_buat_server_http(
+        &self,
+        port: u16,
+        max_requests: u64,
+        handler_name: &str,
+        span: Span,
+    ) -> Result<Value> {
+        let target_fn = match self.functions.get(handler_name).cloned() {
+            Some(f) => f,
+            None => {
+                return Err(Diagnostic::error(format!(
+                    "Fungsi penangan HTTP '{}' tidak ditemukan pada kode sumber",
+                    handler_name
+                ))
+                .with_span(span));
             }
-            Expr::FieldAccess { receiver, field, span } => {
-                let rec_val = self.eval_expr(receiver, env)?;
-                if let Value::Struct { fields, .. } = rec_val {
-                    if let Some(fv) = fields.get(field) {
-                        Ok(fv.clone())
-                    } else {
-                        Err(Diagnostic::error(format!("Field '{}' tidak ditemukan", field)).with_span(*span))
+        };
+
+        let output_arc = self.output.clone();
+        let functions_clone = self.functions.clone();
+        let methods_clone = self.methods.clone();
+        let cli_args_clone = self.cli_args.clone();
+
+        let functions_ws = self.functions.clone();
+        let output_ws = self.output.clone();
+        let methods_ws = self.methods.clone();
+        let cli_args_ws = self.cli_args.clone();
+
+        let ws_callback = move |fn_name: &str, incoming_text: &str| -> Option<String> {
+            if let Some(ws_target_fn) = functions_ws.get(fn_name) {
+                let mut eval = Evaluator {
+                    output: output_ws.clone(),
+                    functions: functions_ws.clone(),
+                    methods: methods_ws.clone(),
+                    cli_args: cli_args_ws.clone(),
+                };
+                let mut inner_env = Environment::new();
+                let fn_args = vec![Value::String(incoming_text.to_string())];
+                match eval.eval_fn(ws_target_fn, fn_args, &mut inner_env) {
+                    Ok(ControlFlow::Next(v) | ControlFlow::Return(v)) => match v {
+                        Value::String(s) => Some(s),
+                        Value::Unit => None,
+                        other => Some(other.to_string()),
+                    },
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        };
+
+        let server_res = crate::net::run_http_server(
+            port,
+            max_requests,
+            move |req| {
+                let mut eval = Evaluator {
+                    output: output_arc.clone(),
+                    functions: functions_clone.clone(),
+                    methods: methods_clone.clone(),
+                    cli_args: cli_args_clone.clone(),
+                };
+                let mut inner_env = Environment::new();
+
+                let fn_args = if target_fn.params.len() == 1 {
+                    let mut req_fields = HashMap::new();
+                    req_fields.insert("metode".to_string(), Value::String(req.method.clone()));
+                    req_fields.insert("jalur".to_string(), Value::String(req.path.clone()));
+                    req_fields.insert("kueri".to_string(), Value::String(req.query.clone()));
+                    req_fields.insert("isi".to_string(), Value::String(req.body.clone()));
+                    let mut h_buf = String::new();
+                    for (k, v) in &req.headers {
+                        h_buf.push_str(&format!("{}: {}\r\n", k, v));
                     }
+                    req_fields.insert("header".to_string(), Value::String(h_buf.clone()));
+                    req_fields.insert("_raw_headers".to_string(), Value::String(h_buf));
+                    vec![Value::Struct {
+                        name: "PermintaanHttp".to_string(),
+                        fields: req_fields,
+                    }]
+                } else if target_fn.params.len() == 2 {
+                    vec![Value::String(req.method.clone()), Value::String(req.path.clone())]
+                } else if target_fn.params.len() == 3 {
+                    vec![
+                        Value::String(req.method.clone()),
+                        Value::String(req.path.clone()),
+                        Value::String(req.body.clone()),
+                    ]
                 } else {
-                    Err(Diagnostic::error("Akses field pada tipe non-struktur").with_span(*span))
-                }
-            }
-            Expr::ErrorPropagate { inner, span } => {
-                let inner_val = self.eval_expr(inner, env)?;
-                match inner_val {
-                    Value::ErrorUnion(Ok(ok_val)) => Ok(*ok_val),
-                    Value::ErrorUnion(Err(err_val)) => {
-                        // Return early with error
-                        Err(Diagnostic::error(format!("Kesalahan tidak ditangani: {}", err_val))
-                            .with_span(*span))
-                    }
-                    other => Ok(other),
-                }
-            }
-            Expr::Catch { inner, err_var, handler, .. } => {
-                let inner_val = self.eval_expr(inner, env)?;
-                match inner_val {
-                    Value::ErrorUnion(Err(err_val)) => {
-                        env.enter_scope();
-                        env.insert(err_var, *err_val);
-                        let res = self.eval_block(handler, env)?;
-                        env.exit_scope();
-                        match res {
-                            ControlFlow::Next(v) => Ok(v),
-                            ControlFlow::Return(v) => Ok(v),
-                            ControlFlow::Fail(e) => Ok(Value::ErrorUnion(Err(Box::new(e)))),
-                        }
-                    }
-                    Value::ErrorUnion(Ok(ok_val)) => Ok(*ok_val),
-                    other => Ok(other),
-                }
-            }
-            Expr::Parallel { body, .. } => {
-                // Spawn colorless stackless coroutine task using thread
-                let body_clone = body.clone();
-                let mut captured_env = env.clone();
-                let mut sub_eval = Evaluator {
-                    output: Arc::clone(&self.output),
-                    functions: self.functions.clone(),
-                    methods: self.methods.clone(),
-                    cli_args: self.cli_args.clone(),
+                    vec![
+                        Value::String(req.method.clone()),
+                        Value::String(req.path.clone()),
+                        Value::String(req.query.clone()),
+                        Value::String(req.body.clone()),
+                    ]
                 };
 
-                let handle = thread::spawn(move || {
-                    match sub_eval.eval_block(&body_clone, &mut captured_env) {
-                        Ok(ControlFlow::Next(v) | ControlFlow::Return(v)) => v,
-                        Ok(ControlFlow::Fail(e)) => Value::ErrorUnion(Err(Box::new(e))),
-                        Err(_) => Value::Unit,
-                    }
-                });
+                let result_val = match eval.eval_fn(&target_fn, fn_args, &mut inner_env) {
+                    Ok(ControlFlow::Next(v) | ControlFlow::Return(v)) => v,
+                    Ok(ControlFlow::Fail(e)) => Value::ErrorUnion(Err(Box::new(e))),
+                    Err(d) => Value::ErrorUnion(Err(Box::new(Value::String(d.to_string())))),
+                };
 
-                Ok(Value::Task(Arc::new(Mutex::new(Some(handle)))))
-            }
-            Expr::Await { task, span } => {
-                let task_val = self.eval_expr(task, env)?;
-                self.await_task(task_val, *span)
-            }
-            Expr::Comptime { body, .. } => {
-                // Comptime evaluated directly
-                match self.eval_block(body, env)? {
-                    ControlFlow::Next(v) | ControlFlow::Return(v) => Ok(v),
-                    ControlFlow::Fail(e) => Ok(Value::ErrorUnion(Err(Box::new(e)))),
+                match result_val {
+                    Value::Struct { name, fields } if name == "ResponsHttp" => {
+                        let status = fields
+                            .get("status")
+                            .and_then(|v| match v {
+                                Value::Int(n) => Some(*n),
+                                Value::Float(f) => Some(*f as u64),
+                                _ => None,
+                            })
+                            .unwrap_or(200);
+                        let content_type = fields
+                            .get("tipe_konten")
+                            .map(|v| v.to_string())
+                            .unwrap_or_else(|| "text/plain; charset=utf-8".to_string());
+                        let body = fields.get("konten").map(|v| v.to_string()).unwrap_or_default();
+                        let mut headers = HashMap::new();
+                        if let Some(h_val) = fields.get("header") {
+                            let h_str = h_val.to_string();
+                            for line in h_str.lines() {
+                                let line = line.trim();
+                                if let Some((k, v)) = line.split_once(':') {
+                                    headers.insert(k.trim().to_string(), v.trim().to_string());
+                                }
+                            }
+                        }
+                        if let Some(ws_h) = fields.get("_ws_handler") {
+                            headers.insert("_ws_handler".to_string(), ws_h.to_string());
+                        }
+                        let raw_body = if let Some(h_p) = fields.get("_jalur_berkas") {
+                            std::fs::read(h_p.to_string()).ok()
+                        } else {
+                            None
+                        };
+                        Ok(crate::net::HttpServerResponse {
+                            status,
+                            content_type,
+                            body,
+                            raw_body,
+                            headers,
+                        })
+                    }
+                    Value::String(s) => {
+                        let trimmed = s.trim();
+                        let is_json = (trimmed.starts_with('{') && trimmed.ends_with('}'))
+                            || (trimmed.starts_with('[') && trimmed.ends_with(']'));
+                        let content_type = if is_json {
+                            "application/json; charset=utf-8".to_string()
+                        } else {
+                            "text/plain; charset=utf-8".to_string()
+                        };
+                        Ok(crate::net::HttpServerResponse {
+                            status: 200,
+                            content_type,
+                            body: s,
+                            raw_body: None,
+                            headers: HashMap::new(),
+                        })
+                    }
+                    Value::ErrorUnion(Err(e)) => Ok(crate::net::HttpServerResponse {
+                        status: 500,
+                        content_type: "text/plain; charset=utf-8".to_string(),
+                        body: format!("500 Internal Server Error: {}", e),
+                        raw_body: None,
+                        headers: HashMap::new(),
+                    }),
+                    Value::ErrorUnion(Ok(ok_v)) => {
+                        let s = ok_v.to_string();
+                        Ok(crate::net::HttpServerResponse {
+                            status: 200,
+                            content_type: "text/plain; charset=utf-8".to_string(),
+                            body: s,
+                            raw_body: None,
+                            headers: HashMap::new(),
+                        })
+                    }
+                    other => Ok(crate::net::HttpServerResponse {
+                        status: 200,
+                        content_type: "application/json; charset=utf-8".to_string(),
+                        body: value_to_json(&other),
+                        raw_body: None,
+                        headers: HashMap::new(),
+                    }),
                 }
-            }
-            Expr::Block(b) => match self.eval_block(b, env)? {
-                ControlFlow::Next(v) | ControlFlow::Return(v) => Ok(v),
-                ControlFlow::Fail(e) => Ok(Value::ErrorUnion(Err(Box::new(e)))),
             },
+            ws_callback,
+        );
+
+        match server_res {
+            Ok(count) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Int(count))))),
+            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
         }
     }
 
-    fn await_task(&self, task_val: Value, span: Span) -> Result<Value> {
-        if let Value::Task(lock) = task_val {
-            let mut guard = lock.lock().unwrap();
-            if let Some(handle) = guard.take() {
-                match handle.join() {
-                    Ok(val) => Ok(val),
-                    Err(_) => Err(Diagnostic::error("Tugas paralel panik saat eksekusi").with_span(span)),
+    #[inline(never)]
+    fn eval_builtin_buat_server_websocket(
+        &self,
+        port: u16,
+        max_requests: u64,
+        handler_name: &str,
+    ) -> Result<Value> {
+        let h_name_clone = handler_name.to_string();
+        let functions_ws = self.functions.clone();
+        let output_ws = self.output.clone();
+        let methods_ws = self.methods.clone();
+        let cli_args_ws = self.cli_args.clone();
+
+        let ws_callback = move |fn_name: &str, incoming_text: &str| -> Option<String> {
+            if let Some(ws_target_fn) = functions_ws.get(fn_name) {
+                let mut eval = Evaluator {
+                    output: output_ws.clone(),
+                    functions: functions_ws.clone(),
+                    methods: methods_ws.clone(),
+                    cli_args: cli_args_ws.clone(),
+                };
+                let mut inner_env = Environment::new();
+                let fn_args = vec![Value::String(incoming_text.to_string())];
+                match eval.eval_fn(ws_target_fn, fn_args, &mut inner_env) {
+                    Ok(ControlFlow::Next(v) | ControlFlow::Return(v)) => match v {
+                        Value::String(s) => Some(s),
+                        Value::Unit => None,
+                        other => Some(other.to_string()),
+                    },
+                    _ => None,
                 }
             } else {
-                Ok(Value::Unit)
+                None
             }
-        } else {
-            Err(Diagnostic::error("Bukan objek tugas").with_span(span))
+        };
+
+        let server_res = crate::net::run_http_server(
+            port,
+            max_requests,
+            move |req| {
+                if crate::net::adalah_permintaan_websocket(&req) {
+                    if let Some(key) = crate::net::ambil_kunci_websocket(&req) {
+                        let mut resp = crate::net::buat_respons_upgrade_websocket(&key)?;
+                        resp.headers.insert("_ws_handler".to_string(), h_name_clone.clone());
+                        return Ok(resp);
+                    }
+                }
+                Ok(crate::net::HttpServerResponse {
+                    status: 400,
+                    content_type: "text/plain; charset=utf-8".to_string(),
+                    body: "Hanya menerima koneksi WebSocket".to_string(),
+                    raw_body: None,
+                    headers: HashMap::new(),
+                })
+            },
+            ws_callback,
+        );
+
+        match server_res {
+            Ok(count) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Int(count))))),
+            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
         }
     }
 }

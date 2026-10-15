@@ -1,11 +1,23 @@
 // ===================================================================
-// Contoh Penggunaan: Server Web Aset Statis & REST API DapCode
+// Contoh Penggunaan: Server Web Aset Statis, REST API & WebSocket Real-Time DapCode
 // ===================================================================
 
+fungsi tangani_pesan_ws(pesan: Teks) -> Teks {
+    cetak("💬 WebSocket menerima pesan: {pesan}")
+    kembali "DapCode Real-Time Echo: {pesan}"
+}
+
 fungsi tangani_permintaan(req: PermintaanHttp) -> ResponsHttp {
-    // 1. Endpoint REST API Dinamis
+    // 1. Endpoint Real-Time WebSocket (/ws)
+    jika req.jalur == "/ws" && req.adalah_websocket() {
+        kembali req.tingkatkan_websocket("tangani_pesan_ws") ? tangkap err {
+            kirim_respons_http(400, "text/plain", "Gagal upgrade ke WebSocket: {err}")
+        }
+    }
+
+    // 2. Endpoint REST API Dinamis
     jika req.jalur == "/api/status" {
-        respons := respons_json("\{\"status\": \"online\", \"versi\": \"0.1.0\", \"engine\": \"DapCode C11\"\}")
+        respons := respons_json("{\"status\": \"online\", \"versi\": \"0.1.0\", \"engine\": \"DapCode C11\", \"websocket\": \"aktif\"}")
         kembali respons.cors()
     }
 
@@ -13,14 +25,14 @@ fungsi tangani_permintaan(req: PermintaanHttp) -> ResponsHttp {
         id := req.param("/api/pengguna/:id", "id") ? tangkap err {
             kembali respons_teks("Parameter tidak valid").cors()
         }
-        respons := respons_json("\{\"pengguna_id\": \"{id}\", \"peran\": \"pengembang\"\}")
+        respons := respons_json("{\"pengguna_id\": \"{id}\", \"peran\": \"pengembang\"}")
         kembali respons.cors()
     }
 
-    // 2. Sajikan Aset Statis (HTML, CSS, JS, Gambar) dari folder 'examples/publik'
+    // 3. Sajikan Aset Statis (HTML, CSS, JS, Gambar) dari folder 'examples/publik'
     // Otomatis mendeteksi tipe MIME dan mengarahkan '/' ke 'index.html'
     aset := req.sajikan_statis("examples/publik") ? tangkap err {
-        // 3. Fallback jika berkas statis atau rute tidak ditemukan
+        // Fallback jika berkas statis atau rute tidak ditemukan
         kirim_respons_http(404, "text/html; charset=utf-8", "<h1>404 Halaman Tidak Ditemukan</h1><p>DapCode Web Server</p>")
     }
 
@@ -33,6 +45,7 @@ fungsi utama() {
     cetak("📂 Folder Statis: examples/publik/")
     cetak("🌐 Akses di browser: http://localhost:{port}/")
     cetak("⚡ API Status: http://localhost:{port}/api/status")
+    cetak("🔌 WebSocket Endpoint: ws://localhost:{port}/ws")
 
     // Jalankan server HTTP bawaan (dapat dihentikan dengan Ctrl+C)
     hasil := buat_server_http(port, "tangani_permintaan") ? tangkap err {

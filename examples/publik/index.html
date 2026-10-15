@@ -51,6 +51,55 @@
             </div>
         </section>
 
+        <section class="api-demo ws-section">
+            <div class="ws-header-row">
+                <div>
+                    <h2>🔌 WebSocket Real-Time (RFC 6455)</h2>
+                    <p class="section-desc">Komunikasi dua arah asinkron berkecepatan tinggi dengan framing C11 native &amp; auto ping/pong.</p>
+                </div>
+                <div class="ws-status-badge" id="ws-badge">
+                    <span class="status-pulse" id="ws-pulse"></span>
+                    <span id="ws-status-text">Menghubungkan...</span>
+                </div>
+            </div>
+            
+            <div class="ws-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Endpoint</span>
+                    <span class="stat-val font-mono" id="ws-endpoint">ws://...</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Round-Trip Latency</span>
+                    <span class="stat-val font-mono" id="ws-latency">-- ms</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Paket Diterima</span>
+                    <span class="stat-val font-mono" id="ws-pkt-count">0</span>
+                </div>
+            </div>
+
+            <div class="terminal">
+                <div class="terminal-header">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                    <span class="terminal-title">websocket_stream.log</span>
+                </div>
+                <div class="terminal-body ws-terminal-body" id="ws-box">
+                    Menunggu jabat tangan (handshake) RFC 6455...
+                </div>
+            </div>
+
+            <div class="ws-controls">
+                <input type="text" id="ws-input" class="text-input" placeholder="Ketik pesan real-time ke server..." value="Halo DapCode WebSocket Server! 🚀">
+                <div class="actions">
+                    <button id="btn-ws-send" class="btn primary">Kirim Frame Teks</button>
+                    <button id="btn-ws-ping" class="btn secondary">Uji Ping / Latency</button>
+                    <button id="btn-ws-reconnect" class="btn outline">Hubungkan Ulang</button>
+                </div>
+            </div>
+        </section>
+
         <footer>
             <p>&copy; 2026 DapCode Language. Dibuat dengan kecintaan untuk ekosistem rekayasa perangkat lunak Indonesia.</p>
         </footer>

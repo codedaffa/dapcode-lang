@@ -205,8 +205,7 @@ pub fn md5(input: &str) -> String {
 
 const B64_CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-pub fn ke_base64(input: &str) -> String {
-    let bytes = input.as_bytes();
+pub fn ke_base64_bytes(bytes: &[u8]) -> String {
     let mut out = String::with_capacity((bytes.len() + 2) / 3 * 4);
 
     for chunk in bytes.chunks(3) {
@@ -237,6 +236,10 @@ pub fn ke_base64(input: &str) -> String {
     }
 
     out
+}
+
+pub fn ke_base64(input: &str) -> String {
+    ke_base64_bytes(input.as_bytes())
 }
 
 pub fn dari_base64(input: &str) -> Result<String, String> {
@@ -280,9 +283,119 @@ pub fn dari_base64(input: &str) -> Result<String, String> {
     String::from_utf8(out_bytes).map_err(|e| format!("Hasil decode bukan UTF-8 valid: {}", e))
 }
 
+// =========================================================================
+// 4. SHA-1 (FIPS 180-1 / RFC 3174) & WebSocket Key Generation (RFC 6455)
+// =========================================================================
+
+pub fn sha1_bytes(bytes: &[u8]) -> [u8; 20] {
+    let bit_len = (bytes.len() as u64) * 8;
+
+    let mut padded = bytes.to_vec();
+    padded.push(0x80);
+    while (padded.len() % 64) != 56 {
+        padded.push(0x00);
+    }
+    padded.extend_from_slice(&bit_len.to_be_bytes());
+
+    let mut h0: u32 = 0x67452301;
+    let mut h1: u32 = 0xefcdab89;
+    let mut h2: u32 = 0x98badcfe;
+    let mut h3: u32 = 0x10325476;
+    let mut h4: u32 = 0xc3d2e1f0;
+
+    for chunk in padded.chunks(64) {
+        let mut w = [0u32; 80];
+        for i in 0..16 {
+            w[i] = u32::from_be_bytes([
+                chunk[i * 4],
+                chunk[i * 4 + 1],
+                chunk[i * 4 + 2],
+                chunk[i * 4 + 3],
+            ]);
+        }
+        for i in 16..80 {
+            w[i] = (w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]).rotate_left(1);
+        }
+
+        let mut a = h0;
+        let mut b = h1;
+        let mut c = h2;
+        let mut d = h3;
+        let mut e = h4;
+
+        for i in 0..80 {
+            let (f, k) = if i < 20 {
+                ((b & c) | ((!b) & d), 0x5a827999)
+            } else if i < 40 {
+                (b ^ c ^ d, 0x6ed9eba1)
+            } else if i < 60 {
+                ((b & c) | (b & d) | (c & d), 0x8f1bbcdc)
+            } else {
+                (b ^ c ^ d, 0xca62c1d6)
+            };
+
+            let temp = a.rotate_left(5)
+                .wrapping_add(f)
+                .wrapping_add(e)
+                .wrapping_add(k)
+                .wrapping_add(w[i]);
+            e = d;
+            d = c;
+            c = b.rotate_left(30);
+            b = a;
+            a = temp;
+        }
+
+        h0 = h0.wrapping_add(a);
+        h1 = h1.wrapping_add(b);
+        h2 = h2.wrapping_add(c);
+        h3 = h3.wrapping_add(d);
+        h4 = h4.wrapping_add(e);
+    }
+
+    let mut out = [0u8; 20];
+    out[0..4].copy_from_slice(&h0.to_be_bytes());
+    out[4..8].copy_from_slice(&h1.to_be_bytes());
+    out[8..12].copy_from_slice(&h2.to_be_bytes());
+    out[12..16].copy_from_slice(&h3.to_be_bytes());
+    out[16..20].copy_from_slice(&h4.to_be_bytes());
+    out
+}
+
+pub fn sha1(input: &str) -> String {
+    let digest = sha1_bytes(input.as_bytes());
+    let mut s = String::with_capacity(40);
+    for b in digest {
+        use std::fmt::Write;
+        let _ = write!(s, "{:02x}", b);
+    }
+    s
+}
+
+pub const WS_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
+/// Menghitung Sec-WebSocket-Accept dari Sec-WebSocket-Key client sesuai RFC 6455
+pub fn hitung_kunci_websocket(client_key: &str) -> String {
+    let combined = format!("{}{}", client_key.trim(), WS_GUID);
+    let digest = sha1_bytes(combined.as_bytes());
+    ke_base64_bytes(&digest)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_sha1_and_websocket_key() {
+        // RFC 3174 test vectors
+        assert_eq!(sha1(""), "da39a3ee5e6b4b0d3255bfef95601890afd80709");
+        assert_eq!(sha1("abc"), "a9993e364706816aba3e25717850c26c9cd0d89d");
+
+        // RFC 6455 Section 4.2.2 standard test vector
+        let client_key = "dGhlIHNhbXBsZSBub25jZQ==";
+        let accept_key = hitung_kunci_websocket(client_key);
+        assert_eq!(accept_key, "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=");
+    }
 
     #[test]
     fn test_sha256_known_vectors() {
