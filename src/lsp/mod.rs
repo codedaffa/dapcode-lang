@@ -531,6 +531,7 @@ impl LspServer {
             "kanvas_mouse_y" => Some("### `fungsi kanvas_mouse_y() -> f64`\\n\\n**Pustaka Grafis DapCode - Interaktivitas Input Kanvas**\\n\\nMendapatkan posisi koordinat vertikal (Y) kursor mouse pada kanvas.".to_string()),
             "kanvas_mouse_klik" => Some("### `fungsi kanvas_mouse_klik() -> u64`\\n\\n**Pustaka Grafis DapCode - Interaktivitas Input Kanvas**\\n\\nMengembalikan `1` jika tombol mouse utama sedang ditekan, atau `0` jika dilepas.".to_string()),
             "kanvas_tombol_ditekan" => Some("### `fungsi kanvas_tombol_ditekan(kode: u64) -> u64`\\n\\n**Pustaka Grafis DapCode - Interaktivitas Input Kanvas**\\n\\nMengembalikan `1` jika tombol keyboard dengan kode tertentu sedang ditekan (misal: 37=Kiri, 38=Atas, 39=Kanan, 40=Bawah, 32=Spasi, 87=W, 65=A, 83=S, 68=D).".to_string()),
+            "kanvas_delta_waktu" => Some("### `fungsi kanvas_delta_waktu() -> f64`\\n\\n**Pustaka Grafis DapCode - Simulasi Waktu & Fisika**\\n\\nMengembalikan durasi waktu selang (delta time) antar frame dalam satuan detik (misal: 0.0166 untuk 60 FPS). Digunakan untuk animasi dan simulasi fisika yang konsisten terlepas dari kecepatan frame perangkat.".to_string()),
             "kompilasi_ke_wasm" => Some("### `fungsi kompilasi_ke_wasm(kode: Teks) -> Teks ! Teks`\\n\\n**Layanan Kompilasi DapCode - WebAssembly Engine**\\n\\nMengompilasi kode sumber teks DapCode menjadi biner WebAssembly (.wasm) secara dinamis dalam memori dan mengembalikannya sebagai string terenkode Base64. Mengembalikan `! Teks` jika terdapat galat sintaksis atau tipe data.".to_string()),
             "struktur" => Some("### Kata Kunci `struktur`\\n\\nMendeklarasikan tipe data komposit baru dengan bidang-bidang bertipe.".to_string()),
             "sifat" => Some("### Kata Kunci `sifat`\\n\\nMendeklarasikan kontrak antarmuka (trait) perilaku bersama.".to_string()),
@@ -649,6 +650,7 @@ impl LspServer {
             ("kanvas_mouse_y", "kanvas_mouse_y()", 3, "Ambil posisi koordinat Y kursor mouse"),
             ("kanvas_mouse_klik", "kanvas_mouse_klik()", 3, "Periksa status klik tombol mouse (1=klik, 0=lepas)"),
             ("kanvas_tombol_ditekan", "kanvas_tombol_ditekan(${1:kode_tombol})", 3, "Periksa tombol keyboard ditekan (1=ditekan, 0=lepas)"),
+            ("kanvas_delta_waktu", "kanvas_delta_waktu()", 3, "Ambil delta waktu (dt) antar-frame dalam detik"),
             ("kompilasi_ke_wasm", "kompilasi_ke_wasm(${1:kode})", 3, "Kompilasi kode sumber DapCode ke WebAssembly Base64 in-memory"),
         ];
 

@@ -1813,6 +1813,9 @@ impl Evaluator {
                         let _ = self.eval_expr(&args[0].value, env)?;
                         return Ok(Value::Int(0));
                     }
+                    if name == "kanvas_delta_waktu" {
+                        return Ok(Value::Float(0.0166));
+                    }
                     if name == "kanvas_bersihkan"
                         || name == "kanvas_warna_isi"
                         || name == "kanvas_warna_garis"

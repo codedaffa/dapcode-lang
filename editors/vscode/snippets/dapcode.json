@@ -630,6 +630,39 @@
             "}"
         ],
         "description": "Kerangka game 2D interaktif berbasis pergerakan mouse dan klik di Kanvas DapCode"
+    },
+    "Kanvas Delta Waktu": {
+        "prefix": "kanvas_delta_waktu",
+        "body": [
+            "dt := kanvas_delta_waktu()"
+        ],
+        "description": "Mendapatkan selang waktu (delta time) antar-frame dalam detik (f64, misal: 0.0166 untuk 60 FPS)"
+    },
+    "Template Animasi Fisika & Delta Time": {
+        "prefix": "kanvas_animasi_loop",
+        "body": [
+            "fungsi render_animasi() -> Unit {",
+            "\tw := kanvas_lebar()",
+            "\th := kanvas_tinggi()",
+            "\tdt := kanvas_delta_waktu()",
+            "\tmx := kanvas_mouse_x()",
+            "\tmy := kanvas_mouse_y()",
+            "\t",
+            "\tkanvas_bersihkan(0.04, 0.05, 0.08, 1.0)",
+            "\t",
+            "\t// Hitung kecepatan & posisi pergerakan dengan delta waktu (kecepatan * dt)",
+            "\tkanvas_warna_isi(0.2, 0.7, 1.0, 0.9)",
+            "\tkanvas_lingkaran(mx, my, 20.0)",
+            "\tkanvas_warna_isi(1.0, 1.0, 1.0, 1.0)",
+            "\tkanvas_teks(\"Animasi Loop 60 FPS\", 20.0, 30.0, 12.0)",
+            "}",
+            "",
+            "fungsi utama() -> u64 {",
+            "\trender_animasi()",
+            "\tkembali 1",
+            "}"
+        ],
+        "description": "Kerangka animasi loop grafis Kanvas 2D berbasis selang waktu delta frame (kanvas_delta_waktu)"
     }
 }
 

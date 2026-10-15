@@ -1087,6 +1087,7 @@ function getPlaygroundWebviewHtml() {
     <div class="toolbar">
         <button class="primary" id="btn-compile">⚡ Kompilasi</button>
         <button id="btn-rerun">▶ Jalankan Ulang</button>
+        <button id="btn-loop">▶ Loop: OFF</button>
         <button class="active" id="btn-autocompile">🔄 Auto: ON</button>
         <select id="preset-select">
             <option value="tata_surya">🌌 Tata Surya Orbit 2D</option>
@@ -1142,18 +1143,12 @@ function getPlaygroundWebviewHtml() {
 
         const btnCompile = document.getElementById("btn-compile");
         const btnRerun = document.getElementById("btn-rerun");
+        const btnLoop = document.getElementById("btn-loop");
         const btnAutoCompile = document.getElementById("btn-autocompile");
         const presetSelect = document.getElementById("preset-select");
         const btnApplyPreset = document.getElementById("btn-apply-preset");
         const btnExternal = document.getElementById("btn-external");
         const btnClearConsole = document.getElementById("btn-clear-console");
-
-        let currentWasmInstance = null;
-        let autoCompile = true;
-        let commandCount = 0;
-        let lastFrameTime = performance.now();
-        let frameCount = 0;
-        let fpsTimer = performance.now();
 
         const PRESETS = {
             tata_surya: \`// 🌌 Tata Surya Orbit 2D
@@ -1380,6 +1375,10 @@ fungsi utama() -> u64 {
         let canvasMouseY = 240.0;
         let canvasMouseDown = false;
         const canvasKeysPressed = new Set();
+        let isLooping = false;
+        let loopReqId = null;
+        let currentDeltaTime = 0.0166;
+        let lastLoopTime = performance.now();
 
         function appendLog(msg) {
             consoleOutput.textContent += (consoleOutput.textContent ? "\\n" : "") + msg;
@@ -1452,6 +1451,8 @@ fungsi utama() -> u64 {
                 kanvas_mouse_y: () => canvasMouseY,
                 kanvas_mouse_klik: () => (canvasMouseDown ? 1n : 0n),
                 kanvas_tombol_ditekan: (kode) => (canvasKeysPressed.has(Number(kode)) ? 1n : 0n),
+                kanvas_delta_waktu: () => currentDeltaTime,
+                waktu_sekarang_ms: () => BigInt(Date.now()),
                 cetak_u64: (n) => appendLog(n.toString()),
                 cetak_f64: (f) => appendLog(f.toString()),
                 cetak_teks: (ptr, len) => {
@@ -1475,6 +1476,17 @@ fungsi utama() -> u64 {
             }
             metricRender.textContent = \`\${(performance.now() - tStart).toFixed(2)} ms\`;
             metricCmds.textContent = commandCount.toString();
+        }
+
+        function loopFrame() {
+            if (!isLooping) return;
+            const now = performance.now();
+            currentDeltaTime = Math.min((now - lastLoopTime) / 1000.0, 0.1);
+            if (currentDeltaTime <= 0) currentDeltaTime = 0.0166;
+            lastLoopTime = now;
+
+            rerunCurrentFrame();
+            loopReqId = requestAnimationFrame(loopFrame);
         }
 
         async function runWasmBytes(wasmBytes) {
@@ -1504,6 +1516,11 @@ fungsi utama() -> u64 {
                 statusDot.className = "dot";
                 statusText.textContent = "Berhasil";
                 errorCard.style.display = "none";
+
+                if (isLooping && !loopReqId) {
+                    lastLoopTime = performance.now();
+                    loopReqId = requestAnimationFrame(loopFrame);
+                }
             } catch (err) {
                 statusDot.className = "dot error";
                 statusText.textContent = "Galat Runtime";
@@ -1611,6 +1628,24 @@ fungsi utama() -> u64 {
                 rerunCurrentFrame();
             } else {
                 vscode.postMessage({ command: "requestCompile" });
+            }
+        });
+
+        btnLoop.addEventListener("click", () => {
+            isLooping = !isLooping;
+            if (isLooping) {
+                btnLoop.classList.add("active");
+                btnLoop.textContent = "⏸ Loop: ON";
+                lastLoopTime = performance.now();
+                currentDeltaTime = 0.0166;
+                loopReqId = requestAnimationFrame(loopFrame);
+            } else {
+                btnLoop.classList.remove("active");
+                btnLoop.textContent = "▶ Loop: OFF";
+                if (loopReqId) {
+                    cancelAnimationFrame(loopReqId);
+                    loopReqId = null;
+                }
             }
         });
 

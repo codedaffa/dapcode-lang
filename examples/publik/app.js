@@ -176,6 +176,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let totalCanvasCommands = 0;
     let isAnimating = false;
     let animationReqId = null;
+    let currentDeltaTime = 0.0166;
+    let lastAnimFrameTime = performance.now();
 
     // Koleksi Preset Kode Contoh Interaktif
     const KODE_PRESET = {
@@ -676,6 +678,8 @@ fungsi utama() -> u64 {
             kanvas_mouse_y: () => canvasMouseY,
             kanvas_mouse_klik: () => (canvasMouseDown ? 1n : 0n),
             kanvas_tombol_ditekan: (kode) => (canvasKeysPressed.has(Number(kode)) ? 1n : 0n),
+            kanvas_delta_waktu: () => currentDeltaTime,
+            waktu_sekarang_ms: () => BigInt(Date.now()),
         };
     }
 
@@ -872,8 +876,16 @@ fungsi utama() -> u64 {
     }
 
     if (btnAnimasiKanvas) {
+        function updateDeltaTime() {
+            const now = performance.now();
+            currentDeltaTime = Math.min((now - lastAnimFrameTime) / 1000.0, 0.1);
+            if (currentDeltaTime <= 0) currentDeltaTime = 0.0166;
+            lastAnimFrameTime = now;
+        }
+
         function animateLoop() {
             if (!isAnimating) return;
+            updateDeltaTime();
             renderCanvasWasm();
             animationReqId = requestAnimationFrame(animateLoop);
         }
@@ -881,12 +893,14 @@ fungsi utama() -> u64 {
         btnAnimasiKanvas.addEventListener("click", () => {
             isAnimating = !isAnimating;
             if (isAnimating) {
-                btnAnimasiKanvas.textContent = "⏹ Hentikan Animasi";
+                lastAnimFrameTime = performance.now();
+                currentDeltaTime = 0.0166;
+                btnAnimasiKanvas.textContent = "⏸ Jeda Animasi Loop";
                 btnAnimasiKanvas.classList.remove("secondary");
                 btnAnimasiKanvas.classList.add("danger");
                 animateLoop();
             } else {
-                btnAnimasiKanvas.textContent = "▶ Mulai Animasi Orbit";
+                btnAnimasiKanvas.textContent = "▶ Mulai Animasi Loop (60 FPS)";
                 btnAnimasiKanvas.classList.remove("danger");
                 btnAnimasiKanvas.classList.add("secondary");
                 if (animationReqId) cancelAnimationFrame(animationReqId);

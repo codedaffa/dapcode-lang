@@ -29,10 +29,13 @@ fungsi uji_kanvas_lengkap() -> Unit {
     my := kanvas_mouse_y()
     klik := kanvas_mouse_klik()
     tombol := kanvas_tombol_ditekan(32)
+    dt := kanvas_delta_waktu()
+    t := waktu_sekarang_ms()
     pastikan_sama(mx, 400.0)
     pastikan_sama(my, 300.0)
     pastikan_sama(klik, 0)
     pastikan_sama(tombol, 0)
+    pastikan_sama(dt, 0.0166)
 
     kanvas_bersihkan(0.1, 0.2, 0.3, 1.0)
     kanvas_warna_isi(1.0, 0.0, 0.0, 0.8)
@@ -76,6 +79,8 @@ fungsi gambar_statis() -> Unit {
     my := kanvas_mouse_y()
     klik := kanvas_mouse_klik()
     tombol := kanvas_tombol_ditekan(65)
+    dt := kanvas_delta_waktu()
+    t := waktu_sekarang_ms()
 }
 "#;
     let program = parse_code(code);
@@ -91,6 +96,8 @@ fungsi gambar_statis() -> Unit {
     assert!(c_code.contains("dap_kanvas_mouse_y"));
     assert!(c_code.contains("dap_kanvas_mouse_klik"));
     assert!(c_code.contains("dap_kanvas_tombol_ditekan"));
+    assert!(c_code.contains("dap_kanvas_delta_waktu"));
+    assert!(c_code.contains("dap_waktu_sekarang_ms"));
 }
 
 #[test]
@@ -114,6 +121,8 @@ fungsi render_grafis() -> Unit {
     my := kanvas_mouse_y()
     klik := kanvas_mouse_klik()
     tombol := kanvas_tombol_ditekan(32)
+    dt := kanvas_delta_waktu()
+    t := waktu_sekarang_ms()
     kanvas_titik(mx, my, 8.0)
 }
 
@@ -166,6 +175,8 @@ const imports = {{
         kanvas_mouse_y: () => 250.0,
         kanvas_mouse_klik: () => 1n,
         kanvas_tombol_ditekan: (code) => (code === 32n ? 1n : 0n),
+        kanvas_delta_waktu: () => 0.0166,
+        waktu_sekarang_ms: () => 1000n,
     }}
 }};
 WebAssembly.instantiate(buf, imports).then(({{ instance }}) => {{

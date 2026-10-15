@@ -761,6 +761,10 @@ impl TypeChecker {
             "kanvas_tombol_ditekan".to_string(),
             (vec![Type::U64], Type::U64),
         );
+        self.functions.insert(
+            "kanvas_delta_waktu".to_string(),
+            (vec![], Type::F64),
+        );
 
         // Compiler Service: In-Memory WebAssembly Compilation
         self.functions.insert(

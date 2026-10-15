@@ -669,6 +669,7 @@ static inline f64 dap_kanvas_mouse_x(void) { return 400.0; }
 static inline f64 dap_kanvas_mouse_y(void) { return 300.0; }
 static inline uint64_t dap_kanvas_mouse_klik(void) { return 0; }
 static inline uint64_t dap_kanvas_tombol_ditekan(uint64_t kode) { (void)kode; return 0; }
+static inline f64 dap_kanvas_delta_waktu(void) { return 0.0166; }
 
 static inline DapResult_Teks dap_kompilasi_ke_wasm(const char* kode) {
     (void)kode;

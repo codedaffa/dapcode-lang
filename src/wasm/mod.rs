@@ -197,7 +197,13 @@ impl WasmEmitter {
             }
         }
 
-        let canvas_0_fns = ["kanvas_lebar", "kanvas_tinggi", "kanvas_mouse_x", "kanvas_mouse_y"];
+        let canvas_0_fns = [
+            "kanvas_lebar",
+            "kanvas_tinggi",
+            "kanvas_mouse_x",
+            "kanvas_mouse_y",
+            "kanvas_delta_waktu",
+        ];
         let sig_canvas_0 = self.get_or_add_sig(vec![], vec![WasmType::F64]);
         for name in &canvas_0_fns {
             if called.contains(*name) {
@@ -215,6 +221,23 @@ impl WasmEmitter {
                     ),
                 );
             }
+        }
+
+        if called.contains("waktu_sekarang_ms") {
+            let sig_waktu = self.get_or_add_sig(vec![], vec![WasmType::I64]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "waktu_sekarang_ms".to_string(), sig_waktu));
+            self.func_table.insert(
+                "waktu_sekarang_ms".to_string(),
+                (
+                    func_idx,
+                    sig_waktu,
+                    FuncSignature {
+                        params: vec![],
+                        results: vec![WasmType::I64],
+                    },
+                ),
+            );
         }
 
         if called.contains("kanvas_mouse_klik") {
@@ -1374,6 +1397,8 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
                         kanvas_mouse_y: () => 300.0,
                         kanvas_mouse_klik: () => 0n,
                         kanvas_tombol_ditekan: () => 0n,
+                        kanvas_delta_waktu: () => 0.0166,
+                        waktu_sekarang_ms: () => BigInt(Date.now()),
                     }}
                 }};
 
