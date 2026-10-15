@@ -3,6 +3,7 @@ pub mod cli;
 pub mod codegen;
 pub mod comptime;
 pub mod diag;
+pub mod doc;
 pub mod eval;
 pub mod fmt;
 pub mod ir;

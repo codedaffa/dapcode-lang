@@ -122,6 +122,7 @@ dapcode-lang/
     ├── dependency_test.rs        # Uji Manajemen Dependensi & Multi-Paket (add, install, remove)
     ├── test_runner_test.rs       # Uji Test Runner Terbawa (uji, pastikan, pastikan_sama)
     ├── repl_test.rs              # Uji REPL Interaktif (Multi-Baris, Delimiter Delta, Meta-Perintah)
+    ├── doc_test.rs               # Uji Generator Dokumentasi Otomatis (Markdown & Web HTML)
     └── demo_test.rs
 ```
 
@@ -264,6 +265,25 @@ uji "perhitungan perkalian" {
 }
 ```
 
+### 15. Menghasilkan Dokumentasi Proyek (`doc`)
+```powershell
+# Buat dokumentasi dari proyek saat ini (otomatis disimpan ke folder docs/)
+dapcodec doc
+
+# Buat dokumentasi dengan direktori keluaran kustom
+dapcodec doc -o dokumentasi_saya
+
+# Pilih format keluaran: markdown, html, atau semua (default: semua)
+dapcodec doc --format html
+
+# Buat dokumentasi sekaligus membukanya langsung di peramban web default
+dapcodec doc --open
+```
+Fitur Dokumentasi Otomatis DapCode:
+- **Ekstraksi Komentar Dokumen:** Mendukung komentar tingkat modul `//!` dan komentar deklarasi `///` untuk `fungsi`, `struktur`, `sifat`, `terapkan`, dan `uji`.
+- **GitHub-Flavored Markdown (`README.md`):** Disertai daftar isi interaktif, tabel modul, tanda tangan fungsi, parameter, dan tabel bidang struktur.
+- **Situs Web HTML Interaktif Mandiri (`index.html`):** Berdesain modern *dark-mode*, responsif di perangkat bergerak, dilengkapi fitur pencarian *live search*, tombol salin tanda tangan (*copy to clipboard*), dan 100% *offline-ready* tanpa dependensi jaringan eksternal.
+
 ---
 
 ## 🎨 Dukungan Editor & Ekstensi VS Code
@@ -292,5 +312,5 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 16 modul test (44 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 17 modul test (47 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 

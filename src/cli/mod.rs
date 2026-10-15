@@ -3,6 +3,7 @@ use colored::*;
 use crate::ast::Decl;
 use crate::codegen::CodeGenerator;
 use crate::comptime::ComptimeEvaluator;
+use crate::doc::{DocExtractor, DocGenerator, ProjectDoc};
 use crate::eval::{ControlFlow, Environment, Evaluator, Value};
 use crate::fmt::Formatter;
 use crate::ir::IRBuilder;
@@ -113,6 +114,20 @@ pub enum Commands {
         #[arg(short, long)]
         filter: Option<String>,
     },
+    /// Menghasilkan dokumentasi kode sumber DapCode (.dap) ke format HTML atau Markdown
+    Doc {
+        /// Berkas sumber .dap atau direktori proyek (opsional)
+        path: Option<PathBuf>,
+        /// Direktori keluaran dokumentasi (default: "docs")
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        /// Format keluaran: "html", "markdown", atau "semua" (default: "semua")
+        #[arg(short, long, default_value = "semua")]
+        format: String,
+        /// Buka dokumentasi HTML di browser setelah selesai dibuat
+        #[arg(long)]
+        open: bool,
+    },
 }
 
 pub fn run_cli() -> io::Result<()> {
@@ -138,6 +153,12 @@ pub fn run_cli() -> io::Result<()> {
         Commands::Install => cmd_install(),
         Commands::Remove { name } => cmd_remove(&name),
         Commands::Test { file, filter } => cmd_test(file.as_deref(), filter.as_deref()),
+        Commands::Doc {
+            path,
+            output,
+            format,
+            open,
+        } => cmd_doc(path.as_deref(), output.as_deref(), &format, open),
     }
 }
 
@@ -1149,6 +1170,167 @@ pub fn cmd_test(file: Option<&Path>, filter: Option<&str>) -> io::Result<()> {
         );
         Err(io::Error::new(io::ErrorKind::Other, format!("{} pengujian gagal", total_failed)))
     }
+}
+
+pub fn cmd_doc(
+    path_opt: Option<&Path>,
+    out_opt: Option<&Path>,
+    format: &str,
+    open: bool,
+) -> io::Result<()> {
+    let mut files_to_doc = Vec::new();
+    let mut project_name = "Proyek DapCode".to_string();
+    let mut project_version = "0.1.0".to_string();
+    let mut project_desc = "Dokumentasi kode sumber DapCode".to_string();
+
+    if let Some(target) = path_opt {
+        if target.is_file() {
+            files_to_doc.push(target.to_path_buf());
+            project_name = target
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or(project_name);
+        } else if target.is_dir() {
+            collect_dap_files(target, &mut files_to_doc)?;
+            if let Some((_, manifest)) = ProjectManifest::find_upwards(target) {
+                let author = if manifest.penulis.is_empty() { "DapCode Core".to_string() } else { manifest.penulis.join(", ") };
+                project_name = manifest.nama.clone();
+                project_version = manifest.versi.clone();
+                project_desc = format!("Paket {} v{} oleh {}", manifest.nama, manifest.versi, author);
+            } else {
+                project_name = target
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or(project_name);
+            }
+        }
+    } else {
+        if let Some((manifest_path, manifest)) = ProjectManifest::find_upwards(Path::new(".")) {
+            let author = if manifest.penulis.is_empty() { "DapCode Core".to_string() } else { manifest.penulis.join(", ") };
+            project_name = manifest.nama.clone();
+            project_version = manifest.versi.clone();
+            project_desc = format!("Paket {} v{} oleh {}", manifest.nama, manifest.versi, author);
+
+            let manifest_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+            let src_dir = manifest_dir.join("src");
+            if src_dir.is_dir() {
+                collect_dap_files(&src_dir, &mut files_to_doc)?;
+            }
+            let main_path = manifest_dir.join(&manifest.berkas_utama);
+            if main_path.exists() && !files_to_doc.contains(&main_path) {
+                files_to_doc.push(main_path);
+            }
+        } else {
+            collect_dap_files(Path::new("."), &mut files_to_doc)?;
+        }
+    }
+
+    files_to_doc.sort();
+    files_to_doc.dedup();
+
+    if files_to_doc.is_empty() {
+        println!("{}: Tidak ada berkas .dap yang ditemukan untuk didokumentasikan.", "info:".yellow().bold());
+        return Ok(());
+    }
+
+    println!(
+        "{} Menghasilkan dokumentasi untuk '{}' ({} berkas)...",
+        "info:".blue().bold(),
+        project_name.cyan(),
+        files_to_doc.len()
+    );
+
+    let mut modules = Vec::new();
+    for file_path in &files_to_doc {
+        let content = match fs::read_to_string(file_path) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("{}: Gagal membaca '{}': {}", "peringatan".yellow().bold(), file_path.display(), e);
+                continue;
+            }
+        };
+
+        let mut sm = SourceMap::new();
+        let (file_id, _) = sm.add_file(file_path, content.clone());
+        let mut lexer = Lexer::new(&content, file_id);
+        let tokens = match lexer.tokenize() {
+            Ok(t) => t,
+            Err(diag) => {
+                eprintln!("{}: {}", file_path.display(), diag.render(&sm));
+                continue;
+            }
+        };
+
+        let mut parser = Parser::new(tokens, file_id);
+        let program = match parser.parse_program() {
+            Ok(p) => p,
+            Err(diag) => {
+                eprintln!("{}: {}", file_path.display(), diag.render(&sm));
+                continue;
+            }
+        };
+
+        let mod_doc = DocExtractor::extract_module(&content, file_path, &program, &sm);
+        modules.push(mod_doc);
+    }
+
+    let project_doc = ProjectDoc {
+        name: project_name.clone(),
+        version: project_version,
+        description: project_desc,
+        modules,
+    };
+
+    let out_dir = out_opt.unwrap_or_else(|| Path::new("docs"));
+    fs::create_dir_all(out_dir)?;
+
+    let generator = DocGenerator::new(&project_doc);
+    let mut generated_files = Vec::new();
+
+    let fmt_lower = format.to_lowercase();
+    if fmt_lower == "markdown" || fmt_lower == "semua" || fmt_lower == "all" {
+        let md = generator.generate_markdown();
+        let md_path = out_dir.join("README.md");
+        fs::write(&md_path, md)?;
+        generated_files.push(md_path);
+    }
+
+    if fmt_lower == "html" || fmt_lower == "semua" || fmt_lower == "all" {
+        let html = generator.generate_html();
+        let html_path = out_dir.join("index.html");
+        fs::write(&html_path, html)?;
+        generated_files.push(html_path);
+    }
+
+    println!(
+        "{} Dokumentasi berhasil dibuat di '{}':",
+        "sukses:".green().bold(),
+        out_dir.display()
+    );
+    for f in &generated_files {
+        println!("  - {}", f.display().to_string().bold());
+    }
+
+    if open {
+        if let Some(html_file) = generated_files.iter().find(|p| p.extension().and_then(|e| e.to_str()) == Some("html")) {
+            #[cfg(target_os = "windows")]
+            {
+                let _ = std::process::Command::new("cmd")
+                    .args(["/c", "start", "", &html_file.to_string_lossy()])
+                    .spawn();
+            }
+            #[cfg(target_os = "macos")]
+            {
+                let _ = std::process::Command::new("open").arg(html_file).spawn();
+            }
+            #[cfg(target_os = "linux")]
+            {
+                let _ = std::process::Command::new("xdg-open").arg(html_file).spawn();
+            }
+        }
+    }
+
+    Ok(())
 }
 
 
