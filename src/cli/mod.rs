@@ -26,8 +26,15 @@ use std::path::{Path, PathBuf};
     about = "Kompilator dan Toolchain Resmi untuk Bahasa Pemrograman DapCode (.dap)"
 )]
 pub struct Cli {
+    /// Berkas sumber .dap untuk dieksekusi secara langsung (opsional, seperti `python berkas.py`)
+    pub file: Option<PathBuf>,
+
+    /// Argumen baris perintah yang diteruskan jika mengeksekusi berkas secara langsung
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+    pub args: Vec<String>,
+
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -133,32 +140,44 @@ pub enum Commands {
 pub fn run_cli() -> io::Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
-        Commands::Init { name } => cmd_init(name.as_deref()),
-        Commands::Run { file, args } => cmd_run(file.as_deref(), args),
-        Commands::Check { file } => cmd_check(file.as_deref()),
-        Commands::Build { file, output } => cmd_build(file.as_deref(), output),
-        Commands::DumpAst { file } => cmd_dump_ast(file.as_deref()),
-        Commands::DumpIr { file } => cmd_dump_ir(file.as_deref()),
-        Commands::DumpOwnership { file } => cmd_dump_ownership(file.as_deref()),
-        Commands::Fmt { path, check } => cmd_fmt(path.as_deref(), check),
-        Commands::Lsp => cmd_lsp(),
-        Commands::Repl => cmd_repl(),
-        Commands::Add {
-            name,
-            path,
-            git,
-            version,
-        } => cmd_add(&name, path, git, version),
-        Commands::Install => cmd_install(),
-        Commands::Remove { name } => cmd_remove(&name),
-        Commands::Test { file, filter } => cmd_test(file.as_deref(), filter.as_deref()),
-        Commands::Doc {
-            path,
-            output,
-            format,
-            open,
-        } => cmd_doc(path.as_deref(), output.as_deref(), &format, open),
+    if let Some(cmd) = cli.command {
+        match cmd {
+            Commands::Init { name } => cmd_init(name.as_deref()),
+            Commands::Run { file, args } => cmd_run(file.as_deref(), args),
+            Commands::Check { file } => cmd_check(file.as_deref()),
+            Commands::Build { file, output } => cmd_build(file.as_deref(), output),
+            Commands::DumpAst { file } => cmd_dump_ast(file.as_deref()),
+            Commands::DumpIr { file } => cmd_dump_ir(file.as_deref()),
+            Commands::DumpOwnership { file } => cmd_dump_ownership(file.as_deref()),
+            Commands::Fmt { path, check } => cmd_fmt(path.as_deref(), check),
+            Commands::Lsp => cmd_lsp(),
+            Commands::Repl => cmd_repl(),
+            Commands::Add {
+                name,
+                path,
+                git,
+                version,
+            } => cmd_add(&name, path, git, version),
+            Commands::Install => cmd_install(),
+            Commands::Remove { name } => cmd_remove(&name),
+            Commands::Test { file, filter } => cmd_test(file.as_deref(), filter.as_deref()),
+            Commands::Doc {
+                path,
+                output,
+                format,
+                open,
+            } => cmd_doc(path.as_deref(), output.as_deref(), &format, open),
+        }
+    } else if let Some(file) = cli.file {
+        cmd_run(Some(&file), cli.args)
+    } else if ProjectManifest::find_in_dir(Path::new(".")).is_some() {
+        cmd_run(None, vec![])
+    } else {
+        use clap::CommandFactory;
+        let mut cmd = Cli::command();
+        cmd.print_help()?;
+        println!();
+        Ok(())
     }
 }
 
