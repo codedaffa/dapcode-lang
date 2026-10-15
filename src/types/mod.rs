@@ -219,9 +219,41 @@ impl TypeChecker {
             (vec![Type::String], Type::String),
         );
 
-        // Standard Library: Math Utilities
+        // Standard Library: Scientific Math, Trigonometry & Constants
+        self.functions.insert(
+            "sin".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "cos".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "tan".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "asin".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "acos".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "atan".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "atan2".to_string(),
+            (vec![Type::F64, Type::F64], Type::F64),
+        );
         self.functions.insert(
             "akar_kuadrat".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "akar_kubik".to_string(),
             (vec![Type::F64], Type::F64),
         );
         self.functions.insert(
@@ -230,6 +262,54 @@ impl TypeChecker {
         );
         self.functions.insert(
             "nilai_mutlak".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "bulat".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "lantai".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "langit_langit".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "tanda".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "log".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "log10".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "log2".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "exp".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "min".to_string(),
+            (vec![Type::F64, Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "max".to_string(),
+            (vec![Type::F64, Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "ke_radian".to_string(),
+            (vec![Type::F64], Type::F64),
+        );
+        self.functions.insert(
+            "ke_derajat".to_string(),
             (vec![Type::F64], Type::F64),
         );
 
@@ -1022,6 +1102,8 @@ impl TypeChecker {
                     Ok(Type::Struct(name.clone()))
                 } else if let Some((param_types, ret_ty)) = self.functions.get(name).cloned() {
                     Ok(Type::Fn(param_types, Box::new(ret_ty)))
+                } else if name == "PI" || name == "TAU" || name == "E" {
+                    Ok(Type::F64)
                 } else {
                     Err(Diagnostic::error(format!("Variabel atau fungsi '{}' tidak ditemukan", name))
                         .with_span(*span))

@@ -526,8 +526,13 @@ impl Evaluator {
                 if let Some(v) = env.get(name) {
                     Ok(v)
                 } else {
-                    Err(Diagnostic::error(format!("Variabel '{}' tidak terdefinisi", name))
-                        .with_span(*span))
+                    match name.as_str() {
+                        "PI" => Ok(Value::Float(std::f64::consts::PI)),
+                        "TAU" => Ok(Value::Float(std::f64::consts::TAU)),
+                        "E" => Ok(Value::Float(std::f64::consts::E)),
+                        _ => Err(Diagnostic::error(format!("Variabel '{}' tidak terdefinisi", name))
+                            .with_span(*span)),
+                    }
                 }
             }
             Expr::SelfVar(span) => {
@@ -981,47 +986,70 @@ impl Evaluator {
                         };
                         return Ok(Value::String(s));
                     }
-                    if name == "akar_kuadrat" {
-                        if args.len() != 1 {
-                            return Err(Diagnostic::error("'akar_kuadrat' membutuhkan 1 argumen").with_span(*span));
+                    // Standard Library: Scientific Math & Trigonometry
+                    match name.as_str() {
+                        "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "akar_kuadrat" | "akar_kubik"
+                        | "nilai_mutlak" | "bulat" | "lantai" | "langit_langit" | "tanda"
+                        | "log" | "log10" | "log2" | "exp" | "ke_radian" | "ke_derajat" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error(format!("'{}' membutuhkan tepat 1 argumen angka", name)).with_span(*span));
+                            }
+                            let val = self.eval_expr(&args[0].value, env)?;
+                            let num = match val {
+                                Value::Float(f) => f,
+                                Value::Int(i) => i as f64,
+                                _ => return Err(Diagnostic::error("Argumen harus bertipe angka/desimal").with_span(*span)),
+                            };
+                            let res = match name.as_str() {
+                                "sin" => num.sin(),
+                                "cos" => num.cos(),
+                                "tan" => num.tan(),
+                                "asin" => num.asin(),
+                                "acos" => num.acos(),
+                                "atan" => num.atan(),
+                                "akar_kuadrat" => num.sqrt(),
+                                "akar_kubik" => num.cbrt(),
+                                "nilai_mutlak" => num.abs(),
+                                "bulat" => num.round(),
+                                "lantai" => num.floor(),
+                                "langit_langit" => num.ceil(),
+                                "tanda" => if num == 0.0 { 0.0 } else { num.signum() },
+                                "log" => num.ln(),
+                                "log10" => num.log10(),
+                                "log2" => num.log2(),
+                                "exp" => num.exp(),
+                                "ke_radian" => num.to_radians(),
+                                "ke_derajat" => num.to_degrees(),
+                                _ => unreachable!(),
+                            };
+                            return Ok(Value::Float(res));
                         }
-                        let val = self.eval_expr(&args[0].value, env)?;
-                        let num = match val {
-                            Value::Float(f) => f,
-                            Value::Int(i) => i as f64,
-                            _ => return Err(Diagnostic::error("Argumen harus bertipe angka/desimal").with_span(*span)),
-                        };
-                        return Ok(Value::Float(num.sqrt()));
-                    }
-                    if name == "pangkat" {
-                        if args.len() != 2 {
-                            return Err(Diagnostic::error("'pangkat' membutuhkan 2 argumen (dasar, eksponen)").with_span(*span));
+                        "pangkat" | "atan2" | "min" | "max" => {
+                            if args.len() != 2 {
+                                return Err(Diagnostic::error(format!("'{}' membutuhkan tepat 2 argumen angka", name)).with_span(*span));
+                            }
+                            let a_val = self.eval_expr(&args[0].value, env)?;
+                            let b_val = self.eval_expr(&args[1].value, env)?;
+                            let a = match a_val {
+                                Value::Float(f) => f,
+                                Value::Int(i) => i as f64,
+                                _ => return Err(Diagnostic::error("Argumen pertama harus bertipe angka/desimal").with_span(*span)),
+                            };
+                            let b = match b_val {
+                                Value::Float(f) => f,
+                                Value::Int(i) => i as f64,
+                                _ => return Err(Diagnostic::error("Argumen kedua harus bertipe angka/desimal").with_span(*span)),
+                            };
+                            let res = match name.as_str() {
+                                "pangkat" => a.powf(b),
+                                "atan2" => a.atan2(b),
+                                "min" => a.min(b),
+                                "max" => a.max(b),
+                                _ => unreachable!(),
+                            };
+                            return Ok(Value::Float(res));
                         }
-                        let b_val = self.eval_expr(&args[0].value, env)?;
-                        let e_val = self.eval_expr(&args[1].value, env)?;
-                        let base = match b_val {
-                            Value::Float(f) => f,
-                            Value::Int(i) => i as f64,
-                            _ => return Err(Diagnostic::error("Argumen harus bertipe angka/desimal").with_span(*span)),
-                        };
-                        let exp = match e_val {
-                            Value::Float(f) => f,
-                            Value::Int(i) => i as f64,
-                            _ => return Err(Diagnostic::error("Argumen harus bertipe angka/desimal").with_span(*span)),
-                        };
-                        return Ok(Value::Float(base.powf(exp)));
-                    }
-                    if name == "nilai_mutlak" {
-                        if args.len() != 1 {
-                            return Err(Diagnostic::error("'nilai_mutlak' membutuhkan 1 argumen").with_span(*span));
-                        }
-                        let val = self.eval_expr(&args[0].value, env)?;
-                        let num = match val {
-                            Value::Float(f) => f,
-                            Value::Int(i) => i as f64,
-                            _ => return Err(Diagnostic::error("Argumen harus bertipe angka/desimal").with_span(*span)),
-                        };
-                        return Ok(Value::Float(num.abs()));
+                        _ => {}
                     }
                     if name == "waktu_sekarang_ms" {
                         let ms = SystemTime::now()

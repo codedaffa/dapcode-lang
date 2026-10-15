@@ -1,0 +1,154 @@
+// =========================================================================
+// DAPCODE STANDARD LIBRARY: MATEMATIKA ILMIAH, TRIGONOMETRI & KONSTANTA
+// =========================================================================
+
+fungsi demo_trigonometri() {
+    cetak("==================================================")
+    cetak("=== 1. DEMO TRIGONOMETRI & KONSTANTA MATEMATIKA ==")
+    cetak("==================================================")
+    cetak("Nilai PI  : {PI}")
+    cetak("Nilai TAU : {TAU}")
+    cetak("Nilai E   : {E}")
+
+    sudut_derajat := 45.0
+    rad := ke_radian(sudut_derajat)
+    cetak("Sudut 45 derajat dalam radian: {rad}")
+
+    s := sin(rad)
+    c := cos(rad)
+    t := tan(rad)
+    cetak("sin(45°) = {s}")
+    cetak("cos(45°) = {c}")
+    cetak("tan(45°) = {t}")
+
+    // Verifikasi identitas trigonometri Pythagoras: sin^2(x) + cos^2(x) = 1.0
+    identitas := (s * s) + (c * c)
+    cetak("Identitas sin^2 + cos^2 = {identitas}")
+
+    kembali_derajat := ke_derajat(rad)
+    cetak("Konversi balik ke derajat: {kembali_derajat}°")
+}
+
+fungsi demo_geometri_vektor() {
+    cetak("
+==================================================")
+    cetak("=== 2. KALKULASI GEOMETRI & VEKTOR 2D CARTESIAN ==")
+    cetak("==================================================")
+    // Titik A (3, 4) dari titik pusat (0, 0)
+    dx := 3.0
+    dy := 4.0
+    jarak := akar_kuadrat((dx * dx) + (dy * dy))
+    cetak("Jarak Euclidean titik (3, 4) = {jarak}")
+
+    sudut_vektor := atan2(dy, dx)
+    sudut_deg := ke_derajat(sudut_vektor)
+    cetak("Arah sudut vektor titik (3, 4) = {sudut_deg}°")
+
+    // Volume bola: (4/3) * PI * r^3
+    jari_jari := 3.0
+    volume_bola := (4.0 / 3.0) * PI * pangkat(jari_jari, 3.0)
+    cetak("Volume bola berjejari 3.0 = {volume_bola}")
+
+    // Akar kubik
+    kubik_27 := akar_kubik(27.0)
+    cetak("Akar kubik dari 27.0 = {kubik_27}")
+}
+
+fungsi demo_logaritma_dan_eksponensial() {
+    cetak("
+==================================================")
+    cetak("=== 3. EKSPONENSIAL & LOGARITMA ILMIAH ===========")
+    cetak("==================================================")
+    // Pertumbuhan eksponensial: P = P0 * e^(r*t)
+    p0 := 1000.0
+    laju := 0.05
+    waktu_tahun := 10.0
+    populasi := p0 * exp(laju * waktu_tahun)
+    cetak("Populasi awal 1000 dengan pertumbuhan 5% selama 10 thn = {populasi}")
+
+    // Logaritma natural
+    ln_e := log(E)
+    cetak("log natural dari E (ln E) = {ln_e}")
+
+    // Logaritma basis 10 (Skala Desibel: 10 * log10(P2 / P1))
+    daya_masuk := 1.0
+    daya_keluar := 100.0
+    gain_db := 10.0 * log10(daya_keluar / daya_masuk)
+    cetak("Penguatan daya dari 1W ke 100W dalam Desibel = {gain_db} dB")
+
+    // Logaritma basis 2 (Bits / Entropy komputasi)
+    kemungkinan := 1024.0
+    jumlah_bit := log2(kemungkinan)
+    cetak("Jumlah bit yang dibutuhkan untuk 1024 kemungkinan = {jumlah_bit} bit")
+}
+
+fungsi demo_pembulatan_dan_statistik() {
+    cetak("
+==================================================")
+    cetak("=== 4. PEMBULATAN KEUANGAN & FUNGSI EKSTREMUM ====")
+    cetak("==================================================")
+    harga := 14250.75
+    harga_bulat := bulat(harga)
+    harga_lantai := lantai(harga)
+    harga_langit := langit_langit(harga)
+    cetak("Harga asli     : {harga}")
+    cetak("Dibulatkan     : {harga_bulat}")
+    cetak("Lantai (floor) : {harga_lantai}")
+    cetak("Langit (ceil)  : {harga_langit}")
+
+    nilai_a := 85.5
+    nilai_b := 92.0
+    terendah := min(nilai_a, nilai_b)
+    tertinggi := max(nilai_a, nilai_b)
+    cetak("Nilai minimum antara {nilai_a} dan {nilai_b} = {terendah}")
+    cetak("Nilai maksimum antara {nilai_a} dan {nilai_b} = {tertinggi}")
+
+    selisih_negatif := -350.25
+    selisih_absolut := nilai_mutlak(selisih_negatif)
+    tanda_bil := tanda(selisih_negatif)
+    cetak("Nilai mutlak dari {selisih_negatif} = {selisih_absolut}")
+    cetak("Tanda bilangan dari {selisih_negatif} = {tanda_bil}")
+}
+
+fungsi utama() {
+    cetak("==================================================")
+    cetak("  DEMONSTRASI PUSTAKA MATEMATIKA ILMIAH DAPCODE   ")
+    cetak("==================================================")
+    demo_trigonometri()
+    demo_geometri_vektor()
+    demo_logaritma_dan_eksponensial()
+    demo_pembulatan_dan_statistik()
+    cetak("
+[Sukses] Seluruh kalkulasi matematika ilmiah selesai dengan presisi tinggi!")
+}
+
+// =========================================================================
+// UNIT TESTS BAWAAN (dapcodec test)
+// =========================================================================
+
+uji "Trigonometri identitas dasar" {
+    eps := 0.0001
+    s := sin(PI / 2.0)
+    c := cos(0.0)
+    t := tan(0.0)
+    pastikan_sama(nilai_mutlak(s - 1.0) < eps, benar)
+    pastikan_sama(nilai_mutlak(c - 1.0) < eps, benar)
+    pastikan_sama(nilai_mutlak(t) < eps, benar)
+}
+
+uji "Kalkulasi akar dan pangkat" {
+    r := akar_kuadrat(144.0)
+    pastikan_sama(r, 12.0)
+    k := akar_kubik(64.0)
+    pastikan_sama(k, 4.0)
+    p := pangkat(2.0, 5.0)
+    pastikan_sama(p, 32.0)
+}
+
+uji "Pembulatan dan ekstremum" {
+    pastikan_sama(bulat(9.7), 10.0)
+    pastikan_sama(lantai(9.7), 9.0)
+    pastikan_sama(langit_langit(9.2), 10.0)
+    pastikan_sama(min(12.0, 8.0), 8.0)
+    pastikan_sama(max(12.0, 8.0), 12.0)
+}

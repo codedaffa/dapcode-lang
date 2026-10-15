@@ -25,6 +25,7 @@ pub struct FuncSignature {
 pub struct WasmEmitter {
     pub signatures: Vec<FuncSignature>,
     pub func_table: HashMap<String, (u32, u32, FuncSignature)>, // nama -> (func_index, type_idx, signature)
+    pub imports: Vec<(String, String, u32)>,                    // (mod_name, func_name, type_idx)
     pub num_imports: u32,
     pub string_data: Vec<u8>,
     pub string_offsets: HashMap<String, (u32, u32)>, // teks -> (offset, len)
@@ -35,6 +36,7 @@ impl WasmEmitter {
         let mut emitter = WasmEmitter {
             signatures: Vec::new(),
             func_table: HashMap::new(),
+            imports: Vec::new(),
             num_imports: 0,
             string_data: Vec::new(),
             string_offsets: HashMap::new(),
@@ -42,11 +44,16 @@ impl WasmEmitter {
 
         // 1. Daftarkan tanda tangan import bawaan:
         // Sig 0: env.cetak_u64 (i64) -> ()
-        emitter.get_or_add_sig(vec![WasmType::I64], vec![]);
+        let sig_u64 = emitter.get_or_add_sig(vec![WasmType::I64], vec![]);
+        emitter.imports.push(("env".to_string(), "cetak_u64".to_string(), sig_u64));
+
         // Sig 1: env.cetak_f64 (f64) -> ()
-        emitter.get_or_add_sig(vec![WasmType::F64], vec![]);
+        let sig_f64 = emitter.get_or_add_sig(vec![WasmType::F64], vec![]);
+        emitter.imports.push(("env".to_string(), "cetak_f64".to_string(), sig_f64));
+
         // Sig 2: env.cetak_teks (i32, i32) -> () (ptr, len)
-        emitter.get_or_add_sig(vec![WasmType::I32, WasmType::I32], vec![]);
+        let sig_teks = emitter.get_or_add_sig(vec![WasmType::I32, WasmType::I32], vec![]);
+        emitter.imports.push(("env".to_string(), "cetak_teks".to_string(), sig_teks));
 
         emitter.num_imports = 3;
         emitter
@@ -75,6 +82,63 @@ impl WasmEmitter {
         (base_offset, len)
     }
 
+    fn scan_called_functions(block: &Block, called: &mut std::collections::HashSet<String>) {
+        for stmt in &block.stmts {
+            match stmt {
+                Stmt::VarDecl { init, .. } => Self::scan_expr_calls(init, called),
+                Stmt::Assign { value, .. } => Self::scan_expr_calls(value, called),
+                Stmt::If { cond, then_branch, else_branch, .. } => {
+                    Self::scan_expr_calls(cond, called);
+                    Self::scan_called_functions(then_branch, called);
+                    if let Some(eb) = else_branch {
+                        Self::scan_called_functions(eb, called);
+                    }
+                }
+                Stmt::While { cond, body, .. } => {
+                    Self::scan_expr_calls(cond, called);
+                    Self::scan_called_functions(body, called);
+                }
+                Stmt::ForIn { iterable, body, .. } => {
+                    Self::scan_expr_calls(iterable, called);
+                    Self::scan_called_functions(body, called);
+                }
+                Stmt::Return { value: Some(v), .. } => Self::scan_expr_calls(v, called),
+                Stmt::Expr(e) => Self::scan_expr_calls(e, called),
+                _ => {}
+            }
+        }
+        if let Some(ref e) = block.expr {
+            Self::scan_expr_calls(e, called);
+        }
+    }
+
+    fn scan_expr_calls(expr: &Expr, called: &mut std::collections::HashSet<String>) {
+        match expr {
+            Expr::Call { callee, args, .. } => {
+                if let Expr::Ident(name, _) = &**callee {
+                    called.insert(name.clone());
+                }
+                Self::scan_expr_calls(callee, called);
+                for a in args {
+                    Self::scan_expr_calls(&a.value, called);
+                }
+            }
+            Expr::Binary(lhs, _, rhs, _) => {
+                Self::scan_expr_calls(lhs, called);
+                Self::scan_expr_calls(rhs, called);
+            }
+            Expr::Unary(_, inner, _) => Self::scan_expr_calls(inner, called),
+            Expr::InterpolatedString(parts, _) => {
+                for p in parts {
+                    if let InterpolatedExprPart::Expr(e) = p {
+                        Self::scan_expr_calls(e, called);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
     /// Kompilasi Program AST DapCode menjadi biner WebAssembly (.wasm)
     pub fn compile_program(&mut self, program: &Program) -> Result<Vec<u8>> {
         // Kumpulkan semua fungsi
@@ -84,6 +148,56 @@ impl WasmEmitter {
                 user_fns.push(f);
             }
         }
+
+        // 0. Deteksi fungsi bawaan matematika yang benar-benar dipanggil di program
+        let mut called = std::collections::HashSet::new();
+        for f in &user_fns {
+            Self::scan_called_functions(&f.body, &mut called);
+        }
+
+        let math_1_fns = [
+            "sin", "cos", "tan", "asin", "acos", "atan", "akar_kubik", "log", "log10", "log2", "exp", "tanda",
+        ];
+        let sig_math_1 = self.get_or_add_sig(vec![WasmType::F64], vec![WasmType::F64]);
+        for name in &math_1_fns {
+            if called.contains(*name) {
+                let func_idx = self.imports.len() as u32;
+                self.imports.push(("env".to_string(), name.to_string(), sig_math_1));
+                self.func_table.insert(
+                    name.to_string(),
+                    (
+                        func_idx,
+                        sig_math_1,
+                        FuncSignature {
+                            params: vec![WasmType::F64],
+                            results: vec![WasmType::F64],
+                        },
+                    ),
+                );
+            }
+        }
+
+        let math_2_fns = ["atan2", "pangkat"];
+        let sig_math_2 = self.get_or_add_sig(vec![WasmType::F64, WasmType::F64], vec![WasmType::F64]);
+        for name in &math_2_fns {
+            if called.contains(*name) {
+                let func_idx = self.imports.len() as u32;
+                self.imports.push(("env".to_string(), name.to_string(), sig_math_2));
+                self.func_table.insert(
+                    name.to_string(),
+                    (
+                        func_idx,
+                        sig_math_2,
+                        FuncSignature {
+                            params: vec![WasmType::F64, WasmType::F64],
+                            results: vec![WasmType::F64],
+                        },
+                    ),
+                );
+            }
+        }
+
+        self.num_imports = self.imports.len() as u32;
 
         // 1. Daftarkan tanda tangan setiap fungsi user
         let mut user_func_type_indices = Vec::new();
@@ -108,7 +222,7 @@ impl WasmEmitter {
             let type_idx = self.get_or_add_sig(params.clone(), results.clone());
             user_func_type_indices.push(type_idx);
 
-            let func_idx = self.num_imports + self.func_table.len() as u32;
+            let func_idx = self.num_imports + user_func_type_indices.len() as u32 - 1;
             self.func_table.insert(
                 f.name.clone(),
                 (func_idx, type_idx, FuncSignature { params, results }),
@@ -150,25 +264,14 @@ impl WasmEmitter {
         // --- Section 2: Import Section ---
         {
             let mut sec = Vec::new();
-            encode_u32_leb128(3, &mut sec); // 3 import bawaan
+            encode_u32_leb128(self.imports.len() as u32, &mut sec);
 
-            // 1. env.cetak_u64 (sig 0)
-            emit_name("env", &mut sec);
-            emit_name("cetak_u64", &mut sec);
-            sec.push(0x00); // import func
-            encode_u32_leb128(0, &mut sec);
-
-            // 2. env.cetak_f64 (sig 1)
-            emit_name("env", &mut sec);
-            emit_name("cetak_f64", &mut sec);
-            sec.push(0x00); // import func
-            encode_u32_leb128(1, &mut sec);
-
-            // 3. env.cetak_teks (sig 2)
-            emit_name("env", &mut sec);
-            emit_name("cetak_teks", &mut sec);
-            sec.push(0x00); // import func
-            encode_u32_leb128(2, &mut sec);
+            for (mod_name, func_name, sig_idx) in &self.imports {
+                emit_name(mod_name, &mut sec);
+                emit_name(func_name, &mut sec);
+                sec.push(0x00); // import func
+                encode_u32_leb128(*sig_idx, &mut sec);
+            }
 
             emit_section(2, &sec, &mut wasm);
         }
@@ -265,16 +368,18 @@ impl WasmEmitter {
 
         // 1. Petakan parameter fungsi ke local index 0..n
         let mut local_idx = 0u32;
+        let mut known_locals: HashMap<String, WasmType> = HashMap::new();
         for p in &f.params {
             let ty = self.ast_type_to_wasm(p.ty.as_ref());
             locals_map.insert(p.name.clone(), (local_idx, ty));
+            known_locals.insert(p.name.clone(), ty);
             param_types.push(ty);
             local_idx += 1;
         }
 
         // 2. Kumpulkan variabel lokal di dalam badan fungsi
         let mut extra_locals: Vec<(String, WasmType)> = Vec::new();
-        Self::collect_local_vars(&f.body, &mut extra_locals);
+        Self::collect_local_vars(&f.body, &mut known_locals, &self.func_table, &mut extra_locals);
 
         let mut local_groups: Vec<(u32, WasmType)> = Vec::new();
         for (name, ty) in extra_locals {
@@ -288,14 +393,23 @@ impl WasmEmitter {
         // 3. Emit bytecode instruksi fungsi
         let mut code_buf = Vec::new();
         let mut has_ret = false;
+        let expected_ret_ty = self
+            .func_table
+            .get(&f.name)
+            .and_then(|(_, _, sig)| sig.results.first().copied());
 
         for stmt in &f.body.stmts {
-            self.compile_stmt(stmt, &locals_map, &mut code_buf, &mut has_ret)?;
+            self.compile_stmt(stmt, &locals_map, &mut code_buf, &mut has_ret, expected_ret_ty)?;
         }
 
         // Evaluasi return expression jika ada
         if let Some(ref expr) = f.body.expr {
-            self.compile_expr(expr, &locals_map, &mut code_buf)?;
+            let expr_ty = self.compile_expr(expr, &locals_map, &mut code_buf)?;
+            if expected_ret_ty == Some(WasmType::F64) && expr_ty == WasmType::I64 {
+                code_buf.push(0xB9); // f64.convert_i64_s
+            } else if expected_ret_ty == Some(WasmType::I64) && expr_ty == WasmType::F64 {
+                code_buf.push(0xB0); // i64.trunc_f64_s
+            }
             has_ret = true;
         }
 
@@ -334,7 +448,79 @@ impl WasmEmitter {
         Ok(final_code_entry)
     }
 
-    fn collect_local_vars(block: &Block, out: &mut Vec<(String, WasmType)>) {
+    fn infer_wasm_expr_type(
+        expr: &Expr,
+        known_locals: &HashMap<String, WasmType>,
+        func_table: &HashMap<String, (u32, u32, FuncSignature)>,
+    ) -> WasmType {
+        match expr {
+            Expr::Lit(Literal::Float(_), _) => WasmType::F64,
+            Expr::Ident(name, _) => {
+                if name == "PI" || name == "TAU" || name == "E" {
+                    WasmType::F64
+                } else if let Some(&ty) = known_locals.get(name) {
+                    ty
+                } else {
+                    WasmType::I64
+                }
+            }
+            Expr::Call { callee, .. } => {
+                if let Expr::Ident(name, _) = &**callee {
+                    match name.as_str() {
+                        "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "atan2"
+                        | "akar_kuadrat" | "akar_kubik" | "pangkat" | "nilai_mutlak"
+                        | "bulat" | "lantai" | "langit_langit" | "tanda"
+                        | "log" | "log10" | "log2" | "exp" | "ke_radian" | "ke_derajat"
+                        | "min" | "max" => WasmType::F64,
+                        _ => {
+                            if let Some((_, _, sig)) = func_table.get(name) {
+                                if sig.results.first() == Some(&WasmType::F64) {
+                                    return WasmType::F64;
+                                }
+                            }
+                            WasmType::I64
+                        }
+                    }
+                } else {
+                    WasmType::I64
+                }
+            }
+            Expr::Unary(UnaryOp::Neg, inner, _) => {
+                Self::infer_wasm_expr_type(inner, known_locals, func_table)
+            }
+            Expr::Binary(lhs, op, rhs, _) => {
+                if matches!(
+                    op,
+                    BinaryOp::Eq
+                        | BinaryOp::NotEq
+                        | BinaryOp::Lt
+                        | BinaryOp::LtEq
+                        | BinaryOp::Gt
+                        | BinaryOp::GtEq
+                        | BinaryOp::And
+                        | BinaryOp::Or
+                ) {
+                    WasmType::I64
+                } else {
+                    let lty = Self::infer_wasm_expr_type(lhs, known_locals, func_table);
+                    let rty = Self::infer_wasm_expr_type(rhs, known_locals, func_table);
+                    if lty == WasmType::F64 || rty == WasmType::F64 {
+                        WasmType::F64
+                    } else {
+                        WasmType::I64
+                    }
+                }
+            }
+            _ => WasmType::I64,
+        }
+    }
+
+    fn collect_local_vars(
+        block: &Block,
+        known_locals: &mut HashMap<String, WasmType>,
+        func_table: &HashMap<String, (u32, u32, FuncSignature)>,
+        out: &mut Vec<(String, WasmType)>,
+    ) {
         for stmt in &block.stmts {
             match stmt {
                 Stmt::VarDecl { name, init, explicit_ty, .. } => {
@@ -348,25 +534,25 @@ impl WasmEmitter {
                         } else {
                             WasmType::I64
                         }
-                    } else if matches!(init, Expr::Lit(Literal::Float(_), _)) {
-                        WasmType::F64
                     } else {
-                        WasmType::I64
+                        Self::infer_wasm_expr_type(init, known_locals, func_table)
                     };
+                    known_locals.insert(name.clone(), ty);
                     out.push((name.clone(), ty));
                 }
                 Stmt::ForIn { var_name, body, .. } => {
+                    known_locals.insert(var_name.clone(), WasmType::I64);
                     out.push((var_name.clone(), WasmType::I64));
-                    Self::collect_local_vars(body, out);
+                    Self::collect_local_vars(body, known_locals, func_table, out);
                 }
                 Stmt::If { then_branch, else_branch, .. } => {
-                    Self::collect_local_vars(then_branch, out);
+                    Self::collect_local_vars(then_branch, known_locals, func_table, out);
                     if let Some(eb) = else_branch {
-                        Self::collect_local_vars(eb, out);
+                        Self::collect_local_vars(eb, known_locals, func_table, out);
                     }
                 }
                 Stmt::While { body, .. } => {
-                    Self::collect_local_vars(body, out);
+                    Self::collect_local_vars(body, known_locals, func_table, out);
                 }
                 _ => {}
             }
@@ -379,6 +565,7 @@ impl WasmEmitter {
         locals_map: &HashMap<String, (u32, WasmType)>,
         out: &mut Vec<u8>,
         has_ret: &mut bool,
+        expected_ret_ty: Option<WasmType>,
     ) -> Result<()> {
         match stmt {
             Stmt::VarDecl { name, init, .. } => {
@@ -409,7 +596,12 @@ impl WasmEmitter {
             }
             Stmt::Return { value, .. } => {
                 if let Some(v) = value {
-                    self.compile_expr(v, locals_map, out)?;
+                    let expr_ty = self.compile_expr(v, locals_map, out)?;
+                    if expected_ret_ty == Some(WasmType::F64) && expr_ty == WasmType::I64 {
+                        out.push(0xB9); // f64.convert_i64_s
+                    } else if expected_ret_ty == Some(WasmType::I64) && expr_ty == WasmType::F64 {
+                        out.push(0xB0); // i64.trunc_f64_s
+                    }
                 }
                 out.push(0x0F); // return
                 *has_ret = true;
@@ -423,13 +615,13 @@ impl WasmEmitter {
                 out.push(0x40); // void block
 
                 for s in &then_branch.stmts {
-                    self.compile_stmt(s, locals_map, out, has_ret)?;
+                    self.compile_stmt(s, locals_map, out, has_ret, expected_ret_ty)?;
                 }
 
                 if let Some(eb) = else_branch {
                     out.push(0x05); // else
                     for s in &eb.stmts {
-                        self.compile_stmt(s, locals_map, out, has_ret)?;
+                        self.compile_stmt(s, locals_map, out, has_ret, expected_ret_ty)?;
                     }
                 }
 
@@ -450,7 +642,7 @@ impl WasmEmitter {
                 encode_u32_leb128(1, out);
 
                 for s in &body.stmts {
-                    self.compile_stmt(s, locals_map, out, has_ret)?;
+                    self.compile_stmt(s, locals_map, out, has_ret, expected_ret_ty)?;
                 }
 
                 out.push(0x0C); // br 0 (ulangi loop)
@@ -498,11 +690,35 @@ impl WasmEmitter {
                 encode_i64_leb128(offset as i64, out);
                 Ok(WasmType::I32)
             }
+            Expr::InterpolatedString(parts, _) => {
+                let mut static_str = String::new();
+                for p in parts {
+                    if let InterpolatedExprPart::Lit(s) = p {
+                        static_str.push_str(s);
+                    }
+                }
+                let (offset, _) = self.intern_string(&static_str);
+                out.push(0x41); // i32.const
+                encode_i64_leb128(offset as i64, out);
+                Ok(WasmType::I32)
+            }
             Expr::Ident(name, span) => {
                 if let Some(&(idx, ty)) = locals_map.get(name) {
                     out.push(0x20); // local.get
                     encode_u32_leb128(idx, out);
                     Ok(ty)
+                } else if name == "PI" {
+                    out.push(0x44); // f64.const
+                    out.extend_from_slice(&std::f64::consts::PI.to_le_bytes());
+                    Ok(WasmType::F64)
+                } else if name == "TAU" {
+                    out.push(0x44); // f64.const
+                    out.extend_from_slice(&std::f64::consts::TAU.to_le_bytes());
+                    Ok(WasmType::F64)
+                } else if name == "E" {
+                    out.push(0x44); // f64.const
+                    out.extend_from_slice(&std::f64::consts::E.to_le_bytes());
+                    Ok(WasmType::F64)
                 } else {
                     Err(Diagnostic::error(format!("Variabel '{}' tidak ditemukan", name))
                         .with_span(*span))
@@ -580,6 +796,32 @@ impl WasmEmitter {
                                 encode_i64_leb128(len as i64, out);
                                 out.push(0x10); // call
                                 encode_u32_leb128(2, out); // env.cetak_teks (func 2)
+                            } else if let Expr::InterpolatedString(parts, _) = arg {
+                                for p in parts {
+                                    match p {
+                                        InterpolatedExprPart::Lit(s) => {
+                                            if !s.is_empty() {
+                                                let (off, len) = self.intern_string(s);
+                                                out.push(0x41);
+                                                encode_i64_leb128(off as i64, out);
+                                                out.push(0x41);
+                                                encode_i64_leb128(len as i64, out);
+                                                out.push(0x10);
+                                                encode_u32_leb128(2, out);
+                                            }
+                                        }
+                                        InterpolatedExprPart::Expr(e) => {
+                                            let ty = self.compile_expr(e, locals_map, out)?;
+                                            if ty == WasmType::F64 {
+                                                out.push(0x10);
+                                                encode_u32_leb128(1, out); // env.cetak_f64
+                                            } else {
+                                                out.push(0x10);
+                                                encode_u32_leb128(0, out); // env.cetak_u64
+                                            }
+                                        }
+                                    }
+                                }
                             } else {
                                 let ty = self.compile_expr(arg, locals_map, out)?;
                                 if ty == WasmType::F64 {
@@ -594,9 +836,79 @@ impl WasmEmitter {
                         return Ok(WasmType::I32);
                     }
 
+                    // Operasi matematika perangkat keras bawaan WebAssembly MVP (Hardware Native)
+                    if name == "akar_kuadrat" && args.len() == 1 {
+                        let ty = self.compile_expr(&args[0].value, locals_map, out)?;
+                        if ty == WasmType::I64 { out.push(0xB9); } // f64.convert_i64_s
+                        out.push(0x9F); // f64.sqrt
+                        return Ok(WasmType::F64);
+                    }
+                    if name == "nilai_mutlak" && args.len() == 1 {
+                        let ty = self.compile_expr(&args[0].value, locals_map, out)?;
+                        if ty == WasmType::I64 { out.push(0xB9); } // f64.convert_i64_s
+                        out.push(0x99); // f64.abs
+                        return Ok(WasmType::F64);
+                    }
+                    if name == "bulat" && args.len() == 1 {
+                        let ty = self.compile_expr(&args[0].value, locals_map, out)?;
+                        if ty == WasmType::I64 { out.push(0xB9); } // f64.convert_i64_s
+                        out.push(0x9E); // f64.nearest
+                        return Ok(WasmType::F64);
+                    }
+                    if name == "lantai" && args.len() == 1 {
+                        let ty = self.compile_expr(&args[0].value, locals_map, out)?;
+                        if ty == WasmType::I64 { out.push(0xB9); } // f64.convert_i64_s
+                        out.push(0x9C); // f64.floor
+                        return Ok(WasmType::F64);
+                    }
+                    if name == "langit_langit" && args.len() == 1 {
+                        let ty = self.compile_expr(&args[0].value, locals_map, out)?;
+                        if ty == WasmType::I64 { out.push(0xB9); } // f64.convert_i64_s
+                        out.push(0x9B); // f64.ceil
+                        return Ok(WasmType::F64);
+                    }
+                    if name == "min" && args.len() == 2 {
+                        let t1 = self.compile_expr(&args[0].value, locals_map, out)?;
+                        if t1 == WasmType::I64 { out.push(0xB9); }
+                        let t2 = self.compile_expr(&args[1].value, locals_map, out)?;
+                        if t2 == WasmType::I64 { out.push(0xB9); }
+                        out.push(0xA4); // f64.min
+                        return Ok(WasmType::F64);
+                    }
+                    if name == "max" && args.len() == 2 {
+                        let t1 = self.compile_expr(&args[0].value, locals_map, out)?;
+                        if t1 == WasmType::I64 { out.push(0xB9); }
+                        let t2 = self.compile_expr(&args[1].value, locals_map, out)?;
+                        if t2 == WasmType::I64 { out.push(0xB9); }
+                        out.push(0xA5); // f64.max
+                        return Ok(WasmType::F64);
+                    }
+                    if name == "ke_radian" && args.len() == 1 {
+                        let ty = self.compile_expr(&args[0].value, locals_map, out)?;
+                        if ty == WasmType::I64 { out.push(0xB9); }
+                        out.push(0x44); // f64.const
+                        let factor = std::f64::consts::PI / 180.0;
+                        out.extend_from_slice(&factor.to_le_bytes());
+                        out.push(0xA2); // f64.mul
+                        return Ok(WasmType::F64);
+                    }
+                    if name == "ke_derajat" && args.len() == 1 {
+                        let ty = self.compile_expr(&args[0].value, locals_map, out)?;
+                        if ty == WasmType::I64 { out.push(0xB9); }
+                        out.push(0x44); // f64.const
+                        let factor = 180.0 / std::f64::consts::PI;
+                        out.extend_from_slice(&factor.to_le_bytes());
+                        out.push(0xA2); // f64.mul
+                        return Ok(WasmType::F64);
+                    }
+
                     if let Some((func_idx, _, sig)) = self.func_table.get(name).cloned() {
-                        for arg in args {
-                            self.compile_expr(&arg.value, locals_map, out)?;
+                        for (idx, arg) in args.iter().enumerate() {
+                            let expected_ty = sig.params.get(idx).copied();
+                            let ty = self.compile_expr(&arg.value, locals_map, out)?;
+                            if expected_ty == Some(WasmType::F64) && ty == WasmType::I64 {
+                                out.push(0xB9); // f64.convert_i64_s
+                            }
                         }
                         out.push(0x10); // call
                         encode_u32_leb128(func_idx, out);
@@ -687,7 +999,21 @@ const importObject = {{
         cetak_teks: (ptr, len) => {{
             const arr = new Uint8Array(memory.buffer, ptr, len);
             console.log(new TextDecoder().decode(arr));
-        }}
+        }},
+        sin: Math.sin,
+        cos: Math.cos,
+        tan: Math.tan,
+        asin: Math.asin,
+        acos: Math.acos,
+        atan: Math.atan,
+        atan2: Math.atan2,
+        akar_kubik: Math.cbrt,
+        pangkat: Math.pow,
+        log: Math.log,
+        log10: Math.log10,
+        log2: Math.log2,
+        exp: Math.exp,
+        tanda: Math.sign,
     }}
 }};
 
@@ -832,7 +1158,21 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
                         cetak_teks: (ptr, len) => {{
                             const arr = new Uint8Array(memory.buffer, ptr, len);
                             log('Cetak: ' + new TextDecoder().decode(arr));
-                        }}
+                        }},
+                        sin: Math.sin,
+                        cos: Math.cos,
+                        tan: Math.tan,
+                        asin: Math.asin,
+                        acos: Math.acos,
+                        atan: Math.atan,
+                        atan2: Math.atan2,
+                        akar_kubik: Math.cbrt,
+                        pangkat: Math.pow,
+                        log: Math.log,
+                        log10: Math.log10,
+                        log2: Math.log2,
+                        exp: Math.exp,
+                        tanda: Math.sign,
                     }}
                 }};
 

@@ -623,17 +623,29 @@ static inline const char* dap_ke_huruf_kecil(const char* s) {
     return buf;
 }
 
-static inline f64 dap_akar_kuadrat(f64 x) {
-    return sqrt(x);
-}
-
-static inline f64 dap_pangkat(f64 b, f64 e) {
-    return pow(b, e);
-}
-
-static inline f64 dap_nilai_mutlak(f64 x) {
-    return fabs(x);
-}
+static inline f64 dap_sin(f64 x) { return sin(x); }
+static inline f64 dap_cos(f64 x) { return cos(x); }
+static inline f64 dap_tan(f64 x) { return tan(x); }
+static inline f64 dap_asin(f64 x) { return asin(x); }
+static inline f64 dap_acos(f64 x) { return acos(x); }
+static inline f64 dap_atan(f64 x) { return atan(x); }
+static inline f64 dap_atan2(f64 y, f64 x) { return atan2(y, x); }
+static inline f64 dap_akar_kuadrat(f64 x) { return sqrt(x); }
+static inline f64 dap_akar_kubik(f64 x) { return cbrt(x); }
+static inline f64 dap_pangkat(f64 b, f64 e) { return pow(b, e); }
+static inline f64 dap_nilai_mutlak(f64 x) { return fabs(x); }
+static inline f64 dap_bulat(f64 x) { return round(x); }
+static inline f64 dap_lantai(f64 x) { return floor(x); }
+static inline f64 dap_langit_langit(f64 x) { return ceil(x); }
+static inline f64 dap_tanda(f64 x) { return (x > 0.0) ? 1.0 : ((x < 0.0) ? -1.0 : 0.0); }
+static inline f64 dap_log(f64 x) { return log(x); }
+static inline f64 dap_log10(f64 x) { return log10(x); }
+static inline f64 dap_log2(f64 x) { return log2(x); }
+static inline f64 dap_exp(f64 x) { return exp(x); }
+static inline f64 dap_min(f64 a, f64 b) { return (a < b) ? a : b; }
+static inline f64 dap_max(f64 a, f64 b) { return (a > b) ? a : b; }
+static inline f64 dap_ke_radian(f64 deg) { return deg * (3.14159265358979323846 / 180.0); }
+static inline f64 dap_ke_derajat(f64 rad) { return rad * (180.0 / 3.14159265358979323846); }
 
 static inline u64 dap_waktu_sekarang_ms(void) {
     return (u64)time(NULL) * 1000;
@@ -2647,7 +2659,14 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 Literal::Bool(b) => if *b { "true".to_string() } else { "false".to_string() },
                 Literal::Unit => "((void)0)".to_string(),
             },
-            Expr::Ident(name, _) => name.clone(),
+            Expr::Ident(name, _) => {
+                match name.as_str() {
+                    "PI" => "3.14159265358979323846".to_string(),
+                    "TAU" => "6.28318530717958647692".to_string(),
+                    "E" => "2.71828182845904523536".to_string(),
+                    _ => name.clone(),
+                }
+            },
             Expr::SelfVar(_) => "ini".to_string(),
             Expr::Binary(left, op, right, _) => {
                 let l = self.emit_expr(left);

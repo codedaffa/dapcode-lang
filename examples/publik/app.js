@@ -72,7 +72,21 @@ document.addEventListener("DOMContentLoaded", () => {
                     cetak_teks: (ptr, len) => {
                         const arr = new Uint8Array(wasmMemory.buffer, ptr, len);
                         appendWasmLog(`[WASM cetak] ${new TextDecoder().decode(arr)}`);
-                    }
+                    },
+                    sin: Math.sin,
+                    cos: Math.cos,
+                    tan: Math.tan,
+                    asin: Math.asin,
+                    acos: Math.acos,
+                    atan: Math.atan,
+                    atan2: Math.atan2,
+                    akar_kubik: Math.cbrt,
+                    pangkat: Math.pow,
+                    log: Math.log,
+                    log10: Math.log10,
+                    log2: Math.log2,
+                    exp: Math.exp,
+                    tanda: Math.sign,
                 }
             };
 
