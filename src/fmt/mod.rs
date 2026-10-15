@@ -360,6 +360,7 @@ impl Formatter {
             }
             TypeExpr::Task(inner, _) => format!("Tugas<{}>", self.format_type(inner)),
             TypeExpr::List(inner, _) => format!("Daftar<{}>", self.format_type(inner)),
+            TypeExpr::Map(inner, _) => format!("Kamus<{}>", self.format_type(inner)),
             TypeExpr::Unit(_) => "()".to_string(),
             TypeExpr::Inferred(_) => "_".to_string(),
         }

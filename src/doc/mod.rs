@@ -63,6 +63,7 @@ pub fn format_type_expr(ty: &TypeExpr) -> String {
         }
         TypeExpr::Task(inner, _) => format!("Tugas<{}>", format_type_expr(inner)),
         TypeExpr::List(inner, _) => format!("Daftar<{}>", format_type_expr(inner)),
+        TypeExpr::Map(inner, _) => format!("Kamus<{}>", format_type_expr(inner)),
         TypeExpr::Unit(_) => "()".to_string(),
         TypeExpr::Inferred(_) => "_".to_string(),
     }

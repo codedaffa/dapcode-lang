@@ -346,12 +346,24 @@ impl<'a> Parser<'a> {
             if self.check(TokenKind::Lt) {
                 self.advance();
                 let inner = self.parse_type_expr()?;
-                let end = self.expect(TokenKind::Gt)?.span;
                 if name == "Tugas" {
+                    let end = self.expect(TokenKind::Gt)?.span;
                     TypeExpr::Task(Box::new(inner), span.merge(end))
                 } else if name == "Daftar" {
+                    let end = self.expect(TokenKind::Gt)?.span;
                     TypeExpr::List(Box::new(inner), span.merge(end))
+                } else if name == "Kamus" {
+                    if self.check(TokenKind::Comma) {
+                        self.advance();
+                        let val_inner = self.parse_type_expr()?;
+                        let end = self.expect(TokenKind::Gt)?.span;
+                        TypeExpr::Map(Box::new(val_inner), span.merge(end))
+                    } else {
+                        let end = self.expect(TokenKind::Gt)?.span;
+                        TypeExpr::Map(Box::new(inner), span.merge(end))
+                    }
                 } else {
+                    let end = self.expect(TokenKind::Gt)?.span;
                     TypeExpr::Named(name, span.merge(end))
                 }
             } else {

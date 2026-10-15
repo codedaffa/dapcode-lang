@@ -1,0 +1,119 @@
+// ========================================================
+// Demo Koleksi Asosiatif Kamus (In-Memory Map / Dictionary)
+// Koleksi Pasangan Kunci-Nilai Cepat & Serialisasi JSON
+// ========================================================
+
+fungsi demo_kamus_dasar() -> Unit {
+    cetak("=== 1. Inisialisasi & Manipulasi Pasangan Kunci-Nilai ===")
+    
+    // Inisialisasi kamus kosong
+    profil := Kamus()
+    
+    jika profil.kosong() {
+        cetak("Status awal kamus: Kosong (panjang 0)")
+    }
+    
+    // Menambahkan pasangan entri
+    profil.pasang("nama", "Ahmad Dahlan")
+    profil.pasang("pekerjaan", "Insinyur Perangkat Lunak")
+    profil.pasang("kota", "Yogyakarta")
+    profil.pasang("status", "Aktif")
+    
+    total_entri := profil.panjang()
+    cetak("Jumlah entri terdaftar: {total_entri}")
+    
+    // Memeriksa keberadaan kunci
+    ada_kota := profil.ada("kota")
+    ada_gaji := profil.ada("gaji")
+    cetak("Kunci 'kota' ada? {ada_kota}")
+    cetak("Kunci 'gaji' ada? {ada_gaji}")
+    
+    // Mengambil nilai secara aman (.ambil dengan penanganan kesalahan)
+    nama := profil.ambil("nama") ? tangkap err {
+        "Nama tidak ditemukan"
+    }
+    cetak("Nama pengguna: {nama}")
+    
+    // Mengambil nilai dengan nilai bawaan fallback (.ambil_atau)
+    kota := profil.ambil_atau("kota", "Indonesia")
+    negara := profil.ambil_atau("negara", "Republik Indonesia")
+    cetak("Kota domisili: {kota}")
+    cetak("Negara (fallback bawaan): {negara}")
+    
+    // Memperbarui nilai yang sudah ada
+    profil.pasang("pekerjaan", "Principal Systems Architect")
+    pekerjaan_baru := profil.ambil_atau("pekerjaan", "-")
+    cetak("Pekerjaan diperbarui: {pekerjaan_baru}")
+}
+
+fungsi demo_kamus_json_dan_kunci() -> Unit {
+    cetak("")
+    cetak("=== 2. Daftar Kunci, Nilai, dan Serialisasi JSON ===")
+    
+    stok := Kamus()
+    stok.pasang("Buku", "150")
+    stok.pasang("Pulpen", "320")
+    stok.pasang("Penghapus", "85")
+    stok.pasang("Penggaris", "40")
+    
+    // Mengambil semua kunci yang tersimpan
+    kunci_produk := stok.daftar_kunci()
+    total_kunci := kunci_produk.panjang()
+    cetak("Total item produk: {total_kunci}")
+    
+    // Mengambil semua nilai yang tersimpan
+    nilai_stok := stok.daftar_nilai()
+    daftar_nilai_str := nilai_stok.gabung(" pcs, ")
+    cetak("Sebaran kuantitas: {daftar_nilai_str} pcs")
+    
+    // Serialisasi otomatis ke format JSON
+    json_stok := stok.ke_json()
+    cetak("Format JSON Kamus: {json_stok}")
+    
+    // Perulangan untuk di kamus (iterasi setiap kunci)
+    cetak("")
+    cetak("Rincian Inventaris Toko:")
+    untuk item di stok {
+        jumlah := stok.ambil_atau(item, "0")
+        cetak(" - {item}: {jumlah} unit")
+    }
+}
+
+fungsi demo_kamus_penghapusan() -> Unit {
+    cetak("")
+    cetak("=== 3. Penghapusan Entri & Pembersihan Kamus ===")
+    
+    sesi := Kamus()
+    sesi.pasang("token", "xyz-auth-token-999")
+    sesi.pasang("ip", "192.168.1.100")
+    sesi.pasang("perangkat", "Laptop DapCode OS")
+    
+    cetak("Sebelum penghapusan: panjang {sesi.panjang()}")
+    
+    // Hapus entri tertentu (.hapus)
+    token_terhapus := sesi.hapus("token") ? tangkap err {
+        "Kunci tidak ditemukan"
+    }
+    cetak("Entri 'token' berhasil dihapus: {token_terhapus}")
+    cetak("Sisa entri setelah hapus token: {sesi.panjang()}")
+    
+    // Kosongkan seluruh kamus (.bersihkan)
+    sesi.bersihkan()
+    cetak("Setelah .bersihkan(): panjang {sesi.panjang()}, kosong? {sesi.kosong()}")
+}
+
+fungsi utama() -> Unit {
+    cetak("=========================================================")
+    cetak("  DapCode - Demonstrasi Koleksi Asosiatif Kamus (Map)    ")
+    cetak("=========================================================")
+    cetak("")
+    
+    demo_kamus_dasar()
+    demo_kamus_json_dan_kunci()
+    demo_kamus_penghapusan()
+    
+    cetak("")
+    cetak("=========================================================")
+    cetak("  Seluruh pengujian metode Kamus berhasil dijalankan!    ")
+    cetak("=========================================================")
+}

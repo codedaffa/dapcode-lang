@@ -12,6 +12,7 @@ pub struct CodeGenerator<'a> {
     pub _temp_counter: usize,
     pub task_helpers: Vec<String>,
     pub method_to_struct: HashMap<String, String>,
+    pub var_types: HashMap<String, String>,
 }
 
 impl<'a> CodeGenerator<'a> {
@@ -22,6 +23,7 @@ impl<'a> CodeGenerator<'a> {
             _temp_counter: 0,
             task_helpers: Vec::new(),
             method_to_struct: HashMap::new(),
+            var_types: HashMap::new(),
         }
     }
 
@@ -110,6 +112,7 @@ impl<'a> CodeGenerator<'a> {
 
         if !struct_names.is_empty() {
             let mut branches: Vec<String> = struct_names.iter().map(|n| format!("{}: dap_ke_json_{}", n, n)).collect();
+            branches.push("DapMap*: dap_Kamus_ke_json".to_string());
             branches.push("default: _dap_to_str_str".to_string());
             self.out.push_str(&format!(
                 "#undef dap_ke_json\n#define dap_ke_json(x) _Generic((x), {})(x)\n\n",
@@ -508,6 +511,235 @@ static inline char* _dap_to_str_ptr(const void* x) {
     default: _dap_to_str_ptr \
 )(x)
 
+// Runtime Dynamic Associative Collection: DapMap (Kamus)
+typedef struct {
+    char* key;
+    void* val;
+} DapMapEntry;
+
+typedef struct DapMap {
+    size_t len;
+    size_t cap;
+    DapMapEntry* entries;
+} DapMap;
+
+typedef struct { bool is_err; const char* err_msg; DapMap* ok; } DapResult_Kamus;
+
+static inline DapMap* dap_Kamus_baru(void) {
+    DapMap* map = (DapMap*)malloc(sizeof(DapMap));
+    map->len = 0;
+    map->cap = 8;
+    map->entries = (DapMapEntry*)malloc(sizeof(DapMapEntry) * map->cap);
+    return map;
+}
+
+static inline int _dap_kamus_find_pos(DapMap* map, const char* key, bool* found) {
+    if (!map || map->len == 0) {
+        if (found) *found = false;
+        return 0;
+    }
+    int low = 0;
+    int high = (int)map->len - 1;
+    while (low <= high) {
+        int mid = low + (high - low) / 2;
+        int cmp = strcmp(map->entries[mid].key, key);
+        if (cmp == 0) {
+            if (found) *found = true;
+            return mid;
+        }
+        if (cmp < 0) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    if (found) *found = false;
+    return low;
+}
+
+static inline void dap_Kamus_pasang(DapMap* map, const char* key, void* val) {
+    if (!map || !key) return;
+    bool found = false;
+    int pos = _dap_kamus_find_pos(map, key, &found);
+    if (found) {
+        map->entries[pos].val = val;
+        return;
+    }
+    if (map->len >= map->cap) {
+        map->cap = map->cap == 0 ? 8 : map->cap * 2;
+        map->entries = (DapMapEntry*)realloc(map->entries, sizeof(DapMapEntry) * map->cap);
+    }
+    for (int i = (int)map->len; i > pos; i--) {
+        map->entries[i] = map->entries[i - 1];
+    }
+    map->entries[pos].key = strdup(key);
+    map->entries[pos].val = val;
+    map->len++;
+}
+
+static inline DapResult_ptr dap_Kamus_ambil(DapMap* map, const char* key) {
+    DapResult_ptr res;
+    if (!map || !key) {
+        res.is_err = true;
+        res.err_msg = "Kunci null atau kamus tidak valid";
+        res.ok = NULL;
+        return res;
+    }
+    bool found = false;
+    int pos = _dap_kamus_find_pos(map, key, &found);
+    if (found) {
+        res.is_err = false;
+        res.err_msg = NULL;
+        res.ok = map->entries[pos].val;
+    } else {
+        res.is_err = true;
+        res.err_msg = "Kunci tidak ditemukan";
+        res.ok = NULL;
+    }
+    return res;
+}
+
+static inline void* dap_Kamus_ambil_atau(DapMap* map, const char* key, void* bawaan) {
+    if (!map || !key) return bawaan;
+    bool found = false;
+    int pos = _dap_kamus_find_pos(map, key, &found);
+    return found ? map->entries[pos].val : bawaan;
+}
+
+static inline bool dap_Kamus_ada(DapMap* map, const char* key) {
+    if (!map || !key) return false;
+    bool found = false;
+    _dap_kamus_find_pos(map, key, &found);
+    return found;
+}
+
+static inline DapResult_ptr dap_Kamus_hapus(DapMap* map, const char* key) {
+    DapResult_ptr res;
+    if (!map || !key) {
+        res.is_err = true;
+        res.err_msg = "Kunci tidak ditemukan";
+        res.ok = NULL;
+        return res;
+    }
+    bool found = false;
+    int pos = _dap_kamus_find_pos(map, key, &found);
+    if (found) {
+        res.is_err = false;
+        res.err_msg = NULL;
+        res.ok = map->entries[pos].val;
+        free(map->entries[pos].key);
+        for (size_t i = (size_t)pos; i + 1 < map->len; i++) {
+            map->entries[i] = map->entries[i + 1];
+        }
+        map->len--;
+    } else {
+        res.is_err = true;
+        res.err_msg = "Kunci tidak ditemukan";
+        res.ok = NULL;
+    }
+    return res;
+}
+
+static inline u64 dap_Kamus_panjang(DapMap* map) {
+    return map ? (u64)map->len : 0;
+}
+
+static inline bool dap_Kamus_kosong(DapMap* map) {
+    return !map || map->len == 0;
+}
+
+static inline DapList* dap_Kamus_daftar_kunci(DapMap* map) {
+    DapList* list = dap_Daftar_baru();
+    if (!map) return list;
+    for (size_t i = 0; i < map->len; i++) {
+        dap_Daftar_tambah(list, (void*)strdup(map->entries[i].key));
+    }
+    return list;
+}
+
+static inline DapList* dap_Kamus_daftar_nilai(DapMap* map) {
+    DapList* list = dap_Daftar_baru();
+    if (!map) return list;
+    for (size_t i = 0; i < map->len; i++) {
+        dap_Daftar_tambah(list, map->entries[i].val);
+    }
+    return list;
+}
+
+static inline void dap_Kamus_bersihkan(DapMap* map) {
+    if (!map) return;
+    for (size_t i = 0; i < map->len; i++) {
+        free(map->entries[i].key);
+    }
+    map->len = 0;
+}
+
+static inline char* _dap_val_to_json(void* x) {
+    if (!x) return strdup("null");
+    uintptr_t val = (uintptr_t)x;
+    if (val < 0x10000) {
+        char* b = (char*)malloc(32);
+        snprintf(b, 32, "%llu", (unsigned long long)val);
+        return b;
+    }
+    const unsigned char* s = (const unsigned char*)x;
+    bool is_str = true;
+    size_t i = 0;
+    while (i < 1024 && s[i] != '\0') {
+        if (s[i] < 32 && s[i] != '\t' && s[i] != '\n' && s[i] != '\r') {
+            is_str = false;
+            break;
+        }
+        i++;
+    }
+    if (is_str && i < 1024) {
+        char* b = (char*)malloc(strlen((const char*)x) * 2 + 3);
+        b[0] = '"';
+        size_t bi = 1;
+        for (size_t si = 0; s[si] != '\0'; si++) {
+            if (s[si] == '"' || s[si] == '\\') {
+                b[bi++] = '\\';
+            }
+            b[bi++] = s[si];
+        }
+        b[bi++] = '"';
+        b[bi] = '\0';
+        return b;
+    }
+    return strdup(_dap_to_str_ptr(x));
+}
+
+static inline const char* dap_Kamus_ke_json(DapMap* map) {
+    if (!map || map->len == 0) return "{}";
+    size_t cap = 256;
+    char* buf = (char*)malloc(cap);
+    buf[0] = '{';
+    buf[1] = '\0';
+    size_t len = 1;
+    for (size_t i = 0; i < map->len; i++) {
+        char* k = map->entries[i].key;
+        char* v_json = _dap_val_to_json(map->entries[i].val);
+        size_t needed = len + strlen(k) + strlen(v_json) + 6;
+        if (needed >= cap) {
+            cap = (needed + 256) * 2;
+            buf = (char*)realloc(buf, cap);
+        }
+        if (i > 0) {
+            buf[len++] = ',';
+            buf[len] = '\0';
+        }
+        int written = snprintf(buf + len, cap - len, "\"%s\":%s", k, v_json);
+        if (written > 0) len += (size_t)written;
+        free(v_json);
+    }
+    if (len + 2 >= cap) {
+        buf = (char*)realloc(buf, len + 2);
+    }
+    buf[len++] = '}';
+    buf[len] = '\0';
+    return buf;
+}
+
 #define dap_cetak(x) printf("%s\n", dap_to_str(x))
 
 static inline void dap_cetak_multi(size_t count, const char** msgs) {
@@ -848,6 +1080,7 @@ static inline DapResult_ptr dap_teks_ambil(const char* s, u64 idx) {
 
 #define dap_panjang(x) _Generic((x), \
     DapList*: dap_Daftar_panjang, \
+    DapMap*: dap_Kamus_panjang, \
     const char*: dap_panjang_teks, \
     char*: dap_panjang_teks \
 )(x)
@@ -869,6 +1102,12 @@ static inline DapResult_ptr dap_teks_ambil(const char* s, u64 idx) {
     const char*: dap_teks_ambil, \
     char*: dap_teks_ambil \
 )((x), (idx))
+
+static inline DapList* _dap_list_identity(DapList* l) { return l; }
+#define dap_ke_daftar_iter(x) _Generic((x), \
+    DapList*: _dap_list_identity, \
+    DapMap*: dap_Kamus_daftar_kunci \
+)(x)
 
 static inline f64 dap_sin(f64 x) { return sin(x); }
 static inline f64 dap_cos(f64 x) { return cos(x); }
@@ -1141,7 +1380,10 @@ static inline DapResult_Teks dap_uraikan_json(const char* json) {
     return res;
 }
 
-#define dap_ke_json(x) dap_to_str(x)
+#define dap_ke_json(x) _Generic((x), \
+    DapMap*: dap_Kamus_ke_json, \
+    default: dap_to_str \
+)(x)
 
 // Standard Library: HTTP Network Builtins
 static inline DapResult_Teks dap_ambil_http(const char* url) {
@@ -3253,6 +3495,13 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 let s = self_struct.unwrap_or("void");
                 self.out.push_str(&format!("{}* ini", s));
             } else if let Some(pty) = &p.ty {
+                match pty {
+                    TypeExpr::Named(n, _) if n == "Kamus" => { self.var_types.insert(p.name.clone(), "Kamus".to_string()); }
+                    TypeExpr::Map(_, _) => { self.var_types.insert(p.name.clone(), "Kamus".to_string()); }
+                    TypeExpr::Named(n, _) if n == "Daftar" => { self.var_types.insert(p.name.clone(), "Daftar".to_string()); }
+                    TypeExpr::List(_, _) => { self.var_types.insert(p.name.clone(), "Daftar".to_string()); }
+                    _ => {}
+                }
                 self.out.push_str(&format!("{} {}", self.type_to_c(pty), p.name));
             } else {
                 self.out.push_str(&format!("void* {}", p.name));
@@ -3283,7 +3532,24 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
 
     fn emit_stmt(&mut self, stmt: &Stmt, fn_ret_ty: &str) {
         match stmt {
-            Stmt::VarDecl { name, init, .. } => {
+            Stmt::VarDecl { name, init, explicit_ty, .. } => {
+                if let Some(t) = explicit_ty {
+                    match t {
+                        TypeExpr::Named(n, _) if n == "Kamus" => { self.var_types.insert(name.clone(), "Kamus".to_string()); }
+                        TypeExpr::Map(_, _) => { self.var_types.insert(name.clone(), "Kamus".to_string()); }
+                        TypeExpr::Named(n, _) if n == "Daftar" => { self.var_types.insert(name.clone(), "Daftar".to_string()); }
+                        TypeExpr::List(_, _) => { self.var_types.insert(name.clone(), "Daftar".to_string()); }
+                        TypeExpr::Named(n, _) if n == "BasisData" => { self.var_types.insert(name.clone(), "BasisData".to_string()); }
+                        _ => {}
+                    }
+                }
+                if let Expr::Call { callee, .. } = init {
+                    if let Expr::Ident(n, _) = &**callee {
+                        if n == "Kamus" { self.var_types.insert(name.clone(), "Kamus".to_string()); }
+                        else if n == "Daftar" { self.var_types.insert(name.clone(), "Daftar".to_string()); }
+                        else if n == "BasisData" { self.var_types.insert(name.clone(), "BasisData".to_string()); }
+                    }
+                }
                 // Check if init is a catch expression on an error union
                 if let Expr::Catch { inner, err_var, handler, .. } = init {
                     let in_str = self.emit_expr(inner);
@@ -3349,7 +3615,7 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 let idx_var = format!("_i_{}", self._temp_counter);
                 let list_var = format!("_list_{}", self._temp_counter);
                 self._temp_counter += 1;
-                self.out.push_str(&format!("    DapList* {} = {};\n", list_var, it_str));
+                self.out.push_str(&format!("    DapList* {} = dap_ke_daftar_iter({});\n", list_var, it_str));
                 self.out.push_str(&format!(
                     "    for (size_t {} = 0; {} < {}->len; {}++) {{\n",
                     idx_var, idx_var, list_var, idx_var
@@ -3547,6 +3813,9 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                             );
                         }
                     }
+                    if name == "Kamus" {
+                        return "dap_Kamus_baru()".to_string();
+                    }
                     // Struct constructor
                     if name.chars().next().map_or(false, |c| c.is_uppercase()) {
                         let mut arg_list = Vec::new();
@@ -3574,6 +3843,29 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
             }
             Expr::MethodCall { receiver, method, args, .. } => {
                 let rec_str = self.emit_expr(receiver);
+                let is_kamus = self.var_types.get(&rec_str).map_or(false, |t| t == "Kamus")
+                    || rec_str.contains("kamus") || rec_str.contains("map");
+                let is_db = self.var_types.get(&rec_str).map_or(false, |t| t == "BasisData")
+                    || rec_str.contains("db") || rec_str.contains("basis");
+                if method == "pasang" && args.len() == 2 {
+                    let k = self.emit_expr(&args[0].value);
+                    let v = self.emit_expr(&args[1].value);
+                    return format!("dap_Kamus_pasang({}, {}, (void*)(uintptr_t)({}))", rec_str, k, v);
+                }
+                if method == "ambil_atau" && args.len() == 2 {
+                    let k = self.emit_expr(&args[0].value);
+                    let d = self.emit_expr(&args[1].value);
+                    return format!("dap_Kamus_ambil_atau({}, {}, (void*)(uintptr_t)({}))", rec_str, k, d);
+                }
+                if method == "daftar_nilai" && args.is_empty() {
+                    return format!("dap_Kamus_daftar_nilai({})", rec_str);
+                }
+                if method == "bersihkan" && args.is_empty() {
+                    return format!("dap_Kamus_bersihkan({})", rec_str);
+                }
+                if method == "ke_json" && args.is_empty() {
+                    return format!("dap_Kamus_ke_json({})", rec_str);
+                }
                 if method == "tambah" {
                     let arg_str = if !args.is_empty() { self.emit_expr(&args[0].value) } else { "NULL".to_string() };
                     return format!("dap_Daftar_tambah({}, (void*)(uintptr_t)({}))", rec_str, arg_str);
@@ -3622,7 +3914,11 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                     return format!("dap_Daftar_sisip({}, {}, (void*)(uintptr_t)({}))", rec_str, idx, val);
                 }
                 if method == "kosong" {
-                    return format!("dap_Daftar_kosong({})", rec_str);
+                    if is_kamus {
+                        return format!("dap_Kamus_kosong({})", rec_str);
+                    } else {
+                        return format!("dap_Daftar_kosong({})", rec_str);
+                    }
                 }
                 if method == "balik" {
                     return format!("dap_Daftar_balik({})", rec_str);
@@ -3638,18 +3934,28 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 }
                 if method == "hapus" && args.len() == 1 {
                     let k = self.emit_expr(&args[0].value);
-                    if rec_str.contains("db") || rec_str.contains("basis") {
+                    if is_db {
                         return format!("dap_db_hapus({}.jalur, {})", rec_str, k);
+                    } else if is_kamus || k.starts_with('"') || k.contains("teks") || k.contains("kunci") {
+                        return format!("dap_Kamus_hapus({}, {})", rec_str, k);
                     } else {
                         return format!("dap_Daftar_hapus({}, {})", rec_str, k);
                     }
                 }
                 if method == "ada" && args.len() == 1 {
                     let k = self.emit_expr(&args[0].value);
-                    return format!("dap_db_ada({}.jalur, {})", rec_str, k);
+                    if is_db {
+                        return format!("dap_db_ada({}.jalur, {})", rec_str, k);
+                    } else {
+                        return format!("dap_Kamus_ada({}, {})", rec_str, k);
+                    }
                 }
                 if method == "daftar_kunci" {
-                    return format!("dap_db_daftar_kunci({}.jalur)", rec_str);
+                    if is_db {
+                        return format!("dap_db_daftar_kunci({}.jalur)", rec_str);
+                    } else {
+                        return format!("dap_Kamus_daftar_kunci({})", rec_str);
+                    }
                 }
                 if method == "ambil_awalan" && args.len() == 1 {
                     let a = self.emit_expr(&args[0].value);
@@ -3757,8 +4063,10 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 }
                 if method == "ambil" {
                     let arg_str = if !args.is_empty() { self.emit_expr(&args[0].value) } else { "0".to_string() };
-                    if arg_str.starts_with('"') || arg_str.contains("teks") || arg_str.contains("kunci") || rec_str.contains("db") {
+                    if is_db {
                         return format!("dap_db_ambil({}.jalur, {})", rec_str, arg_str);
+                    } else if is_kamus || arg_str.starts_with('"') || arg_str.contains("teks") || arg_str.contains("kunci") {
+                        return format!("dap_Kamus_ambil({}, {})", rec_str, arg_str);
                     } else {
                         return format!("dap_ambil_elemen({}, {})", rec_str, arg_str);
                     }
@@ -3807,7 +4115,29 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 format!("({{\n        char* _buf = (char*)malloc(1024);\n        snprintf(_buf, 1024, {});\n        _buf;\n    }})", formatted)
             }
             Expr::ErrorPropagate { inner, .. } => self.emit_expr(inner),
-            Expr::Catch { inner, .. } => self.emit_expr(inner),
+            Expr::Catch { inner, err_var, handler, .. } => {
+                let in_str = self.emit_expr(inner);
+                let res_var = format!("_c_res_{}", self._temp_counter);
+                self._temp_counter += 1;
+                let h_val = if let Some(he) = &handler.expr {
+                    self.emit_expr(he)
+                } else {
+                    "0".to_string()
+                };
+                if handler.stmts.is_empty() {
+                    format!("({{\n        __auto_type {} = {};\n        {}.is_err ? ({}) : {}.ok;\n    }})", res_var, in_str, res_var, h_val, res_var)
+                } else {
+                    let mut stmts_str = String::new();
+                    for s in &handler.stmts {
+                        let mut tmp_gen = CodeGenerator::new(self._ownership);
+                        tmp_gen.method_to_struct = self.method_to_struct.clone();
+                        tmp_gen.var_types = self.var_types.clone();
+                        tmp_gen.emit_stmt(s, "void");
+                        stmts_str.push_str(&tmp_gen.out);
+                    }
+                    format!("({{\n        __auto_type {} = {};\n        __auto_type _val = {}.ok;\n        if ({}.is_err) {{\n            const char* {} = {}.err_msg;\n            {}\n            _val = {};\n        }}\n        _val;\n    }})", res_var, in_str, res_var, res_var, err_var, res_var, stmts_str, h_val)
+                }
+            }
             Expr::Parallel { body, .. } => {
                 let task_id = self.task_helpers.len();
                 let mut body_code = String::new();
@@ -3874,6 +4204,7 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 "Teks" | "teks" => "Teks".to_string(),
                 "Bool" | "bool" => "bool".to_string(),
                 "Unit" | "unit" => "void".to_string(),
+                "Kamus" => "DapMap*".to_string(),
                 other => other.to_string(),
             },
             TypeExpr::ErrorUnion(ok, _, _) => {
@@ -3882,6 +4213,7 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
             }
             TypeExpr::Task(_inner, _) => "DapTask*".to_string(),
             TypeExpr::List(_inner, _) => "DapList*".to_string(),
+            TypeExpr::Map(_inner, _) => "DapMap*".to_string(),
             TypeExpr::Unit(_) => "void".to_string(),
             TypeExpr::Inferred(_) => "auto".to_string(),
         }

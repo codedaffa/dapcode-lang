@@ -20,6 +20,7 @@ pub enum Type {
     ErrorUnion(Box<Type>, Box<Type>), // T ! E
     Task(Box<Type>),                  // Tugas<T>
     List(Box<Type>),                  // Daftar<T>
+    Map(Box<Type>),                   // Kamus<V>
     Fn(Vec<Type>, Box<Type>),
     Var(TypeVarId),
 }
@@ -38,6 +39,7 @@ impl fmt::Display for Type {
             Type::ErrorUnion(ok, err) => write!(f, "{} ! {}", ok, err),
             Type::Task(inner) => write!(f, "Tugas<{}>", inner),
             Type::List(inner) => write!(f, "Daftar<{}>", inner),
+            Type::Map(inner) => write!(f, "Kamus<{}>", inner),
             Type::Fn(params, ret) => {
                 write!(f, "fungsi(")?;
                 for (i, p) in params.iter().enumerate() {
@@ -131,6 +133,7 @@ impl TypeChecker {
             ),
             Type::Task(inner) => Type::Task(Box::new(self.resolve_type(inner))),
             Type::List(inner) => Type::List(Box::new(self.resolve_type(inner))),
+            Type::Map(inner) => Type::Map(Box::new(self.resolve_type(inner))),
             Type::Fn(params, ret) => Type::Fn(
                 params.iter().map(|p| self.resolve_type(p)).collect(),
                 Box::new(self.resolve_type(ret)),
@@ -1283,6 +1286,7 @@ impl TypeChecker {
                 let resolved = self.resolve_type(&iter_ty);
                 let elem_ty = match resolved {
                     Type::List(elem) => *elem,
+                    Type::Map(_) => Type::String,
                     other => {
                         return Err(Diagnostic::error(format!(
                             "Hanya dapat melakukan perulangan 'untuk' pada 'Daftar', tetapi menemukan '{}'",
@@ -1442,6 +1446,10 @@ impl TypeChecker {
                             self.unify(&arg_ty, &elem_ty, arg.span)?;
                         }
                         return Ok(Type::List(Box::new(elem_ty)));
+                    }
+                    if name == "Kamus" {
+                        let val_ty = self.fresh_var();
+                        return Ok(Type::Map(Box::new(val_ty)));
                     }
                 }
 
@@ -1657,6 +1665,106 @@ impl TypeChecker {
                             other => Err(Diagnostic::error(format!(
                                 "Metode '{}' tidak ditemukan pada Daftar<{}>",
                                 other, elem_ty
+                            ))
+                            .with_span(*span)),
+                        }
+                    }
+                    Type::Map(val_ty) => {
+                        match method.as_str() {
+                            "pasang" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'pasang' membutuhkan 2 argumen: (kunci: Teks, nilai: V)")
+                                        .with_span(*span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                let v_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&v_ty, val_ty, args[1].span)?;
+                                Ok(Type::Unit)
+                            }
+                            "ambil" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ambil' membutuhkan 1 argumen (kunci: Teks)")
+                                        .with_span(*span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(val_ty.clone(), Box::new(Type::String)))
+                            }
+                            "ambil_atau" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'ambil_atau' membutuhkan 2 argumen: (kunci: Teks, bawaan: V)")
+                                        .with_span(*span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                let d_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&d_ty, val_ty, args[1].span)?;
+                                Ok(*val_ty.clone())
+                            }
+                            "ada" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ada' membutuhkan 1 argumen (kunci: Teks)")
+                                        .with_span(*span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "hapus" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'hapus' membutuhkan 1 argumen (kunci: Teks)")
+                                        .with_span(*span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(val_ty.clone(), Box::new(Type::String)))
+                            }
+                            "panjang" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'panjang' tidak menerima argumen")
+                                        .with_span(*span));
+                                }
+                                Ok(Type::U64)
+                            }
+                            "kosong" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'kosong' tidak menerima argumen")
+                                        .with_span(*span));
+                                }
+                                Ok(Type::Bool)
+                            }
+                            "daftar_kunci" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'daftar_kunci' tidak menerima argumen")
+                                        .with_span(*span));
+                                }
+                                Ok(Type::List(Box::new(Type::String)))
+                            }
+                            "daftar_nilai" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'daftar_nilai' tidak menerima argumen")
+                                        .with_span(*span));
+                                }
+                                Ok(Type::List(val_ty.clone()))
+                            }
+                            "ke_json" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'ke_json' tidak menerima argumen")
+                                        .with_span(*span));
+                                }
+                                Ok(Type::String)
+                            }
+                            "bersihkan" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'bersihkan' tidak menerima argumen")
+                                        .with_span(*span));
+                                }
+                                Ok(Type::Unit)
+                            }
+                            other => Err(Diagnostic::error(format!(
+                                "Metode '{}' tidak ditemukan pada Kamus<{}>",
+                                other, val_ty
                             ))
                             .with_span(*span)),
                         }
@@ -2297,6 +2405,7 @@ impl TypeChecker {
             }
             (Type::Task(inner1), Type::Task(inner2)) => self.unify(inner1, inner2, span),
             (Type::List(inner1), Type::List(inner2)) => self.unify(inner1, inner2, span),
+            (Type::Map(inner1), Type::Map(inner2)) => self.unify(inner1, inner2, span),
             (Type::Fn(p1, r1), Type::Fn(p2, r2)) => {
                 if p1.len() != p2.len() {
                     return Err(Diagnostic::error(format!(
@@ -2339,6 +2448,7 @@ impl TypeChecker {
             Type::ErrorUnion(ok, err) => self.occurs(id, &ok) || self.occurs(id, &err),
             Type::Task(inner) => self.occurs(id, &inner),
             Type::List(inner) => self.occurs(id, &inner),
+            Type::Map(inner) => self.occurs(id, &inner),
             Type::Fn(params, ret) => {
                 params.iter().any(|p| self.occurs(id, p)) || self.occurs(id, &ret)
             }
@@ -2361,6 +2471,8 @@ impl TypeChecker {
                 "Teks" | "teks" => Ok(Type::String),
                 "Bool" | "bool" => Ok(Type::Bool),
                 "Unit" | "unit" => Ok(Type::Unit),
+                "Kamus" => Ok(Type::Map(Box::new(Type::Var(TypeVarId(99999))))),
+                "Daftar" => Ok(Type::List(Box::new(Type::Var(TypeVarId(99999))))),
                 _ => {
                     if self.structs.contains_key(name) {
                         Ok(Type::Struct(name.clone()))
@@ -2384,6 +2496,10 @@ impl TypeChecker {
             TypeExpr::List(inner, _) => {
                 let inner_ty = self.type_expr_to_type(inner)?;
                 Ok(Type::List(Box::new(inner_ty)))
+            }
+            TypeExpr::Map(inner, _) => {
+                let inner_ty = self.type_expr_to_type(inner)?;
+                Ok(Type::Map(Box::new(inner_ty)))
             }
             TypeExpr::Unit(_) => Ok(Type::Unit),
             TypeExpr::Inferred(_) => Ok(Type::Var(TypeVarId(99999))),

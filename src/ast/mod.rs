@@ -91,6 +91,7 @@ pub enum TypeExpr {
     ErrorUnion(Box<TypeExpr>, Box<TypeExpr>, Span),
     Task(Box<TypeExpr>, Span),
     List(Box<TypeExpr>, Span),
+    Map(Box<TypeExpr>, Span),
     Unit(Span),
     Inferred(Span),
 }
@@ -102,6 +103,7 @@ impl TypeExpr {
             TypeExpr::ErrorUnion(_, _, s) => *s,
             TypeExpr::Task(_, s) => *s,
             TypeExpr::List(_, s) => *s,
+            TypeExpr::Map(_, s) => *s,
             TypeExpr::Unit(s) => *s,
             TypeExpr::Inferred(s) => *s,
         }

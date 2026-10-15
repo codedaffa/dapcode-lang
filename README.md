@@ -609,6 +609,48 @@ fungsi utama() {
 }
 ```
 
+### 23. Koleksi Asosiatif Kamus (In-Memory Map / Dictionary)
+DapCode menyediakan tipe data koleksi asosiatif bawaan `Kamus<V>` untuk penyimpanan pasangan kunci-nilai (*key-value map*) in-memory dengan kunci bertipe `Teks`, pencarian cepat O(log N), serialisasi JSON otomatis, dan dukungan penuh pada interpreter maupun kompilasi native C11:
+
+- **Metode pada `Kamus`:**
+  - `.pasang(kunci: Teks, nilai: V) -> Unit`: Menyimpan atau menimpa pasangan kunci dan nilai.
+  - `.ambil(kunci: Teks) -> V ! Teks`: Mengambil nilai secara aman melalui Error Union (`? tangkap`).
+  - `.ambil_atau(kunci: Teks, bawaan: V) -> V`: Mengambil nilai atau mengembalikan nilai bawaan jika kunci tidak ditemukan.
+  - `.ada(kunci: Teks) -> Bool`: Memeriksa apakah suatu kunci terdaftar di dalam kamus.
+  - `.hapus(kunci: Teks) -> V ! Teks`: Menghapus entri berdasarkan kunci dan mengembalikan nilai yang terhapus.
+  - `.panjang() -> u64`: Menghitung jumlah pasangan entri di dalam kamus.
+  - `.kosong() -> Bool`: Memeriksa apakah kamus kosong (`panjang == 0`).
+  - `.daftar_kunci() -> Daftar<Teks>`: Mengembalikan seluruh kunci aktif terurut leksikografis sebagai objek `Daftar<Teks>`.
+  - `.daftar_nilai() -> Daftar<V>`: Mengembalikan seluruh nilai entri aktif sebagai objek `Daftar<V>`.
+  - `.ke_json() -> Teks`: Serialisasi kamus ke string format JSON standar (`{"kunci":nilai,...}`).
+  - `.bersihkan() -> Unit`: Mengosongkan dan membersihkan seluruh isi pasangan entri di dalam kamus.
+  - **Perulangan `untuk`:** Mendukung iterasi langsung `untuk kunci di kamus { ... }` yang menghasilkan setiap kunci aktif.
+
+```dap
+fungsi utama() {
+    // 1. Inisialisasi & Penyimpanan Data
+    kamus := Kamus()
+    kamus.pasang("id", "usr_101")
+    kamus.pasang("nama", "Budi Santoso")
+    kamus.pasang("peran", "administrator")
+    
+    // 2. Pengambilan Nilai Aman & Fallback
+    nama := kamus.ambil("nama") ? tangkap err { "Anonim" }
+    kota := kamus.ambil_atau("kota", "Jakarta")
+    cetak("Nama: {nama}, Kota: {kota}")
+    
+    // 3. Serialisasi JSON
+    json := kamus.ke_json()
+    cetak("JSON: {json}") // {"id":"usr_101","nama":"Budi Santoso","peran":"administrator"}
+    
+    // 4. Iterasi Kunci
+    untuk k di kamus {
+        val := kamus.ambil_atau(k, "-")
+        cetak("{k} => {val}")
+    }
+}
+```
+
 ---
 
 ## 🎨 Dukungan Editor & Ekstensi VS Code
@@ -620,10 +662,10 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
   ```
 - **Integrasi LSP Cerdas (`extension.js`):**
   - **Diagnostik Real-Time:** Pelaporan kesalahan sintaks, kepemilikan (*borrow check*), dan tipe secara langsung saat mengetik.
-  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`, `Teks`, `Daftar`), fungsi pustaka standar (`buka_basis_data`, `db_simpan`, `db_ambil`, `db_hapus`, `db_ada`, `buat_server_http`, `buat_server_websocket`, `kirim_respons_http`, `respons_json`, `respons_teks`, `respons_401`, `respons_403`, `respons_redirect`, `respons_berkas`, `sajikan_berkas_statis`, `cocok_rute`, `cocok_awalan`, `sisa_jalur`, `ambil_param_rute`, `ambil_kueri_param`, `ada_kueri_param`, `kueri_param_atau`, `semua_kueri_param`, `ambil_header_http`, `ada_header_http`, `header_atau`, `ambil_otorisasi_bearer`, `tambah_header`, `respons_cors`, `kunci_websocket`, `respons_upgrade_websocket`, `cocok_regex`, `cari_regex`, `ganti_regex`, `ekstrak_regex`, `ekstrak_grup_regex`, `pisah_regex`, `huruf_besar`, `huruf_kecil`, `pangkas`, `berisi`, `awalan`, `akhiran`, `ganti`, `pisah`, `potong`, `sisip`, `hapus`, `kosong`, `balik`, `gabung`, `sha1`, `ke_json`, `cetak`, dll), dan simbol lokal.
+  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`, `Teks`, `Daftar`, `Kamus`), fungsi pustaka standar (`buka_basis_data`, `db_simpan`, `db_ambil`, `db_hapus`, `db_ada`, `buat_server_http`, `buat_server_websocket`, `kirim_respons_http`, `respons_json`, `respons_teks`, `respons_401`, `respons_403`, `respons_redirect`, `respons_berkas`, `sajikan_berkas_statis`, `cocok_rute`, `cocok_awalan`, `sisa_jalur`, `ambil_param_rute`, `ambil_kueri_param`, `ada_kueri_param`, `kueri_param_atau`, `semua_kueri_param`, `ambil_header_http`, `ada_header_http`, `header_atau`, `ambil_otorisasi_bearer`, `tambah_header`, `respons_cors`, `kunci_websocket`, `respons_upgrade_websocket`, `cocok_regex`, `cari_regex`, `ganti_regex`, `ekstrak_regex`, `ekstrak_grup_regex`, `pisah_regex`, `huruf_besar`, `huruf_kecil`, `pangkas`, `berisi`, `awalan`, `akhiran`, `ganti`, `pisah`, `potong`, `sisip`, `hapus`, `kosong`, `balik`, `gabung`, `pasang`, `ambil_atau`, `daftar_nilai`, `bersihkan`, `sha1`, `ke_json`, `cetak`, dll), dan simbol lokal.
   - **Auto-Completion Kontekstual:** Rekomendasi otomatis kata kunci bahasa Indonesia, tipe data, fungsi pustaka standar, serta deklarasi lokal.
   - **Document Formatting:** Format kode sumber otomatis saat dokumen diformat atau disimpan.
-- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `server_http`, `buat_server_websocket`, `tingkatkan_websocket`, `buka_db`, `db_simpan`, `db_ambil`, `respons_json`, `respons_teks`, `respons_401`, `respons_redirect`, `respons_berkas`, `sajikan_berkas_statis`, `req.sajikan_statis`, `cocok_rute`, `cocok_awalan`, `sisa_jalur`, `ambil_kueri_param`, `kueri_param_atau`, `semua_kueri_param`, `ambil_otorisasi_bearer`, `cocok_regex`, `ekstrak_grup_regex`, `pisah_regex`, `respons_cors`, `ke_json`, unit test `uji`, asersi `pastikan`, komentar dokumen `///` & `//!`, operasi direktori `buat_direktori`, dan argumen CLI `ambil_argumen_cli`.
+- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `server_http`, `buat_server_websocket`, `tingkatkan_websocket`, `buka_db`, `db_simpan`, `db_ambil`, `respons_json`, `respons_teks`, `respons_401`, `respons_redirect`, `respons_berkas`, `sajikan_berkas_statis`, `req.sajikan_statis`, `cocok_rute`, `cocok_awalan`, `sisa_jalur`, `ambil_kueri_param`, `kueri_param_atau`, `semua_kueri_param`, `ambil_otorisasi_bearer`, `cocok_regex`, `ekstrak_grup_regex`, `pisah_regex`, `respons_cors`, `Kamus`, `pasang`, `ambil_atau`, `daftar_nilai`, `bersihkan`, `ke_json`, unit test `uji`, asersi `pastikan`, komentar dokumen `///` & `//!`, operasi direktori `buat_direktori`, dan argumen CLI `ambil_argumen_cli`.
 - **Integrasi Menu & Perintah Cepat:**
   - `dapcode.run` -> Jalankan berkas aktif dengan `dapcodec run`.
   - `dapcode.test` -> Jalankan pengujian unit aktif dengan `dapcodec test`.
@@ -640,7 +682,7 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 31 modul test (110+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & Middleware, Static Files & MIME Asset Serving, Subsistem WebSocket RFC 6455 & Real-Time Communication, Embedded Database (BasisData & DapDb), Mesin Reguler Ekspresi Mandiri (Regex & Capturing Groups), Metode Kaya Koleksi & String (Fluent Teks & Daftar), Audio Synthesis & WebAudio Mock, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 32 modul test (115+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & Middleware, Static Files & MIME Asset Serving, Subsistem WebSocket RFC 6455 & Real-Time Communication, Embedded Database (BasisData & DapDb), Mesin Reguler Ekspresi Mandiri (Regex & Capturing Groups), Metode Kaya Koleksi & String (Fluent Teks & Daftar), Koleksi Asosiatif Kamus (In-Memory Map/Dictionary), Audio Synthesis & WebAudio Mock, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 
 
 

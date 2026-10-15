@@ -191,6 +191,15 @@ pub fn value_to_json(val: &Value) -> String {
         Value::ErrorUnion(Ok(v)) => value_to_json(v),
         Value::ErrorUnion(Err(e)) => format!("{{\"kesalahan\":{}}}", value_to_json(e)),
         Value::Task(_) => "\"<Tugas>\"".to_string(),
+        Value::Map(entries) => {
+            let lock = entries.lock().unwrap();
+            let inner = lock
+                .iter()
+                .map(|(k, v)| format!("{}:{}", escape_json_string(k), value_to_json(v)))
+                .collect::<Vec<_>>()
+                .join(",");
+            format!("{{{}}}", inner)
+        }
     }
 }
 

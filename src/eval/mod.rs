@@ -2,7 +2,7 @@ use crate::ast::*;
 use crate::diag::{Diagnostic, Result};
 use crate::json::{parse_json, value_to_json, JsonValue};
 use crate::span::Span;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -63,6 +63,7 @@ pub enum Value {
     ErrorUnion(std::result::Result<Box<Value>, Box<Value>>),
     Task(Arc<Mutex<Option<thread::JoinHandle<Value>>>>),
     List(Arc<Mutex<Vec<Value>>>),
+    Map(Arc<Mutex<BTreeMap<String, Value>>>),
 }
 
 impl fmt::Debug for Value {
@@ -90,6 +91,10 @@ impl fmt::Debug for Value {
             Value::Task(_) => write!(f, "<Tugas>"),
             Value::List(items) => {
                 let lock = items.lock().unwrap();
+                write!(f, "{:?}", *lock)
+            }
+            Value::Map(entries) => {
+                let lock = entries.lock().unwrap();
                 write!(f, "{:?}", *lock)
             }
         }
@@ -136,6 +141,17 @@ impl fmt::Display for Value {
                 }
                 write!(f, "]")
             }
+            Value::Map(entries) => {
+                let lock = entries.lock().unwrap();
+                write!(f, "{{")?;
+                for (i, (k, v)) in lock.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "\"{}\": {}", k, v)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }
@@ -176,6 +192,23 @@ impl Value {
                 }
                 true
             }
+            (Value::Map(m1), Value::Map(m2)) => {
+                let lock1 = m1.lock().unwrap();
+                let lock2 = m2.lock().unwrap();
+                if lock1.len() != lock2.len() {
+                    return false;
+                }
+                for (k, v1) in lock1.iter() {
+                    if let Some(v2) = lock2.get(k) {
+                        if !v1.is_equal(v2) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+                true
+            }
             _ => false,
         }
     }
@@ -191,6 +224,7 @@ impl Value {
             Value::ErrorUnion(_) => "ErrorUnion".to_string(),
             Value::Task(_) => "Tugas".to_string(),
             Value::List(_) => "Daftar".to_string(),
+            Value::Map(_) => "Kamus".to_string(),
         }
     }
 }
@@ -598,6 +632,21 @@ impl Evaluator {
                         for item in items {
                             env.enter_scope();
                             env.insert(var_name, item);
+                            let flow = self.eval_block(body, env)?;
+                            env.exit_scope();
+                            match flow {
+                                ControlFlow::Next(_) => {}
+                                ret @ ControlFlow::Return(_) => return Ok(ret),
+                                fail @ ControlFlow::Fail(_) => return Ok(fail),
+                            }
+                        }
+                        Ok(ControlFlow::Next(Value::Unit))
+                    }
+                    Value::Map(entries_arc) => {
+                        let keys: Vec<Value> = entries_arc.lock().unwrap().keys().cloned().map(Value::String).collect();
+                        for key in keys {
+                            env.enter_scope();
+                            env.insert(var_name, key);
                             let flow = self.eval_block(body, env)?;
                             env.exit_scope();
                             match flow {
@@ -2316,6 +2365,9 @@ impl Evaluator {
                         }
                         return Ok(Value::List(Arc::new(Mutex::new(items))));
                     }
+                    if name == "Kamus" {
+                        return Ok(Value::Map(Arc::new(Mutex::new(BTreeMap::new()))));
+                    }
                 }
 
                 // 6. Struct Constructor: Name(field: val, ...)
@@ -2606,6 +2658,120 @@ impl Evaluator {
                         other => {
                             return Err(Diagnostic::error(format!(
                                 "Metode '{}' tidak ditemukan pada Daftar", other
+                            )).with_span(*span));
+                        }
+                    }
+                }
+
+                // Check methods on Kamus
+                if let Value::Map(entries_arc) = &rec_val {
+                    match method.as_str() {
+                        "pasang" => {
+                            if args.len() != 2 {
+                                return Err(Diagnostic::error("Metode 'pasang' membutuhkan 2 argumen: (kunci, nilai)").with_span(*span));
+                            }
+                            let k_val = self.eval_expr(&args[0].value, env)?;
+                            let k = match k_val {
+                                Value::String(s) => s,
+                                other => other.to_string(),
+                            };
+                            let v = self.eval_expr(&args[1].value, env)?;
+                            entries_arc.lock().unwrap().insert(k, v);
+                            return Ok(Value::Unit);
+                        }
+                        "ambil" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'ambil' membutuhkan 1 argumen (kunci)").with_span(*span));
+                            }
+                            let k_val = self.eval_expr(&args[0].value, env)?;
+                            let k = match k_val {
+                                Value::String(s) => s,
+                                other => other.to_string(),
+                            };
+                            let lock = entries_arc.lock().unwrap();
+                            if let Some(val) = lock.get(&k) {
+                                return Ok(Value::ErrorUnion(Ok(Box::new(val.clone()))));
+                            } else {
+                                return Ok(Value::ErrorUnion(Err(Box::new(Value::String(
+                                    format!("Kunci '{}' tidak ditemukan", k)
+                                )))));
+                            }
+                        }
+                        "ambil_atau" => {
+                            if args.len() != 2 {
+                                return Err(Diagnostic::error("Metode 'ambil_atau' membutuhkan 2 argumen: (kunci, bawaan)").with_span(*span));
+                            }
+                            let k_val = self.eval_expr(&args[0].value, env)?;
+                            let k = match k_val {
+                                Value::String(s) => s,
+                                other => other.to_string(),
+                            };
+                            let lock = entries_arc.lock().unwrap();
+                            if let Some(val) = lock.get(&k) {
+                                return Ok(val.clone());
+                            } else {
+                                let bawaan = self.eval_expr(&args[1].value, env)?;
+                                return Ok(bawaan);
+                            }
+                        }
+                        "ada" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'ada' membutuhkan 1 argumen (kunci)").with_span(*span));
+                            }
+                            let k_val = self.eval_expr(&args[0].value, env)?;
+                            let k = match k_val {
+                                Value::String(s) => s,
+                                other => other.to_string(),
+                            };
+                            let lock = entries_arc.lock().unwrap();
+                            return Ok(Value::Bool(lock.contains_key(&k)));
+                        }
+                        "hapus" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'hapus' membutuhkan 1 argumen (kunci)").with_span(*span));
+                            }
+                            let k_val = self.eval_expr(&args[0].value, env)?;
+                            let k = match k_val {
+                                Value::String(s) => s,
+                                other => other.to_string(),
+                            };
+                            let mut lock = entries_arc.lock().unwrap();
+                            if let Some(removed) = lock.remove(&k) {
+                                return Ok(Value::ErrorUnion(Ok(Box::new(removed))));
+                            } else {
+                                return Ok(Value::ErrorUnion(Err(Box::new(Value::String(
+                                    format!("Kunci '{}' tidak ditemukan", k)
+                                )))));
+                            }
+                        }
+                        "panjang" => {
+                            let len = entries_arc.lock().unwrap().len() as u64;
+                            return Ok(Value::Int(len));
+                        }
+                        "kosong" => {
+                            let is_empty = entries_arc.lock().unwrap().is_empty();
+                            return Ok(Value::Bool(is_empty));
+                        }
+                        "daftar_kunci" => {
+                            let lock = entries_arc.lock().unwrap();
+                            let keys: Vec<Value> = lock.keys().cloned().map(Value::String).collect();
+                            return Ok(Value::List(Arc::new(Mutex::new(keys))));
+                        }
+                        "daftar_nilai" => {
+                            let lock = entries_arc.lock().unwrap();
+                            let vals: Vec<Value> = lock.values().cloned().collect();
+                            return Ok(Value::List(Arc::new(Mutex::new(vals))));
+                        }
+                        "ke_json" => {
+                            return Ok(Value::String(value_to_json(&rec_val)));
+                        }
+                        "bersihkan" => {
+                            entries_arc.lock().unwrap().clear();
+                            return Ok(Value::Unit);
+                        }
+                        other => {
+                            return Err(Diagnostic::error(format!(
+                                "Metode '{}' tidak ditemukan pada Kamus", other
                             )).with_span(*span));
                         }
                     }

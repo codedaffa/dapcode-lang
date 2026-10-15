@@ -85,7 +85,7 @@ impl ComptimeEvaluator {
                     Value::String(s) => Literal::String(s),
                     Value::Bool(b) => Literal::Bool(b),
                     Value::Unit => Literal::Unit,
-                    Value::Struct { .. } | Value::ErrorUnion(_) | Value::Task(_) | Value::List(_) => Literal::Unit,
+                    Value::Struct { .. } | Value::ErrorUnion(_) | Value::Task(_) | Value::List(_) | Value::Map(_) => Literal::Unit,
                 };
                 *expr = Expr::Lit(replacement_lit, *span);
             }
