@@ -335,6 +335,100 @@ static inline DapResult_ptr dap_Daftar_ambil(DapList* list, u64 idx) {
     return res;
 }
 
+static inline DapResult_ptr dap_Daftar_hapus(DapList* list, u64 idx) {
+    DapResult_ptr res;
+    if (!list || idx >= list->len) {
+        res.is_err = true;
+        res.err_msg = "Indeks di luar batas";
+        res.ok = NULL;
+    } else {
+        res.is_err = false;
+        res.err_msg = NULL;
+        res.ok = list->items[idx];
+        for (size_t i = (size_t)idx; i + 1 < list->len; i++) {
+            list->items[i] = list->items[i + 1];
+        }
+        list->len--;
+    }
+    return res;
+}
+
+static inline DapResult_bool dap_Daftar_sisip(DapList* list, u64 idx, void* item) {
+    DapResult_bool res;
+    if (!list || idx > list->len) {
+        res.is_err = true;
+        res.err_msg = "Indeks sisip di luar batas";
+        res.ok = false;
+    } else {
+        if (list->len >= list->cap) {
+            list->cap = list->cap == 0 ? 4 : list->cap * 2;
+            list->items = (void**)realloc(list->items, sizeof(void*) * list->cap);
+        }
+        for (size_t i = list->len; i > (size_t)idx; i--) {
+            list->items[i] = list->items[i - 1];
+        }
+        list->items[idx] = item;
+        list->len++;
+        res.is_err = false;
+        res.err_msg = NULL;
+        res.ok = true;
+    }
+    return res;
+}
+
+static inline bool dap_Daftar_berisi_teks(DapList* list, const char* val) {
+    if (!list || !val) return false;
+    for (size_t i = 0; i < list->len; i++) {
+        if (list->items[i] && strcmp((const char*)list->items[i], val) == 0) return true;
+    }
+    return false;
+}
+
+static inline bool dap_Daftar_kosong(DapList* list) {
+    return !list || list->len == 0;
+}
+
+static inline DapList* dap_Daftar_balik(DapList* list) {
+    DapList* res = dap_Daftar_baru();
+    if (!list) return res;
+    for (size_t i = list->len; i > 0; i--) {
+        dap_Daftar_tambah(res, list->items[i - 1]);
+    }
+    return res;
+}
+
+static inline const char* dap_Daftar_gabung(DapList* list, const char* sep) {
+    if (!list || list->len == 0) return "";
+    if (!sep) sep = "";
+    size_t total_len = 0;
+    size_t sep_len = strlen(sep);
+    for (size_t i = 0; i < list->len; i++) {
+        const char* item_s = list->items[i] ? (const char*)list->items[i] : "";
+        total_len += strlen(item_s);
+        if (i + 1 < list->len) total_len += sep_len;
+    }
+    char* buf = (char*)malloc(total_len + 1);
+    buf[0] = '\0';
+    for (size_t i = 0; i < list->len; i++) {
+        const char* item_s = list->items[i] ? (const char*)list->items[i] : "";
+        strcat(buf, item_s);
+        if (i + 1 < list->len) strcat(buf, sep);
+    }
+    return buf;
+}
+
+static inline DapList* dap_Daftar_potong(DapList* list, u64 awal, u64 akhir) {
+    DapList* res = dap_Daftar_baru();
+    if (!list) return res;
+    size_t start = awal < list->len ? (size_t)awal : list->len;
+    size_t end = akhir < list->len ? (size_t)akhir : list->len;
+    if (end < start) end = start;
+    for (size_t i = start; i < end; i++) {
+        dap_Daftar_tambah(res, list->items[i]);
+    }
+    return res;
+}
+
 // C11 Generic String Conversion
 static inline char* _dap_fmt_f64(double x) {
     char* b = (char*)malloc(64);
@@ -622,6 +716,159 @@ static inline const char* dap_ke_huruf_kecil(const char* s) {
     buf[len] = '\0';
     return buf;
 }
+
+static inline const char* dap_teks_huruf_besar(const char* s) {
+    return dap_ke_huruf_besar(s);
+}
+
+static inline const char* dap_teks_huruf_kecil(const char* s) {
+    return dap_ke_huruf_kecil(s);
+}
+
+static inline bool dap_teks_berisi(const char* s, const char* sub) {
+    if (!s || !sub) return false;
+    return strstr(s, sub) != NULL;
+}
+
+static inline bool dap_teks_awalan(const char* s, const char* pref) {
+    if (!s || !pref) return false;
+    return strncmp(s, pref, strlen(pref)) == 0;
+}
+
+static inline bool dap_teks_akhiran(const char* s, const char* suf) {
+    if (!s || !suf) return false;
+    size_t s_len = strlen(s);
+    size_t suf_len = strlen(suf);
+    if (s_len < suf_len) return false;
+    return strcmp(s + (s_len - suf_len), suf) == 0;
+}
+
+static inline const char* dap_teks_pangkas(const char* s) {
+    if (!s) return "";
+    while (*s && isspace((unsigned char)*s)) s++;
+    if (*s == '\0') return "";
+    const char* end = s + strlen(s) - 1;
+    while (end > s && isspace((unsigned char)*end)) end--;
+    size_t len = (size_t)(end - s + 1);
+    char* buf = (char*)malloc(len + 1);
+    memcpy(buf, s, len);
+    buf[len] = '\0';
+    return buf;
+}
+
+static inline const char* dap_teks_ganti(const char* s, const char* lama, const char* baru) {
+    if (!s || !lama || !baru || *lama == '\0') return s ? s : "";
+    size_t lama_len = strlen(lama);
+    size_t baru_len = strlen(baru);
+    size_t count = 0;
+    const char* p = s;
+    while ((p = strstr(p, lama)) != NULL) {
+        count++;
+        p += lama_len;
+    }
+    if (count == 0) return s;
+    size_t res_len = strlen(s) + count * (baru_len - lama_len);
+    char* res = (char*)malloc(res_len + 1);
+    char* dst = res;
+    p = s;
+    while (*p) {
+        const char* next = strstr(p, lama);
+        if (!next) {
+            strcpy(dst, p);
+            break;
+        }
+        size_t seg = (size_t)(next - p);
+        memcpy(dst, p, seg);
+        dst += seg;
+        memcpy(dst, baru, baru_len);
+        dst += baru_len;
+        p = next + lama_len;
+    }
+    res[res_len] = '\0';
+    return res;
+}
+
+static inline DapList* dap_teks_pisah(const char* s, const char* pemisah) {
+    DapList* list = dap_Daftar_baru();
+    if (!s) return list;
+    if (!pemisah || *pemisah == '\0') {
+        for (size_t i = 0; s[i] != '\0'; i++) {
+            char* ch = (char*)malloc(2);
+            ch[0] = s[i];
+            ch[1] = '\0';
+            dap_Daftar_tambah(list, ch);
+        }
+        return list;
+    }
+    size_t p_len = strlen(pemisah);
+    const char* cur = s;
+    const char* found;
+    while ((found = strstr(cur, pemisah)) != NULL) {
+        size_t part_len = (size_t)(found - cur);
+        char* part = (char*)malloc(part_len + 1);
+        memcpy(part, cur, part_len);
+        part[part_len] = '\0';
+        dap_Daftar_tambah(list, part);
+        cur = found + p_len;
+    }
+    char* rem = (char*)malloc(strlen(cur) + 1);
+    strcpy(rem, cur);
+    dap_Daftar_tambah(list, rem);
+    return list;
+}
+
+static inline const char* dap_teks_potong(const char* s, u64 awal, u64 panjang) {
+    if (!s) return "";
+    size_t s_len = strlen(s);
+    if (awal >= s_len) return "";
+    size_t take = (size_t)panjang;
+    if (awal + take > s_len) take = s_len - (size_t)awal;
+    char* buf = (char*)malloc(take + 1);
+    memcpy(buf, s + awal, take);
+    buf[take] = '\0';
+    return buf;
+}
+
+static inline DapResult_ptr dap_teks_ambil(const char* s, u64 idx) {
+    DapResult_ptr res;
+    if (!s || idx >= strlen(s)) {
+        res.is_err = true;
+        res.err_msg = "Indeks di luar batas";
+        res.ok = NULL;
+    } else {
+        res.is_err = false;
+        res.err_msg = NULL;
+        char* c = (char*)malloc(2);
+        c[0] = s[idx];
+        c[1] = '\0';
+        res.ok = c;
+    }
+    return res;
+}
+
+#define dap_panjang(x) _Generic((x), \
+    DapList*: dap_Daftar_panjang, \
+    const char*: dap_panjang_teks, \
+    char*: dap_panjang_teks \
+)(x)
+
+#define dap_berisi(x, v) _Generic((x), \
+    DapList*: dap_Daftar_berisi_teks, \
+    const char*: dap_teks_berisi, \
+    char*: dap_teks_berisi \
+)((x), (v))
+
+#define dap_potong(x, a, b) _Generic((x), \
+    DapList*: dap_Daftar_potong, \
+    const char*: dap_teks_potong, \
+    char*: dap_teks_potong \
+)((x), (a), (b))
+
+#define dap_ambil_elemen(x, idx) _Generic((x), \
+    DapList*: dap_Daftar_ambil, \
+    const char*: dap_teks_ambil, \
+    char*: dap_teks_ambil \
+)((x), (idx))
 
 static inline f64 dap_sin(f64 x) { return sin(x); }
 static inline f64 dap_cos(f64 x) { return cos(x); }
@@ -3042,6 +3289,7 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                     let in_str = self.emit_expr(inner);
                     let res_var = format!("_res_{}", name);
                     self.out.push_str(&format!("    __auto_type {} = {};\n", res_var, in_str));
+                    self.out.push_str(&format!("    __auto_type {} = {}.ok;\n", name, res_var));
                     self.out.push_str(&format!("    if ({}.is_err) {{\n", res_var));
                     self.out.push_str(&format!("        const char* {} = {}.err_msg;\n", err_var, res_var));
                     for s in &handler.stmts {
@@ -3049,14 +3297,9 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                     }
                     if let Some(he) = &handler.expr {
                         let he_str = self.emit_expr(he);
-                        if fn_ret_ty == "void" {
-                            self.out.push_str(&format!("        {};\n", he_str));
-                        } else {
-                            self.out.push_str(&format!("        return {};\n", he_str));
-                        }
+                        self.out.push_str(&format!("        {} = {};\n", name, he_str));
                     }
                     self.out.push_str("    }\n");
-                    self.out.push_str(&format!("    __auto_type {} = {}.ok;\n", name, res_var));
                 } else {
                     let init_str = self.emit_expr(init);
                     self.out.push_str(&format!("    __auto_type {} = {};\n", name, init_str));
@@ -3336,7 +3579,57 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                     return format!("dap_Daftar_tambah({}, (void*)(uintptr_t)({}))", rec_str, arg_str);
                 }
                 if method == "panjang" {
-                    return format!("dap_Daftar_panjang({})", rec_str);
+                    return format!("dap_panjang({})", rec_str);
+                }
+                if method == "huruf_besar" {
+                    return format!("dap_teks_huruf_besar({})", rec_str);
+                }
+                if method == "huruf_kecil" {
+                    return format!("dap_teks_huruf_kecil({})", rec_str);
+                }
+                if method == "pangkas" {
+                    return format!("dap_teks_pangkas({})", rec_str);
+                }
+                if method == "awalan" && args.len() == 1 {
+                    let a = self.emit_expr(&args[0].value);
+                    return format!("dap_teks_awalan({}, {})", rec_str, a);
+                }
+                if method == "akhiran" && args.len() == 1 {
+                    let a = self.emit_expr(&args[0].value);
+                    return format!("dap_teks_akhiran({}, {})", rec_str, a);
+                }
+                if method == "berisi" && args.len() == 1 {
+                    let a = self.emit_expr(&args[0].value);
+                    return format!("dap_berisi({}, {})", rec_str, a);
+                }
+                if method == "ganti" && args.len() == 2 {
+                    let l = self.emit_expr(&args[0].value);
+                    let b = self.emit_expr(&args[1].value);
+                    return format!("dap_teks_ganti({}, {}, {})", rec_str, l, b);
+                }
+                if method == "pisah" && args.len() == 1 {
+                    let p = self.emit_expr(&args[0].value);
+                    return format!("dap_teks_pisah({}, {})", rec_str, p);
+                }
+                if method == "potong" && args.len() == 2 {
+                    let a = self.emit_expr(&args[0].value);
+                    let b = self.emit_expr(&args[1].value);
+                    return format!("dap_potong({}, {}, {})", rec_str, a, b);
+                }
+                if method == "sisip" && args.len() == 2 {
+                    let idx = self.emit_expr(&args[0].value);
+                    let val = self.emit_expr(&args[1].value);
+                    return format!("dap_Daftar_sisip({}, {}, (void*)(uintptr_t)({}))", rec_str, idx, val);
+                }
+                if method == "kosong" {
+                    return format!("dap_Daftar_kosong({})", rec_str);
+                }
+                if method == "balik" {
+                    return format!("dap_Daftar_balik({})", rec_str);
+                }
+                if method == "gabung" && args.len() == 1 {
+                    let sep = self.emit_expr(&args[0].value);
+                    return format!("dap_Daftar_gabung({}, {})", rec_str, sep);
                 }
                 if method == "simpan" && args.len() == 2 {
                     let k = self.emit_expr(&args[0].value);
@@ -3345,7 +3638,11 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 }
                 if method == "hapus" && args.len() == 1 {
                     let k = self.emit_expr(&args[0].value);
-                    return format!("dap_db_hapus({}.jalur, {})", rec_str, k);
+                    if rec_str.contains("db") || rec_str.contains("basis") {
+                        return format!("dap_db_hapus({}.jalur, {})", rec_str, k);
+                    } else {
+                        return format!("dap_Daftar_hapus({}, {})", rec_str, k);
+                    }
                 }
                 if method == "ada" && args.len() == 1 {
                     let k = self.emit_expr(&args[0].value);
@@ -3353,10 +3650,6 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 }
                 if method == "daftar_kunci" {
                     return format!("dap_db_daftar_kunci({}.jalur)", rec_str);
-                }
-                if method == "ambil" && args.len() == 1 {
-                    let k = self.emit_expr(&args[0].value);
-                    return format!("dap_db_ambil({}.jalur, {})", rec_str, k);
                 }
                 if method == "ambil_awalan" && args.len() == 1 {
                     let a = self.emit_expr(&args[0].value);
@@ -3467,7 +3760,7 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                     if arg_str.starts_with('"') || arg_str.contains("teks") || arg_str.contains("kunci") || rec_str.contains("db") {
                         return format!("dap_db_ambil({}.jalur, {})", rec_str, arg_str);
                     } else {
-                        return format!("dap_Daftar_ambil({}, {})", rec_str, arg_str);
+                        return format!("dap_ambil_elemen({}, {})", rec_str, arg_str);
                     }
                 }
                 let mut all_args = vec![format!("&{}", rec_str)];

@@ -1,0 +1,102 @@
+// ========================================================
+// Demo Metode Kaya Teks & Koleksi Daftar di DapCode
+// Fluent String & Dynamic List Methods
+// ========================================================
+
+fungsi demo_metode_teks() -> Unit {
+    cetak("--- 1. Demonstrasi Metode Teks (String) ---")
+    
+    mentah := "   DapCode Bahasa Pemrograman Modern Indonesia   "
+    cetak("Teks asli               : [{mentah}]")
+    
+    // Pangkas whitespace
+    bersih := mentah.pangkas()
+    panjang_bersih := bersih.panjang()
+    cetak("Setelah .pangkas()      : [{bersih}] (panjang: {panjang_bersih})")
+    
+    // Konversi huruf besar & huruf kecil
+    kapital := bersih.huruf_besar()
+    kecil := bersih.huruf_kecil()
+    cetak(".huruf_besar()          : {kapital}")
+    cetak(".huruf_kecil()          : {kecil}")
+    
+    // Pemeriksaan pola teks (berisi, awalan, akhiran)
+    ada_modern := bersih.berisi("Modern")
+    diawali_dap := bersih.awalan("DapCode")
+    diakhiri_id := bersih.akhiran("Indonesia")
+    cetak("Memuat Modern?          : {ada_modern}")
+    cetak("Diawali DapCode?        : {diawali_dap}")
+    cetak("Diakhiri Indonesia?     : {diakhiri_id}")
+    
+    // Penggantian substring & pemotongan karakter
+    diganti := bersih.ganti("Modern", "Kompiler Cepat & Modern")
+    cetak(".ganti()                : {diganti}")
+    
+    potongan := bersih.potong(0, 7) // 7 karakter pertama: "DapCode"
+    cetak(".potong(0, 7)           : {potongan}")
+    
+    // Pemecahan teks menjadi Daftar (pisah)
+    csv := "Kopi Tubruk, Teh Tarik, Wedang Jahe, Es Cendol"
+    minuman := csv.pisah(", ")
+    jumlah_menu := minuman.panjang()
+    cetak("Pemisahan menu: menghasilkan {jumlah_menu} item menu")
+}
+
+fungsi demo_metode_daftar() -> Unit {
+    cetak("")
+    cetak("--- 2. Demonstrasi Metode Koleksi Daftar ---")
+    
+    daftar := Daftar("Kopi", "Teh", "Susu")
+    gabung_awal := daftar.gabung(" -> ")
+    cetak("Daftar awal: {gabung_awal}")
+    
+    // Tambah elemen ke akhir daftar
+    daftar.tambah("Cokelat")
+    gabung1 := daftar.gabung(", ")
+    p1 := daftar.panjang()
+    cetak("Setelah tambah Cokelat (panjang {p1}): {gabung1}")
+    
+    // Sisipkan elemen pada indeks tertentu
+    daftar.sisip(1, "Matcha") ? tangkap err {
+        salah
+    }
+    gabung2 := daftar.gabung(", ")
+    cetak("Setelah sisip Matcha pada indeks 1: {gabung2}")
+    
+    // Pemeriksaan elemen & status kosong
+    ada_teh := daftar.berisi("Teh")
+    ada_boba := daftar.berisi("Boba")
+    cetak("Memuat Teh?             : {ada_teh}")
+    cetak("Memuat Boba?            : {ada_boba}")
+    cetak("Apakah kosong?          : {daftar.kosong()}")
+    
+    // Hapus elemen pada indeks tertentu
+    item_dihapus := daftar.hapus(2) ? tangkap err {
+        ""
+    }
+    gabung3 := daftar.gabung(", ")
+    cetak("Elemen yang dihapus (.hapus(2)): [{item_dihapus}]")
+    cetak("Daftar terkini          : {gabung3}")
+    
+    // Pemotongan sub-daftar & pembalikan urutan
+    sub := daftar.potong(0, 3)
+    gabung_sub := sub.gabung(" | ")
+    cetak(".potong(0, 3)           : {gabung_sub}")
+    
+    kebalik := daftar.balik()
+    gabung_rev := kebalik.gabung(" <-> ")
+    cetak(".balik() (urutan baru)  : {gabung_rev}")
+    
+    // Method chaining elegan
+    rantai := "satu,dua,tiga,empat,lima".pisah(",").balik().gabung(" - ")
+    cetak("Pemisahan -> Pembalikan -> Penggabungan: {rantai}")
+}
+
+fungsi utama() -> u64 {
+    cetak("=== Inisialisasi Demo Koleksi & Teks DapCode ===")
+    demo_metode_teks()
+    demo_metode_daftar()
+    cetak("")
+    cetak("Semua operasi metode Teks dan Daftar berhasil dieksekusi!")
+    kembali 0
+}

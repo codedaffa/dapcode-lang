@@ -565,6 +565,50 @@ fungsi utama() {
 }
 ```
 
+### 22. Metode Kaya untuk String & Koleksi (`Teks` & `Daftar` Fluent Methods)
+DapCode menyediakan metode manipulasi string dan koleksi dinamis bergaya berorientasi objek (*method chaining*) yang berjalan konsisten di Interpreter dan kompilasi Native C11:
+- **Metode pada `Teks`:**
+  - `.panjang() -> u64`: Mengembalikan jumlah karakter Unicode dalam teks.
+  - `.huruf_besar() -> Teks`: Mengubah teks menjadi huruf kapital semua (*uppercase*).
+  - `.huruf_kecil() -> Teks`: Mengubah teks menjadi huruf kecil semua (*lowercase*).
+  - `.berisi(sub: Teks) -> Bool`: Memeriksa apakah teks memuat substring tertentu.
+  - `.awalan(prefix: Teks) -> Bool`: Memeriksa apakah teks diawali dengan awalan tertentu (*starts_with*).
+  - `.akhiran(suffix: Teks) -> Bool`: Memeriksa apakah teks diakhiri dengan akhiran tertentu (*ends_with*).
+  - `.pangkas() -> Teks`: Membersihkan spasi di awal dan akhir string (*trim*).
+  - `.ganti(lama: Teks, baru: Teks) -> Teks`: Mengganti seluruh kemunculan teks lama dengan teks baru.
+  - `.pisah(pemisah: Teks) -> Daftar<Teks>`: Memecah string menjadi daftar substring berdasarkan pemisah.
+  - `.potong(awal: u64, panjang: u64) -> Teks`: Mengambil substring dari indeks awal dengan panjang karakter tertentu.
+  - `.ambil(indeks: u64) -> Teks ! Teks`: Mengambil satu karakter pada indeks tertentu (dengan penanganan batas aman via Error Union).
+- **Metode pada `Daftar`:**
+  - `.panjang() -> u64`: Menghitung jumlah elemen dalam daftar.
+  - `.ambil(indeks: u64) -> T ! Teks`: Mengambil elemen pada indeks tertentu (aman dengan Error Union).
+  - `.tambah(nilai: T) -> Unit`: Menambahkan elemen baru ke akhir daftar.
+  - `.hapus(indeks: u64) -> T ! Teks`: Menghapus dan mengembalikan elemen pada indeks tertentu.
+  - `.sisip(indeks: u64, nilai: T) -> Bool ! Teks`: Menyisipkan elemen baru pada indeks tertentu.
+  - `.berisi(nilai: T) -> Bool`: Memeriksa apakah suatu nilai ada dalam daftar.
+  - `.kosong() -> Bool`: Memeriksa apakah daftar kosong (`panjang == 0`).
+  - `.balik() -> Daftar<T>`: Mengembalikan daftar baru dengan urutan elemen terbalik (*reverse*).
+  - `.gabung(pemisah: Teks) -> Teks`: Menggabungkan seluruh elemen daftar menjadi satu teks dengan pemisah.
+  - `.potong(awal: u64, akhir: u64) -> Daftar<T>`: Mengambil sub-daftar dari indeks `awal` hingga sebelum `akhir`.
+
+```dap
+fungsi utama() {
+    // 1. Manipulasi Teks & Method Chaining
+    pesan := "   Selamat Datang di DapCode   "
+    bersih := pesan.pangkas().huruf_besar()
+    cetak(bersih) // SELAMAT DATANG DI DAPCODE
+    
+    // 2. Pemecahan String & Operasi Daftar
+    daftar := "kopi,teh,matcha,susu".pisah(",")
+    daftar.tambah("cokelat")
+    daftar.sisip(1, "espresso") ? tangkap err { salah }
+    
+    // 3. Pembalikan & Penggabungan
+    gabung := daftar.balik().gabung(" - ")
+    cetak(gabung) // cokelat - susu - matcha - teh - espresso - kopi
+}
+```
+
 ---
 
 ## 🎨 Dukungan Editor & Ekstensi VS Code
@@ -576,7 +620,7 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
   ```
 - **Integrasi LSP Cerdas (`extension.js`):**
   - **Diagnostik Real-Time:** Pelaporan kesalahan sintaks, kepemilikan (*borrow check*), dan tipe secara langsung saat mengetik.
-  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`), fungsi pustaka standar (`buka_basis_data`, `db_simpan`, `db_ambil`, `db_hapus`, `db_ada`, `buat_server_http`, `buat_server_websocket`, `kirim_respons_http`, `respons_json`, `respons_teks`, `respons_401`, `respons_403`, `respons_redirect`, `respons_berkas`, `sajikan_berkas_statis`, `cocok_rute`, `cocok_awalan`, `sisa_jalur`, `ambil_param_rute`, `ambil_kueri_param`, `ada_kueri_param`, `kueri_param_atau`, `semua_kueri_param`, `ambil_header_http`, `ada_header_http`, `header_atau`, `ambil_otorisasi_bearer`, `tambah_header`, `respons_cors`, `kunci_websocket`, `respons_upgrade_websocket`, `cocok_regex`, `cari_regex`, `ganti_regex`, `ekstrak_regex`, `ekstrak_grup_regex`, `pisah_regex`, `sha1`, `ke_json`, `cetak`, dll), dan simbol lokal.
+  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`, `Teks`, `Daftar`), fungsi pustaka standar (`buka_basis_data`, `db_simpan`, `db_ambil`, `db_hapus`, `db_ada`, `buat_server_http`, `buat_server_websocket`, `kirim_respons_http`, `respons_json`, `respons_teks`, `respons_401`, `respons_403`, `respons_redirect`, `respons_berkas`, `sajikan_berkas_statis`, `cocok_rute`, `cocok_awalan`, `sisa_jalur`, `ambil_param_rute`, `ambil_kueri_param`, `ada_kueri_param`, `kueri_param_atau`, `semua_kueri_param`, `ambil_header_http`, `ada_header_http`, `header_atau`, `ambil_otorisasi_bearer`, `tambah_header`, `respons_cors`, `kunci_websocket`, `respons_upgrade_websocket`, `cocok_regex`, `cari_regex`, `ganti_regex`, `ekstrak_regex`, `ekstrak_grup_regex`, `pisah_regex`, `huruf_besar`, `huruf_kecil`, `pangkas`, `berisi`, `awalan`, `akhiran`, `ganti`, `pisah`, `potong`, `sisip`, `hapus`, `kosong`, `balik`, `gabung`, `sha1`, `ke_json`, `cetak`, dll), dan simbol lokal.
   - **Auto-Completion Kontekstual:** Rekomendasi otomatis kata kunci bahasa Indonesia, tipe data, fungsi pustaka standar, serta deklarasi lokal.
   - **Document Formatting:** Format kode sumber otomatis saat dokumen diformat atau disimpan.
 - **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `server_http`, `buat_server_websocket`, `tingkatkan_websocket`, `buka_db`, `db_simpan`, `db_ambil`, `respons_json`, `respons_teks`, `respons_401`, `respons_redirect`, `respons_berkas`, `sajikan_berkas_statis`, `req.sajikan_statis`, `cocok_rute`, `cocok_awalan`, `sisa_jalur`, `ambil_kueri_param`, `kueri_param_atau`, `semua_kueri_param`, `ambil_otorisasi_bearer`, `cocok_regex`, `ekstrak_grup_regex`, `pisah_regex`, `respons_cors`, `ke_json`, unit test `uji`, asersi `pastikan`, komentar dokumen `///` & `//!`, operasi direktori `buat_direktori`, dan argumen CLI `ambil_argumen_cli`.
@@ -596,6 +640,7 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 30 modul test (100+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & Middleware, Static Files & MIME Asset Serving, Subsistem WebSocket RFC 6455 & Real-Time Communication, Embedded Database (BasisData & DapDb), Mesin Reguler Ekspresi Mandiri (Regex & Capturing Groups), Audio Synthesis & WebAudio Mock, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 31 modul test (110+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & Middleware, Static Files & MIME Asset Serving, Subsistem WebSocket RFC 6455 & Real-Time Communication, Embedded Database (BasisData & DapDb), Mesin Reguler Ekspresi Mandiri (Regex & Capturing Groups), Metode Kaya Koleksi & String (Fluent Teks & Daftar), Audio Synthesis & WebAudio Mock, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+
 
 

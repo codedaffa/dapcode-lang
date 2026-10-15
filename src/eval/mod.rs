@@ -2376,6 +2376,108 @@ impl Evaluator {
 
                 let rec_val = self.eval_expr(receiver, env)?;
 
+                // Check methods on Teks (String)
+                if let Value::String(s) = &rec_val {
+                    match method.as_str() {
+                        "panjang" => {
+                            return Ok(Value::Int(s.chars().count() as u64));
+                        }
+                        "huruf_besar" => {
+                            return Ok(Value::String(s.to_uppercase()));
+                        }
+                        "huruf_kecil" => {
+                            return Ok(Value::String(s.to_lowercase()));
+                        }
+                        "berisi" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'berisi' membutuhkan 1 argumen (sub: Teks)").with_span(*span));
+                            }
+                            let sub = self.eval_expr(&args[0].value, env)?.to_string();
+                            return Ok(Value::Bool(s.contains(&sub)));
+                        }
+                        "awalan" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'awalan' membutuhkan 1 argumen (awalan: Teks)").with_span(*span));
+                            }
+                            let pref = self.eval_expr(&args[0].value, env)?.to_string();
+                            return Ok(Value::Bool(s.starts_with(&pref)));
+                        }
+                        "akhiran" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'akhiran' membutuhkan 1 argumen (akhiran: Teks)").with_span(*span));
+                            }
+                            let suf = self.eval_expr(&args[0].value, env)?.to_string();
+                            return Ok(Value::Bool(s.ends_with(&suf)));
+                        }
+                        "pangkas" => {
+                            return Ok(Value::String(s.trim().to_string()));
+                        }
+                        "ganti" => {
+                            if args.len() != 2 {
+                                return Err(Diagnostic::error("Metode 'ganti' membutuhkan 2 argumen: (lama: Teks, baru: Teks)").with_span(*span));
+                            }
+                            let lama = self.eval_expr(&args[0].value, env)?.to_string();
+                            let baru = self.eval_expr(&args[1].value, env)?.to_string();
+                            return Ok(Value::String(s.replace(&lama, &baru)));
+                        }
+                        "pisah" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'pisah' membutuhkan 1 argumen (pemisah: Teks)").with_span(*span));
+                            }
+                            let pemisah = self.eval_expr(&args[0].value, env)?.to_string();
+                            let parts: Vec<Value> = if pemisah.is_empty() {
+                                s.chars().map(|c| Value::String(c.to_string())).collect()
+                            } else {
+                                s.split(&pemisah).map(|p| Value::String(p.to_string())).collect()
+                            };
+                            return Ok(Value::List(Arc::new(Mutex::new(parts))));
+                        }
+                        "potong" => {
+                            if args.len() != 2 {
+                                return Err(Diagnostic::error("Metode 'potong' membutuhkan 2 argumen: (awal: u64, panjang: u64)").with_span(*span));
+                            }
+                            let awal = match self.eval_expr(&args[0].value, env)? {
+                                Value::Int(i) => i as usize,
+                                _ => return Err(Diagnostic::error("Indeks awal harus bertipe integer").with_span(*span)),
+                            };
+                            let panjang = match self.eval_expr(&args[1].value, env)? {
+                                Value::Int(i) => i as usize,
+                                _ => return Err(Diagnostic::error("Panjang potongan harus bertipe integer").with_span(*span)),
+                            };
+                            let chars: Vec<char> = s.chars().collect();
+                            if awal >= chars.len() {
+                                return Ok(Value::String(String::new()));
+                            }
+                            let end = (awal + panjang).min(chars.len());
+                            let sub: String = chars[awal..end].iter().collect();
+                            return Ok(Value::String(sub));
+                        }
+                        "ambil" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'ambil' membutuhkan 1 argumen (indeks: u64)").with_span(*span));
+                            }
+                            let idx_val = self.eval_expr(&args[0].value, env)?;
+                            let idx = match idx_val {
+                                Value::Int(i) => i as usize,
+                                _ => return Err(Diagnostic::error("Indeks harus bertipe integer").with_span(*span)),
+                            };
+                            let chars: Vec<char> = s.chars().collect();
+                            if idx < chars.len() {
+                                return Ok(Value::ErrorUnion(Ok(Box::new(Value::String(chars[idx].to_string())))));
+                            } else {
+                                return Ok(Value::ErrorUnion(Err(Box::new(Value::String(
+                                    format!("Indeks di luar batas: {} (panjang {})", idx, chars.len())
+                                )))));
+                            }
+                        }
+                        other => {
+                            return Err(Diagnostic::error(format!(
+                                "Metode '{}' tidak ditemukan pada Teks", other
+                            )).with_span(*span));
+                        }
+                    }
+                }
+
                 // Check methods on Daftar
                 if let Value::List(items_arc) = &rec_val {
                     match method.as_str() {
@@ -2408,6 +2510,98 @@ impl Evaluator {
                                     format!("Indeks di luar batas: {} (panjang {})", idx, items.len())
                                 )))));
                             }
+                        }
+                        "hapus" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'hapus' membutuhkan 1 argumen (indeks)").with_span(*span));
+                            }
+                            let idx_val = self.eval_expr(&args[0].value, env)?;
+                            let idx = match idx_val {
+                                Value::Int(i) => i as usize,
+                                _ => return Err(Diagnostic::error("Indeks harus bertipe integer").with_span(*span)),
+                            };
+                            let mut items = items_arc.lock().unwrap();
+                            if idx < items.len() {
+                                let removed = items.remove(idx);
+                                return Ok(Value::ErrorUnion(Ok(Box::new(removed))));
+                            } else {
+                                return Ok(Value::ErrorUnion(Err(Box::new(Value::String(
+                                    format!("Indeks di luar batas: {} (panjang {})", idx, items.len())
+                                )))));
+                            }
+                        }
+                        "sisip" => {
+                            if args.len() != 2 {
+                                return Err(Diagnostic::error("Metode 'sisip' membutuhkan 2 argumen: (indeks, nilai)").with_span(*span));
+                            }
+                            let idx_val = self.eval_expr(&args[0].value, env)?;
+                            let idx = match idx_val {
+                                Value::Int(i) => i as usize,
+                                _ => return Err(Diagnostic::error("Indeks harus bertipe integer").with_span(*span)),
+                            };
+                            let val = self.eval_expr(&args[1].value, env)?;
+                            let mut items = items_arc.lock().unwrap();
+                            if idx <= items.len() {
+                                items.insert(idx, val);
+                                return Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(true)))));
+                            } else {
+                                return Ok(Value::ErrorUnion(Err(Box::new(Value::String(
+                                    format!("Indeks sisip di luar batas: {} (panjang {})", idx, items.len())
+                                )))));
+                            }
+                        }
+                        "berisi" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'berisi' membutuhkan 1 argumen").with_span(*span));
+                            }
+                            let target = self.eval_expr(&args[0].value, env)?;
+                            let items = items_arc.lock().unwrap();
+                            let found = items.iter().any(|item| match (item, &target) {
+                                (Value::Int(a), Value::Int(b)) => a == b,
+                                (Value::Float(a), Value::Float(b)) => (a - b).abs() < f64::EPSILON,
+                                (Value::String(a), Value::String(b)) => a == b,
+                                (Value::Bool(a), Value::Bool(b)) => a == b,
+                                (Value::Unit, Value::Unit) => true,
+                                _ => item.to_string() == target.to_string(),
+                            });
+                            return Ok(Value::Bool(found));
+                        }
+                        "kosong" => {
+                            let items = items_arc.lock().unwrap();
+                            return Ok(Value::Bool(items.is_empty()));
+                        }
+                        "balik" => {
+                            let items = items_arc.lock().unwrap();
+                            let mut rev = items.clone();
+                            rev.reverse();
+                            return Ok(Value::List(Arc::new(Mutex::new(rev))));
+                        }
+                        "gabung" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'gabung' membutuhkan 1 argumen (pemisah)").with_span(*span));
+                            }
+                            let sep = self.eval_expr(&args[0].value, env)?.to_string();
+                            let items = items_arc.lock().unwrap();
+                            let s = items.iter().map(|item| item.to_string()).collect::<Vec<_>>().join(&sep);
+                            return Ok(Value::String(s));
+                        }
+                        "potong" => {
+                            if args.len() != 2 {
+                                return Err(Diagnostic::error("Metode 'potong' membutuhkan 2 argumen: (awal, akhir)").with_span(*span));
+                            }
+                            let awal = match self.eval_expr(&args[0].value, env)? {
+                                Value::Int(i) => i as usize,
+                                _ => return Err(Diagnostic::error("Indeks awal harus bertipe integer").with_span(*span)),
+                            };
+                            let akhir = match self.eval_expr(&args[1].value, env)? {
+                                Value::Int(i) => i as usize,
+                                _ => return Err(Diagnostic::error("Indeks akhir harus bertipe integer").with_span(*span)),
+                            };
+                            let items = items_arc.lock().unwrap();
+                            let start = awal.min(items.len());
+                            let end = akhir.min(items.len()).max(start);
+                            let sliced = items[start..end].to_vec();
+                            return Ok(Value::List(Arc::new(Mutex::new(sliced))));
                         }
                         other => {
                             return Err(Diagnostic::error(format!(
