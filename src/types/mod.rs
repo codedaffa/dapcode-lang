@@ -242,6 +242,29 @@ impl TypeChecker {
             (vec![Type::String], Type::Bool),
         );
 
+        // Standard Library: HTTP Network Utilities
+        self.functions.insert(
+            "ambil_http".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "kirim_http_post".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "ambil_status_http".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::U64), Box::new(Type::String)),
+            ),
+        );
+
         // 1. First pass: Collect all struct declarations
         for decl in &program.decls {
             if let Decl::Struct(s) = decl {

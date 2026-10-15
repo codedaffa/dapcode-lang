@@ -10,6 +10,7 @@ pub mod json;
 pub mod lexer;
 pub mod lsp;
 pub mod modules;
+pub mod net;
 pub mod ownership;
 pub mod parser;
 pub mod span;

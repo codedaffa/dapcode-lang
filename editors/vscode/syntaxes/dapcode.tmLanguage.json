@@ -85,7 +85,7 @@
             "patterns": [
                 {
                     "name": "support.function.builtin.dap",
-                    "match": "\\b(cetak|ke_json|uraikan_json|ambil_kunci_json|ambil_angka_json|ambil_bool_json|ada_kunci_json|valid_json|baca_berkas|tulis_berkas|ada_berkas|panjang_teks|ke_huruf_besar|ke_huruf_kecil|akar_kuadrat|pangkat|nilai_mutlak|waktu_sekarang_ms)\\b"
+                    "match": "\\b(cetak|ke_json|uraikan_json|ambil_kunci_json|ambil_angka_json|ambil_bool_json|ada_kunci_json|valid_json|baca_berkas|tulis_berkas|ada_berkas|panjang_teks|ke_huruf_besar|ke_huruf_kecil|akar_kuadrat|pangkat|nilai_mutlak|waktu_sekarang_ms|ambil_http|kirim_http_post|ambil_status_http)\\b"
                 }
             ]
         },

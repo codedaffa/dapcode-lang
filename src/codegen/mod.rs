@@ -45,8 +45,10 @@ impl<'a> CodeGenerator<'a> {
         self.out.push('\n');
 
         // 2. Define structs
+        let mut struct_names = Vec::new();
         for decl in &program.decls {
             if let Decl::Struct(s) = decl {
+                struct_names.push(s.name.clone());
                 self.out.push_str(&format!("struct {} {{\n", s.name));
                 for f in &s.fields {
                     let c_ty = self.type_to_c(&f.ty);
@@ -59,7 +61,26 @@ impl<'a> CodeGenerator<'a> {
                     "typedef struct {{\n    bool is_err;\n    const char* err_msg;\n    {} ok;\n}} DapResult_{};\n\n",
                     s.name, s.name
                 ));
+
+                // Emit JSON serializer for struct
+                let fmt_parts: Vec<String> = s.fields.iter().map(|f| format!("\\\"{}\\\":%s", f.name)).collect();
+                let fmt_str = format!("{{{}}}", fmt_parts.join(","));
+                let arg_parts: Vec<String> = s.fields.iter().map(|f| format!("dap_to_str(s.{})", f.name)).collect();
+                let args_joined = if arg_parts.is_empty() { String::new() } else { format!(", {}", arg_parts.join(", ")) };
+                self.out.push_str(&format!(
+                    "static inline char* dap_ke_json_{}({} s) {{\n    char* _b = (char*)malloc(1024);\n    snprintf(_b, 1024, \"{}\"{});\n    return _b;\n}}\n\n",
+                    s.name, s.name, fmt_str, args_joined
+                ));
             }
+        }
+
+        if !struct_names.is_empty() {
+            let mut branches: Vec<String> = struct_names.iter().map(|n| format!("{}: dap_ke_json_{}", n, n)).collect();
+            branches.push("default: _dap_to_str_str".to_string());
+            self.out.push_str(&format!(
+                "#undef dap_ke_json\n#define dap_ke_json(x) _Generic((x), {})(x)\n\n",
+                branches.join(", ")
+            ));
         }
 
         // 3. Forward declare functions
@@ -185,9 +206,20 @@ static inline u64 dap_Daftar_panjang(DapList* list) {
     return list ? (u64)list->len : 0;
 }
 
-static inline void* dap_Daftar_ambil(DapList* list, u64 idx) {
-    if (!list || idx >= list->len) return NULL;
-    return list->items[idx];
+typedef struct { bool is_err; const char* err_msg; void* ok; } DapResult_ptr;
+
+static inline DapResult_ptr dap_Daftar_ambil(DapList* list, u64 idx) {
+    DapResult_ptr res;
+    if (!list || idx >= list->len) {
+        res.is_err = true;
+        res.err_msg = "Indeks di luar batas";
+        res.ok = NULL;
+    } else {
+        res.is_err = false;
+        res.err_msg = NULL;
+        res.ok = list->items[idx];
+    }
+    return res;
 }
 
 // C11 Generic String Conversion
@@ -518,6 +550,165 @@ static inline DapResult_Teks dap_uraikan_json(const char* json) {
 
 #define dap_ke_json(x) dap_to_str(x)
 
+// Standard Library: HTTP Network Builtins
+static inline DapResult_Teks dap_ambil_http(const char* url) {
+    DapResult_Teks res;
+    if (!url) {
+        res.is_err = true;
+        res.err_msg = "URL tidak boleh kosong";
+        res.ok = "";
+        return res;
+    }
+    char cmd[1024];
+    snprintf(cmd, sizeof(cmd), "curl.exe -s -S -L -w \"\\n%%{http_code}\" -X GET \"%s\"", url);
+#ifdef _WIN32
+    FILE* fp = _popen(cmd, "r");
+#else
+    FILE* fp = popen(cmd, "r");
+#endif
+    if (!fp) {
+        res.is_err = true;
+        res.err_msg = "Gagal memanggil curl";
+        res.ok = "";
+        return res;
+    }
+    size_t cap = 4096;
+    size_t len = 0;
+    char* buf = (char*)malloc(cap);
+    char chunk[512];
+    while (fgets(chunk, sizeof(chunk), fp)) {
+        size_t clen = strlen(chunk);
+        if (len + clen + 1 >= cap) {
+            cap *= 2;
+            buf = (char*)realloc(buf, cap);
+        }
+        memcpy(buf + len, chunk, clen);
+        len += clen;
+        buf[len] = '\0';
+    }
+#ifdef _WIN32
+    _pclose(fp);
+#else
+    pclose(fp);
+#endif
+
+    char* last_nl = strrchr(buf, '\n');
+    int status = 200;
+    if (last_nl) {
+        status = atoi(last_nl + 1);
+        *last_nl = '\0';
+    }
+    if (status >= 400 || status == 0) {
+        res.is_err = true;
+        char* err = (char*)malloc(256);
+        snprintf(err, 256, "HTTP Error %d: %s", status, buf);
+        res.err_msg = err;
+        res.ok = "";
+        return res;
+    }
+    res.is_err = false;
+    res.err_msg = NULL;
+    res.ok = buf;
+    return res;
+}
+
+static inline DapResult_Teks dap_kirim_http_post(const char* url, const char* body) {
+    DapResult_Teks res;
+    if (!url) {
+        res.is_err = true;
+        res.err_msg = "URL tidak boleh kosong";
+        res.ok = "";
+        return res;
+    }
+    char cmd[2048];
+    const char* b = body ? body : "";
+    snprintf(cmd, sizeof(cmd), "curl.exe -s -S -L -w \"\\n%%{http_code}\" -X POST -H \"Content-Type: application/json\" -d \"%s\" \"%s\"", b, url);
+#ifdef _WIN32
+    FILE* fp = _popen(cmd, "r");
+#else
+    FILE* fp = popen(cmd, "r");
+#endif
+    if (!fp) {
+        res.is_err = true;
+        res.err_msg = "Gagal memanggil curl";
+        res.ok = "";
+        return res;
+    }
+    size_t cap = 4096;
+    size_t len = 0;
+    char* buf = (char*)malloc(cap);
+    char chunk[512];
+    while (fgets(chunk, sizeof(chunk), fp)) {
+        size_t clen = strlen(chunk);
+        if (len + clen + 1 >= cap) {
+            cap *= 2;
+            buf = (char*)realloc(buf, cap);
+        }
+        memcpy(buf + len, chunk, clen);
+        len += clen;
+        buf[len] = '\0';
+    }
+#ifdef _WIN32
+    _pclose(fp);
+#else
+    pclose(fp);
+#endif
+
+    char* last_nl = strrchr(buf, '\n');
+    int status = 200;
+    if (last_nl) {
+        status = atoi(last_nl + 1);
+        *last_nl = '\0';
+    }
+    if (status >= 400 || status == 0) {
+        res.is_err = true;
+        char* err = (char*)malloc(256);
+        snprintf(err, 256, "HTTP Error %d: %s", status, buf);
+        res.err_msg = err;
+        res.ok = "";
+        return res;
+    }
+    res.is_err = false;
+    res.err_msg = NULL;
+    res.ok = buf;
+    return res;
+}
+
+static inline DapResult_u64 dap_ambil_status_http(const char* url) {
+    DapResult_u64 res;
+    if (!url) {
+        res.is_err = true;
+        res.err_msg = "URL tidak boleh kosong";
+        res.ok = 0;
+        return res;
+    }
+    char cmd[1024];
+    snprintf(cmd, sizeof(cmd), "curl.exe -s -S -o nul -w \"%%{http_code}\" -X GET \"%s\"", url);
+#ifdef _WIN32
+    FILE* fp = _popen(cmd, "r");
+#else
+    FILE* fp = popen(cmd, "r");
+#endif
+    if (!fp) {
+        res.is_err = true;
+        res.err_msg = "Gagal memanggil curl";
+        res.ok = 0;
+        return res;
+    }
+    char buf[64];
+    if (!fgets(buf, sizeof(buf), fp)) {
+        buf[0] = '\0';
+    }
+#ifdef _WIN32
+    _pclose(fp);
+#else
+    pclose(fp);
+#endif
+    res.is_err = false;
+    res.err_msg = NULL;
+    res.ok = (u64)atoi(buf);
+    return res;
+}
 
 "#,
         );
@@ -608,7 +799,11 @@ static inline DapResult_Teks dap_uraikan_json(const char* json) {
                     }
                     if let Some(he) = &handler.expr {
                         let he_str = self.emit_expr(he);
-                        self.out.push_str(&format!("        return {};\n", he_str));
+                        if fn_ret_ty == "void" {
+                            self.out.push_str(&format!("        {};\n", he_str));
+                        } else {
+                            self.out.push_str(&format!("        return {};\n", he_str));
+                        }
                     }
                     self.out.push_str("    }\n");
                     self.out.push_str(&format!("    __auto_type {} = {}.ok;\n", name, res_var));
@@ -697,7 +892,15 @@ static inline DapResult_Teks dap_uraikan_json(const char* json) {
                         format!("{}.0", s)
                     }
                 }
-                Literal::String(s) => format!("\"{}\"", s.replace('\"', "\\\"")),
+                Literal::String(s) => {
+                    let clean = s
+                        .replace('\\', "\\\\")
+                        .replace('\"', "\\\"")
+                        .replace('\n', "\\n")
+                        .replace('\r', "\\r")
+                        .replace('\t', "\\t");
+                    format!("\"{}\"", clean)
+                }
                 Literal::Bool(b) => if *b { "true".to_string() } else { "false".to_string() },
                 Literal::Unit => "((void)0)".to_string(),
             },
@@ -828,7 +1031,14 @@ static inline DapResult_Teks dap_uraikan_json(const char* json) {
                 for p in parts {
                     match p {
                         InterpolatedExprPart::Lit(s) => {
-                            fmt.push_str(&s.replace('%', "%%"));
+                            let clean = s
+                                .replace('\\', "\\\\")
+                                .replace('%', "%%")
+                                .replace('\"', "\\\"")
+                                .replace('\n', "\\n")
+                                .replace('\r', "\\r")
+                                .replace('\t', "\\t");
+                            fmt.push_str(&clean);
                         }
                         InterpolatedExprPart::Expr(e) => {
                             let e_str = self.emit_expr(e);

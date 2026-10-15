@@ -54,7 +54,7 @@ fungsi demonstrasi_berkas_dan_waktu() {
         cetak("Gagal membaca berkas: {err}")
         kembali
     }
-    cetak("Isi berkas yang dibaca: "{isi}"")
+    cetak("Isi berkas yang dibaca: {isi}")
     waktu_akhir := waktu_sekarang_ms()
     selisih := waktu_akhir - waktu_awal
     cetak("Waktu eksekusi operasi: {selisih} ms")
@@ -96,6 +96,22 @@ fungsi demonstrasi_json() {
     cetak("Validitas JSON: {apakah_valid}")
 }
 
+fungsi demonstrasi_jaringan() {
+    cetak("\n=== 5. Uji Jaringan & HTTP Client ===")
+    status := ambil_status_http("https://httpbin.org/get") ? tangkap err {
+        cetak("Status koneksi: offline atau fallback ({err})")
+        kembali
+    }
+    cetak("Status HTTP GET httpbin.org: {status}")
+
+    respons := ambil_http("https://httpbin.org/get") ? tangkap err {
+        cetak("Gagal ambil HTTP: {err}")
+        kembali
+    }
+    ada_header := ada_kunci_json(respons, "headers")
+    cetak("Respons HTTP berhasil diterima! Ada kunci 'headers': {ada_header}")
+}
+
 fungsi utama() {
     cetak("===========================================")
     cetak("      DEMONSTRASI PUSTAKA STANDAR DAPCODE   ")
@@ -104,6 +120,7 @@ fungsi utama() {
     demonstrasi_string_dan_matematika()
     demonstrasi_berkas_dan_waktu()
     demonstrasi_json()
+    demonstrasi_jaringan()
     cetak("
 Semua demonstrasi Pustaka Standar selesai dengan sukses!")
 }

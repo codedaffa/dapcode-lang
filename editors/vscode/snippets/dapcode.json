@@ -144,5 +144,25 @@
             "}"
         ],
         "description": "Evaluasi blok ekspresi saat fase kompilasi"
+    },
+    "HTTP GET Request": {
+        "prefix": "ambil_http",
+        "body": [
+            "${1:respons} := ambil_http(\"${2:https://api.example.com/data}\") ? tangkap ${3:err} {",
+            "\tcetak(\"Gagal HTTP GET: {${3:err}}\")",
+            "\t$0",
+            "}"
+        ],
+        "description": "Melakukan HTTP GET request dengan penanganan kesalahan"
+    },
+    "HTTP POST JSON Request": {
+        "prefix": "kirim_http_post",
+        "body": [
+            "${1:respons} := kirim_http_post(\"${2:https://api.example.com/data}\", ${3:data_json}) ? tangkap ${4:err} {",
+            "\tcetak(\"Gagal HTTP POST: {${4:err}}\")",
+            "\t$0",
+            "}"
+        ],
+        "description": "Melakukan HTTP POST request dengan payload JSON"
     }
 }

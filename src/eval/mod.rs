@@ -784,6 +784,55 @@ impl Evaluator {
                         };
                         return Ok(Value::Bool(parse_json(&raw).is_ok()));
                     }
+
+                    // HTTP Network Utilities
+                    if name == "ambil_http" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'ambil_http' membutuhkan 1 argumen (url)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        let url = match val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return match crate::net::ambil_http(&url) {
+                            Ok(body) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(body))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
+                    if name == "kirim_http_post" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'kirim_http_post' membutuhkan 2 argumen (url, data_json)").with_span(*span));
+                        }
+                        let u_val = self.eval_expr(&args[0].value, env)?;
+                        let d_val = self.eval_expr(&args[1].value, env)?;
+                        let url = match u_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        let body = match d_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return match crate::net::kirim_http_post(&url, &body) {
+                            Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(res))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
+                    if name == "ambil_status_http" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'ambil_status_http' membutuhkan 1 argumen (url)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        let url = match val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return match crate::net::ambil_status_http(&url) {
+                            Ok(code) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Int(code))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
                 }
 
                 // 5. Daftar Constructor: Daftar(...)
