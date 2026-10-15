@@ -51,6 +51,37 @@
             </div>
         </section>
 
+        <section class="api-demo wasm-section">
+            <div class="ws-header-row">
+                <div>
+                    <h2>⚡ WebAssembly (WASM 1.0 MVP) In-Browser</h2>
+                    <p class="section-desc">Kode DapCode dikompilasi langsung menjadi biner WebAssembly mandiri dan dieksekusi di peramban web tanpa ketergantungan pihak ketiga.</p>
+                </div>
+                <div class="ws-status-badge" id="wasm-badge">
+                    <span class="status-pulse" id="wasm-pulse"></span>
+                    <span id="wasm-status-text">Memuat WASM...</span>
+                </div>
+            </div>
+
+            <div class="terminal">
+                <div class="terminal-header">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                    <span class="terminal-title">wasm_runtime.log</span>
+                </div>
+                <div class="terminal-body" id="wasm-box">
+                    Menunggu inisialisasi WebAssembly...
+                </div>
+            </div>
+
+            <div class="actions">
+                <button id="btn-wasm-faktorial" class="btn primary">Hitung Faktorial(8) via WASM</button>
+                <button id="btn-wasm-lingkaran" class="btn secondary">Hitung Luas Lingkaran(r=14) via WASM</button>
+                <button id="btn-wasm-deret" class="btn outline">Hitung Deret 1..1000 via WASM</button>
+            </div>
+        </section>
+
         <section class="api-demo ws-section">
             <div class="ws-header-row">
                 <div>

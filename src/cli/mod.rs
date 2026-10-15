@@ -50,13 +50,19 @@ pub enum Commands {
         /// Berkas sumber .dap (opsional jika DapCode.toml ada di direktori saat ini)
         file: Option<PathBuf>,
     },
-    /// Mengompilasi program DapCode ke berkas binary mandiri (native executable)
+    /// Mengompilasi program DapCode ke berkas binary mandiri (native executable atau WebAssembly .wasm)
     Build {
         /// Berkas sumber .dap (opsional jika DapCode.toml ada di direktori saat ini)
         file: Option<PathBuf>,
-        /// Berkas keluaran binary
+        /// Berkas keluaran binary (.exe atau .wasm)
         #[arg(short, long)]
         output: Option<PathBuf>,
+        /// Target kompilasi: "native" (default) atau "wasm"
+        #[arg(short, long, default_value = "native")]
+        target: String,
+        /// Pintasan kompilasi ke WebAssembly (--target wasm)
+        #[arg(long)]
+        wasm: bool,
     },
     /// Menampilkan pohon sintaks abstrak (Abstract Syntax Tree / AST)
     DumpAst {
@@ -180,7 +186,12 @@ pub fn run_cli() -> io::Result<()> {
         Commands::Init { name } => cmd_init(name.as_deref()),
         Commands::Run { file, args } => cmd_run(file.as_deref(), args),
         Commands::Check { file } => cmd_check(file.as_deref()),
-        Commands::Build { file, output } => cmd_build(file.as_deref(), output),
+        Commands::Build {
+            file,
+            output,
+            target,
+            wasm,
+        } => cmd_build(file.as_deref(), output, &target, wasm),
         Commands::DumpAst { file } => cmd_dump_ast(file.as_deref()),
         Commands::DumpIr { file } => cmd_dump_ir(file.as_deref()),
         Commands::DumpOwnership { file } => cmd_dump_ownership(file.as_deref()),
@@ -435,7 +446,12 @@ fn cmd_dump_ownership(file: Option<&Path>) -> io::Result<()> {
     Ok(())
 }
 
-fn cmd_build(file: Option<&Path>, output: Option<PathBuf>) -> io::Result<()> {
+fn cmd_build(
+    file: Option<&Path>,
+    output: Option<PathBuf>,
+    target_arch: &str,
+    is_wasm: bool,
+) -> io::Result<()> {
     let target = resolve_target_file(file)?;
     let mut sm = SourceMap::new();
     let (file_id, mut program) = match load_program_and_modules(&target, &mut sm) {
@@ -449,6 +465,40 @@ fn cmd_build(file: Option<&Path>, output: Option<PathBuf>) -> io::Result<()> {
     let mut checker = TypeChecker::new(file_id);
     if let Err(diag) = checker.check_program(&program) {
         eprint!("{}", diag.render(&sm));
+        return Ok(());
+    }
+
+    if is_wasm || target_arch.to_lowercase() == "wasm" {
+        let target_out = output.unwrap_or_else(|| target.with_extension("wasm"));
+        println!(
+            "{} Mengompilasi '{}' ke modul WebAssembly '{}'...",
+            "info:".blue().bold(),
+            target.display(),
+            target_out.display()
+        );
+
+        let mut emitter = crate::wasm::WasmEmitter::new();
+        match emitter.compile_program(&program) {
+            Ok(wasm_bytes) => {
+                if let Err(e) = crate::wasm::write_wasm_artifacts(&wasm_bytes, &target_out) {
+                    eprintln!(
+                        "{} Gagal menulis berkas WebAssembly: {}",
+                        "kesalahan:".red().bold(),
+                        e
+                    );
+                    return Ok(());
+                }
+                println!(
+                    "{} Berhasil mengompilasi WebAssembly '{}' ({} byte) beserta peluncur HTML & JS!",
+                    "sukses:".green().bold(),
+                    target_out.display(),
+                    wasm_bytes.len()
+                );
+            }
+            Err(diag) => {
+                eprint!("{}", diag.render(&sm));
+            }
+        }
         return Ok(());
     }
 

@@ -1,0 +1,43 @@
+// Contoh Program DapCode untuk Target WebAssembly (WASM)
+// Dapat dikompilasi dengan: dapcodec build --wasm examples/uji_wasm.dap
+
+fungsi faktorial(n: u64) -> u64 {
+    jika n <= 1 {
+        kembali 1
+    }
+    kembali n * faktorial(n - 1)
+}
+
+fungsi luas_lingkaran(r: f64) -> f64 {
+    pi := 3.141592653589793
+    kembali pi * (r * r)
+}
+
+fungsi hitung_deret(batas: u64) -> u64 {
+    total := 0
+    i := 1
+    selama i <= batas {
+        total = total + i
+        i = i + 1
+    }
+    kembali total
+}
+
+fungsi utama() -> u64 {
+    cetak("=== DapCode WebAssembly MVP 1.0 ===")
+    cetak("Program DapCode berjalan secara native di peramban web!")
+
+    f5 := faktorial(5)
+    cetak("Faktorial(5) =")
+    cetak(f5)
+
+    luas := luas_lingkaran(7.0)
+    cetak("Luas Lingkaran (r=7.0) =")
+    cetak(luas)
+
+    deret := hitung_deret(100)
+    cetak("Jumlah deret 1..100 =")
+    cetak(deret)
+
+    kembali deret
+}

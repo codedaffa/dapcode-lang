@@ -19,6 +19,7 @@ pub mod parser;
 pub mod regex;
 pub mod span;
 pub mod types;
+pub mod wasm;
 
 pub use diag::{Diagnostic, DiagnosticLevel, Result};
 pub use span::{SourceFile, SourceMap, Span};
