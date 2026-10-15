@@ -589,6 +589,34 @@ function activate(context) {
             vscode.window.showInformationMessage('DapCode Language Server telah dimulai ulang.');
         })
     );
+
+    // 7. Debug Adapter Protocol (DAP) Factory
+    context.subscriptions.push(
+        vscode.debug.registerDebugAdapterDescriptorFactory('dapcode', {
+            createDebugAdapterDescriptor(session) {
+                const compilerPath = findCompilerPath();
+                log(`Memulai DAP server dengan: ${compilerPath} dap`);
+                return new vscode.DebugAdapterExecutable(compilerPath, ['dap']);
+            },
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dapcode.debug', () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                vscode.window.showErrorMessage('Tidak ada berkas DapCode yang aktif.');
+                return;
+            }
+            vscode.debug.startDebugging(undefined, {
+                type: 'dapcode',
+                name: 'DapCode: Debug Berkas Aktif',
+                request: 'launch',
+                program: editor.document.fileName,
+                stopOnEntry: false,
+            });
+        })
+    );
 }
 
 function deactivate() {

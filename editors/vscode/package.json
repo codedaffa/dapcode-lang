@@ -1,8 +1,8 @@
 {
     "name": "dapcode-lang",
     "displayName": "DapCode Language Support",
-    "description": "Syntax highlighting, language server (LSP) with Code Actions & Quick Fixes, Go to Definition, Document Symbols outline, snippets, doc generator, test runner, and interactive REPL for DapCode (.dap)",
-    "version": "0.4.0",
+    "description": "Syntax highlighting, LSP with Code Actions & Quick Fixes, interactive Debugger (DAP) with breakpoints & variable inspection, Go to Definition, outline symbols, snippets, doc generator, test runner, and interactive REPL for DapCode (.dap)",
+    "version": "0.5.0",
     "publisher": "dapcode-core",
     "engines": {
         "vscode": "^1.75.0"
@@ -56,6 +56,48 @@
                 "path": "./snippets/dapcode.json"
             }
         ],
+        "breakpoints": [
+            {
+                "language": "dapcode"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "dapcode",
+                "label": "DapCode Debugger",
+                "languages": [
+                    "dapcode"
+                ],
+                "configurationAttributes": {
+                    "launch": {
+                        "required": [
+                            "program"
+                        ],
+                        "properties": {
+                            "program": {
+                                "type": "string",
+                                "description": "Jalur berkas sumber DapCode (.dap) yang akan di-debug",
+                                "default": "${file}"
+                            },
+                            "stopOnEntry": {
+                                "type": "boolean",
+                                "description": "Berhenti otomatis pada baris pertama fungsi utama",
+                                "default": false
+                            }
+                        }
+                    }
+                },
+                "initialConfigurations": [
+                    {
+                        "type": "dapcode",
+                        "request": "launch",
+                        "name": "DapCode: Debug Berkas Aktif",
+                        "program": "${file}",
+                        "stopOnEntry": false
+                    }
+                ]
+            }
+        ],
         "commands": [
             {
                 "command": "dapcode.run",
@@ -90,6 +132,11 @@
             {
                 "command": "dapcode.restartLsp",
                 "title": "DapCode: Mulai Ulang Language Server (LSP)",
+                "category": "DapCode"
+            },
+            {
+                "command": "dapcode.debug",
+                "title": "DapCode: Debug Berkas Aktif (Debug)",
                 "category": "DapCode"
             }
         ],

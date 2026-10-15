@@ -138,6 +138,20 @@ impl Value {
             _ => false,
         }
     }
+
+    pub fn type_name(&self) -> String {
+        match self {
+            Value::Int(_) => "u64".to_string(),
+            Value::Float(_) => "f64".to_string(),
+            Value::String(_) => "Teks".to_string(),
+            Value::Bool(_) => "Bool".to_string(),
+            Value::Unit => "Unit".to_string(),
+            Value::Struct { name, .. } => name.clone(),
+            Value::ErrorUnion(_) => "ErrorUnion".to_string(),
+            Value::Task(_) => "Tugas".to_string(),
+            Value::List(_) => "Daftar".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -200,6 +214,40 @@ impl Environment {
         }
         None
     }
+
+    pub fn get_all_variables(&self) -> Vec<(String, Value)> {
+        let mut vars = HashMap::new();
+        for scope in &self.scopes {
+            for (k, v) in scope {
+                vars.insert(k.clone(), v.clone());
+            }
+        }
+        let mut list: Vec<(String, Value)> = vars.into_iter().collect();
+        list.sort_by(|a, b| a.0.cmp(&b.0));
+        list
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DebugAction {
+    Continue,
+    StepOver,
+    StepIn,
+    StepOut,
+    Pause,
+    Terminate,
+}
+
+pub trait DebugHook: Send + Sync {
+    fn on_statement(
+        &mut self,
+        span: Span,
+        env: &Environment,
+        fn_name: &str,
+        call_stack: &[(String, Span)],
+    ) -> DebugAction;
+
+    fn on_output(&mut self, text: &str);
 }
 
 pub struct Evaluator {
@@ -208,6 +256,8 @@ pub struct Evaluator {
     // struct_name -> method_name -> FnDecl
     methods: HashMap<String, HashMap<String, FnDecl>>,
     cli_args: Vec<String>,
+    pub call_stack: Vec<(String, Span)>,
+    pub debug_hook: Option<Arc<Mutex<dyn DebugHook>>>,
 }
 
 impl Evaluator {
@@ -217,6 +267,8 @@ impl Evaluator {
             functions: HashMap::new(),
             methods: HashMap::new(),
             cli_args: std::env::args().collect(),
+            call_stack: Vec::new(),
+            debug_hook: None,
         }
     }
 
@@ -226,7 +278,13 @@ impl Evaluator {
             functions: HashMap::new(),
             methods: HashMap::new(),
             cli_args: args,
+            call_stack: Vec::new(),
+            debug_hook: None,
         }
+    }
+
+    pub fn set_debug_hook(&mut self, hook: Arc<Mutex<dyn DebugHook>>) {
+        self.debug_hook = Some(hook);
     }
 
     pub fn set_cli_args(&mut self, args: Vec<String>) {
@@ -366,7 +424,10 @@ impl Evaluator {
             }
         }
 
-        self.eval_block(&f.body, &mut local_env)
+        self.call_stack.push((f.name.clone(), f.span));
+        let res = self.eval_block(&f.body, &mut local_env);
+        self.call_stack.pop();
+        res
     }
 
     pub fn eval_block(&mut self, block: &Block, env: &mut Environment) -> Result<ControlFlow> {
@@ -396,6 +457,21 @@ impl Evaluator {
     }
 
     pub fn eval_stmt(&mut self, stmt: &Stmt, env: &mut Environment) -> Result<ControlFlow> {
+        if let Some(ref hook) = self.debug_hook {
+            let fn_name = self
+                .call_stack
+                .last()
+                .map(|(n, _)| n.as_str())
+                .unwrap_or("utama");
+            let action = hook
+                .lock()
+                .unwrap()
+                .on_statement(stmt.span(), env, fn_name, &self.call_stack);
+            if action == DebugAction::Terminate {
+                return Err(Diagnostic::error("Eksekusi dihentikan oleh debugger").with_span(stmt.span()));
+            }
+        }
+
         match stmt {
             Stmt::VarDecl { name, init, .. } => {
                 if let Expr::Catch { inner, err_var, handler, .. } = init {
@@ -688,6 +764,8 @@ impl Evaluator {
                     functions: self.functions.clone(),
                     methods: self.methods.clone(),
                     cli_args: self.cli_args.clone(),
+                    call_stack: Vec::new(),
+                    debug_hook: self.debug_hook.clone(),
                 };
 
                 let handle = thread::spawn(move || {
@@ -756,7 +834,10 @@ impl Evaluator {
                             msg.push_str(&val.to_string());
                         }
                         println!("{}", msg);
-                        self.output.lock().unwrap().push(msg);
+                        self.output.lock().unwrap().push(msg.clone());
+                        if let Some(ref hook) = self.debug_hook {
+                            hook.lock().unwrap().on_output(&format!("{}\n", msg));
+                        }
                         return Ok(Value::Unit);
                     }
                 }
@@ -2124,6 +2205,8 @@ impl Evaluator {
                     functions: functions_ws.clone(),
                     methods: methods_ws.clone(),
                     cli_args: cli_args_ws.clone(),
+                    call_stack: Vec::new(),
+                    debug_hook: None,
                 };
                 let mut inner_env = Environment::new();
                 let fn_args = vec![Value::String(incoming_text.to_string())];
@@ -2149,6 +2232,8 @@ impl Evaluator {
                     functions: functions_clone.clone(),
                     methods: methods_clone.clone(),
                     cli_args: cli_args_clone.clone(),
+                    call_stack: Vec::new(),
+                    debug_hook: None,
                 };
                 let mut inner_env = Environment::new();
 
@@ -2304,6 +2389,8 @@ impl Evaluator {
                     functions: functions_ws.clone(),
                     methods: methods_ws.clone(),
                     cli_args: cli_args_ws.clone(),
+                    call_stack: Vec::new(),
+                    debug_hook: None,
                 };
                 let mut inner_env = Environment::new();
                 let fn_args = vec![Value::String(incoming_text.to_string())];

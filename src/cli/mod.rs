@@ -89,6 +89,8 @@ pub enum Commands {
     },
     /// Menjalankan Language Server Protocol (LSP) untuk integrasi editor/IDE
     Lsp,
+    /// Menjalankan Debug Adapter Protocol (DAP) server untuk debugging interaktif
+    Dap,
     /// Memulai konsol interaktif DapCode (REPL)
     Repl,
     /// Menambahkan dependensi paket baru ke DapCode.toml
@@ -197,6 +199,7 @@ pub fn run_cli() -> io::Result<()> {
         Commands::DumpOwnership { file } => cmd_dump_ownership(file.as_deref()),
         Commands::Fmt { path, check } => cmd_fmt(path.as_deref(), check),
         Commands::Lsp => cmd_lsp(),
+        Commands::Dap => cmd_dap(),
         Commands::Repl => cmd_repl(),
         Commands::Add {
             name,
@@ -927,6 +930,11 @@ fn collect_dap_files(dir: &Path, list: &mut Vec<PathBuf>) -> io::Result<()> {
 
 fn cmd_lsp() -> io::Result<()> {
     let mut server = LspServer::new();
+    server.start()
+}
+
+fn cmd_dap() -> io::Result<()> {
+    let mut server = crate::debug::DebugServer::new();
     server.start()
 }
 
