@@ -37,24 +37,56 @@ fungsi demonstrasi_string_dan_matematika() {
 
 fungsi demonstrasi_berkas_dan_waktu() {
     cetak("
-=== 3. Uji I/O Berkas & Waktu ===")
+=== 3. Uji I/O Berkas, Direktori & Waktu ===")
     waktu_awal := waktu_sekarang_ms()
-    nama_berkas := "catatan_dapcode.txt"
+
+    // 1. Buat direktori sementara & gabung jalur
+    folder_target := "folder_uji_dapcode"
+    buat_direktori(folder_target) ? tangkap err {
+        cetak("Gagal membuat direktori: {err}")
+    }
+    cetak("Sukses membuat direktori: {folder_target}")
+
+    nama_berkas := gabung_jalur(folder_target, "catatan_dapcode.txt")
     pesan := "DapCode adalah bahasa modern dengan sintaks bersih berbahasa Indonesia."
     tulis_berkas(nama_berkas, pesan) ? tangkap err {
         cetak("Gagal menulis berkas: {err}")
         kembali
     }
     cetak("Sukses menulis ke berkas: {nama_berkas}")
+
     ada := ada_berkas(nama_berkas)
     jika ada {
         cetak("Status berkas: ditemukan di disk.")
     }
+
     isi := baca_berkas(nama_berkas) ? tangkap err {
         cetak("Gagal membaca berkas: {err}")
         kembali
     }
     cetak("Isi berkas yang dibaca: {isi}")
+
+    // 2. Baca isi direktori
+    daftar_file := daftar_direktori(folder_target) ? tangkap err {
+        cetak("Gagal baca direktori: {err}")
+        Daftar()
+    }
+    cetak("Jumlah entri di direktori {folder_target}: {daftar_file.panjang()}")
+
+    // 3. Bersihkan berkas uji
+    hapus_berkas(nama_berkas) ? tangkap err {
+        cetak("Gagal menghapus berkas: {err}")
+    }
+    cetak("Berkas uji berhasil dibersihkan dengan hapus_berkas().")
+
+    hapus_direktori(folder_target) ? tangkap err {
+        cetak("Direktori dibersihkan.")
+    }
+
+    // 4. Uji jeda tidur (timer)
+    cetak("Menjalankan jeda timer tidur(10 ms)...")
+    tidur(10)
+
     waktu_akhir := waktu_sekarang_ms()
     selisih := waktu_akhir - waktu_awal
     cetak("Waktu eksekusi operasi: {selisih} ms")

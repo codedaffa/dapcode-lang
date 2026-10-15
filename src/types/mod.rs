@@ -164,6 +164,41 @@ impl TypeChecker {
             "ada_berkas".to_string(),
             (vec![Type::String], Type::Bool),
         );
+        self.functions.insert(
+            "buat_direktori".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "daftar_direktori".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(
+                    Box::new(Type::List(Box::new(Type::String))),
+                    Box::new(Type::String),
+                ),
+            ),
+        );
+        self.functions.insert(
+            "hapus_berkas".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "hapus_direktori".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "gabung_jalur".to_string(),
+            (vec![Type::String, Type::String], Type::String),
+        );
 
         // Standard Library: String Utilities
         self.functions.insert(
@@ -197,6 +232,10 @@ impl TypeChecker {
         self.functions.insert(
             "waktu_sekarang_ms".to_string(),
             (vec![], Type::U64),
+        );
+        self.functions.insert(
+            "tidur".to_string(),
+            (vec![Type::U64], Type::Unit),
         );
 
         // Standard Library: JSON Utilities

@@ -350,6 +350,12 @@ impl LspServer {
             "baca_berkas" => Some("### `fungsi baca_berkas(jalur: Teks) -> Teks ! Teks`\\n\\n**Pustaka Standar DapCode - Berkas**\\n\\nMembaca seluruh isi berkas teks dari disk ke dalam variabel `Teks`.".to_string()),
             "tulis_berkas" => Some("### `fungsi tulis_berkas(jalur: Teks, isi: Teks) -> Bool ! Teks`\\n\\n**Pustaka Standar DapCode - Berkas**\\n\\nMenulis isi teks ke berkas di disk.".to_string()),
             "ada_berkas" => Some("### `fungsi ada_berkas(jalur: Teks) -> Bool`\\n\\n**Pustaka Standar DapCode - Berkas**\\n\\nMemeriksa keberadaan berkas pada jalur sistem berkas.".to_string()),
+            "buat_direktori" => Some("### `fungsi buat_direktori(jalur: Teks) -> Bool ! Teks`\\n\\n**Pustaka Standar DapCode - Sistem Berkas**\\n\\nMembuat direktori baru pada disk (termasuk direktori induk secara rekursif).".to_string()),
+            "daftar_direktori" => Some("### `fungsi daftar_direktori(jalur: Teks) -> Daftar<Teks> ! Teks`\\n\\n**Pustaka Standar DapCode - Sistem Berkas**\\n\\nMembaca dan mengembalikan daftar nama entri (berkas & folder) di dalam direktori.".to_string()),
+            "hapus_berkas" => Some("### `fungsi hapus_berkas(jalur: Teks) -> Bool ! Teks`\\n\\n**Pustaka Standar DapCode - Sistem Berkas**\\n\\nMenghapus berkas dari disk.".to_string()),
+            "hapus_direktori" => Some("### `fungsi hapus_direktori(jalur: Teks) -> Bool ! Teks`\\n\\n**Pustaka Standar DapCode - Sistem Berkas**\\n\\nMenghapus direktori beserta seluruh isinya dari disk.".to_string()),
+            "gabung_jalur" => Some("### `fungsi gabung_jalur(induk: Teks, anak: Teks) -> Teks`\\n\\n**Pustaka Standar DapCode - Sistem Berkas**\\n\\nMenggabungkan dua segmen jalur direktori secara konsisten lintas sistem operasi.".to_string()),
+            "tidur" => Some("### `fungsi tidur(milidetik: u64) -> Unit`\\n\\n**Pustaka Standar DapCode - Waktu & Konkurensi**\\n\\nMenunda jalannya eksekusi utas/coroutine saat ini selama durasi milidetik yang ditentukan.".to_string()),
             "akar_kuadrat" => Some("### `fungsi akar_kuadrat(x: f64) -> f64`\\n\\n**Pustaka Standar DapCode - Matematika**\\n\\nMenghitung nilai akar kuadrat non-negatif.".to_string()),
             "pangkat" => Some("### `fungsi pangkat(dasar: f64, eksponen: f64) -> f64`\\n\\n**Pustaka Standar DapCode - Matematika**\\n\\nMenghitung hasil pemangkatan eksponensial.".to_string()),
             "nilai_mutlak" => Some("### `fungsi nilai_mutlak(x: f64) -> f64`\\n\\n**Pustaka Standar DapCode - Matematika**\\n\\nMenghitung nilai mutlak (absolut).".to_string()),
@@ -443,6 +449,12 @@ impl LspServer {
             ("pastikan", "pastikan(${1:kondisi})", 3, "Asersi boolean pengujian"),
             ("pastikan_sama", "pastikan_sama(${1:sebenarnya}, ${2:diharapkan})", 3, "Asersi kesamaan nilai pengujian"),
             ("pastikan_tidak_sama", "pastikan_tidak_sama(${1:a}, ${2:b})", 3, "Asersi ketidaksamaan nilai pengujian"),
+            ("buat_direktori", "buat_direktori(\"${1:jalur}\")", 3, "Buat direktori baru rekursif"),
+            ("daftar_direktori", "daftar_direktori(\"${1:jalur}\")", 3, "Daftar isi direktori"),
+            ("hapus_berkas", "hapus_berkas(\"${1:jalur}\")", 3, "Hapus berkas dari disk"),
+            ("hapus_direktori", "hapus_direktori(\"${1:jalur}\")", 3, "Hapus direktori dari disk"),
+            ("gabung_jalur", "gabung_jalur(\"${1:induk}\", \"${2:anak}\")", 3, "Gabungkan dua segmen jalur"),
+            ("tidur", "tidur(${1:100})", 3, "Tunda eksekusi (milidetik)"),
         ];
 
         for (label, snippet, kind, doc) in keywords {

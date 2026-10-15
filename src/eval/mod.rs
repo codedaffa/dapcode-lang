@@ -715,6 +715,87 @@ impl Evaluator {
                         let exists = std::path::Path::new(&path).exists();
                         return Ok(Value::Bool(exists));
                     }
+                    if name == "buat_direktori" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'buat_direktori' membutuhkan 1 argumen (jalur)").with_span(*span));
+                        }
+                        let p_val = self.eval_expr(&args[0].value, env)?;
+                        let path = match p_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return match std::fs::create_dir_all(&path) {
+                            Ok(_) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(true))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e.to_string()))))),
+                        };
+                    }
+                    if name == "daftar_direktori" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'daftar_direktori' membutuhkan 1 argumen (jalur)").with_span(*span));
+                        }
+                        let p_val = self.eval_expr(&args[0].value, env)?;
+                        let path = match p_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return match std::fs::read_dir(&path) {
+                            Ok(entries) => {
+                                let mut list = Vec::new();
+                                for entry in entries.flatten() {
+                                    let name = entry.file_name().to_string_lossy().to_string();
+                                    list.push(Value::String(name));
+                                }
+                                Ok(Value::ErrorUnion(Ok(Box::new(Value::List(Arc::new(Mutex::new(list)))))))
+                            }
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e.to_string()))))),
+                        };
+                    }
+                    if name == "hapus_berkas" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'hapus_berkas' membutuhkan 1 argumen (jalur)").with_span(*span));
+                        }
+                        let p_val = self.eval_expr(&args[0].value, env)?;
+                        let path = match p_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return match std::fs::remove_file(&path) {
+                            Ok(_) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(true))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e.to_string()))))),
+                        };
+                    }
+                    if name == "hapus_direktori" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'hapus_direktori' membutuhkan 1 argumen (jalur)").with_span(*span));
+                        }
+                        let p_val = self.eval_expr(&args[0].value, env)?;
+                        let path = match p_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return match std::fs::remove_dir_all(&path) {
+                            Ok(_) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(true))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e.to_string()))))),
+                        };
+                    }
+                    if name == "gabung_jalur" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'gabung_jalur' membutuhkan 2 argumen (induk, anak)").with_span(*span));
+                        }
+                        let a_val = self.eval_expr(&args[0].value, env)?;
+                        let b_val = self.eval_expr(&args[1].value, env)?;
+                        let a = match a_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        let b = match b_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        let joined = std::path::Path::new(&a).join(&b);
+                        let norm = joined.to_string_lossy().replace('\\', "/");
+                        return Ok(Value::String(norm));
+                    }
                 }
 
                 // 4. Built-in Stdlib: String & Math Utilities
@@ -800,6 +881,19 @@ impl Evaluator {
                             .map(|d| d.as_millis() as u64)
                             .unwrap_or(0);
                         return Ok(Value::Int(ms));
+                    }
+                    if name == "tidur" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'tidur' membutuhkan 1 argumen (milidetik: u64)").with_span(*span));
+                        }
+                        let ms_val = self.eval_expr(&args[0].value, env)?;
+                        let ms = match ms_val {
+                            Value::Int(n) => n,
+                            Value::Float(f) => f as u64,
+                            _ => return Err(Diagnostic::error("Argumen 'tidur' harus berupa angka milidetik").with_span(*span)),
+                        };
+                        std::thread::sleep(std::time::Duration::from_millis(ms));
+                        return Ok(Value::Unit);
                     }
                     if name == "ke_json" {
                         if args.len() != 1 {

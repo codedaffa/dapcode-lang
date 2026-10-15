@@ -173,3 +173,49 @@ fungsi utama() -> Teks {
     }
 }
 
+#[test]
+fn test_stdlib_filesystem_and_timer() {
+    let src = r#"
+fungsi utama() -> u64 {
+    dir := "temp_test_dir_dap"
+    buat_direktori(dir) ? tangkap err {
+        kembali 0
+    }
+
+    file := gabung_jalur(dir, "catatan.txt")
+    tulis_berkas(file, "tes isi") ? tangkap err {
+        kembali 0
+    }
+
+    daftar := daftar_direktori(dir) ? tangkap err {
+        kembali 0
+    }
+
+    jum_entri := daftar.panjang()
+
+    // Test timer
+    tidur(5)
+
+    // Bersihkan
+    hapus_berkas(file) ? tangkap err {
+        kembali 0
+    }
+
+    hapus_direktori(dir) ? tangkap err {
+        kembali 0
+    }
+
+    jum_entri
+}
+"#;
+
+    let (res, _) = run_dap_code(src);
+    match res {
+        Value::Int(n) => assert_eq!(n, 1),
+        other => panic!("Expected Value::Int(1), got {:?}", other),
+    }
+
+    // Double check cleanup
+    let _ = std::fs::remove_dir_all("temp_test_dir_dap");
+}
+

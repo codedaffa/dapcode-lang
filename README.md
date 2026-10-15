@@ -40,10 +40,10 @@ Kompilator dan toolchain resminya, **`dapcodec`**, diimplementasikan sepenuhnya 
    - **Koleksi Dinamis `Daftar<T>`:** Koleksi ukuran fleksibel dengan metode `.tambah(item)`, `.panjang() -> u64`, dan `.ambil(indeks) -> T ! Teks` (proteksi *zero-null* terpadu dengan *error union*).
    - **Serialisasi & Penguraian JSON:** Parser & serializer JSON zero-dependency terintegrasi: `ke_json(nilai) -> Teks`, `uraikan_json(teks) -> Teks ! Teks`, `ambil_kunci_json(teks, kunci) -> Teks ! Teks`, `ambil_angka_json(teks, kunci) -> f64 ! Teks`, `ambil_bool_json(teks, kunci) -> Bool ! Teks`, `ada_kunci_json(teks, kunci) -> Bool`, `valid_json(teks) -> Bool`.
    - **Jaringan & HTTP Client:** Client HTTP bawaan zero-dependency dengan integrasi TLS/HTTPS native: `ambil_http(url) -> Teks ! Teks` (HTTP GET), `kirim_http_post(url, data_json) -> Teks ! Teks` (HTTP POST dengan payload JSON), dan `ambil_status_http(url) -> u64 ! Teks` (status code numerik).
-   - **I/O Berkas (File I/O):** `baca_berkas(jalur) -> Teks ! Teks`, `tulis_berkas(jalur, isi) -> Bool ! Teks`, `ada_berkas(jalur) -> Bool`.
+   - **I/O Berkas & Sistem Berkas (Filesystem & File I/O):** `baca_berkas(jalur) -> Teks ! Teks`, `tulis_berkas(jalur, isi) -> Bool ! Teks`, `ada_berkas(jalur) -> Bool`, `buat_direktori(jalur) -> Bool ! Teks`, `daftar_direktori(jalur) -> Daftar<Teks> ! Teks`, `hapus_berkas(jalur) -> Bool ! Teks`, `hapus_direktori(jalur) -> Bool ! Teks`, `gabung_jalur(awal, akhir) -> Teks`.
    - **Utilitas String:** `panjang_teks(s) -> u64`, `ke_huruf_besar(s) -> Teks`, `ke_huruf_kecil(s) -> Teks`.
    - **Utilitas Matematika:** `akar_kuadrat(x) -> f64`, `pangkat(dasar, eksponen) -> f64`, `nilai_mutlak(x) -> f64`.
-   - **Utilitas Waktu:** `waktu_sekarang_ms() -> u64`.
+   - **Utilitas Waktu & Timer:** `waktu_sekarang_ms() -> u64`, `tidur(ms: u64) -> Unit`.
 
 8. **Sistem Modul & Multi-Berkas (`impor` & `DapCode.toml`):**
    - Kata kunci `impor "nama_berkas.dap"` untuk memecah kode menjadi modul-modul independen.
@@ -276,5 +276,5 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 15 modul test (39 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 15 modul test (40 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 

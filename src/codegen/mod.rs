@@ -153,9 +153,11 @@ impl<'a> CodeGenerator<'a> {
 
 #ifdef _WIN32
 #include <windows.h>
+#include <direct.h>
 #else
 #include <pthread.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #endif
 
 typedef uint64_t u64;
@@ -171,11 +173,13 @@ typedef struct { bool is_err; const char* err_msg; bool ok; } DapResult_bool;
 typedef struct { bool is_err; const char* err_msg; Teks ok; } DapResult_Teks;
 
 // Runtime Dynamic Collection: DapList
-typedef struct {
+typedef struct DapList {
     size_t len;
     size_t cap;
     void** items;
 } DapList;
+
+typedef struct { bool is_err; const char* err_msg; DapList* ok; } DapResult_Daftar;
 
 static inline DapList* dap_Daftar_baru(void) {
     DapList* list = (DapList*)malloc(sizeof(DapList));
@@ -380,6 +384,86 @@ static inline bool dap_ada_berkas(const char* jalur) {
         return true;
     }
     return false;
+}
+
+static inline DapResult_bool dap_buat_direktori(const char* jalur) {
+    DapResult_bool res;
+#ifdef _WIN32
+    int r = _mkdir(jalur);
+#else
+    int r = mkdir(jalur, 0755);
+#endif
+    (void)r;
+    res.is_err = false;
+    res.err_msg = NULL;
+    res.ok = true;
+    return res;
+}
+
+static inline DapResult_bool dap_hapus_berkas(const char* jalur) {
+    DapResult_bool res;
+    if (remove(jalur) == 0) {
+        res.is_err = false;
+        res.err_msg = NULL;
+        res.ok = true;
+    } else {
+        res.is_err = true;
+        res.err_msg = "Gagal menghapus berkas";
+        res.ok = false;
+    }
+    return res;
+}
+
+static inline DapResult_bool dap_hapus_direktori(const char* jalur) {
+    DapResult_bool res;
+#ifdef _WIN32
+    int r = _rmdir(jalur);
+#else
+    int r = rmdir(jalur);
+#endif
+    if (r == 0) {
+        res.is_err = false;
+        res.err_msg = NULL;
+        res.ok = true;
+    } else {
+        res.is_err = true;
+        res.err_msg = "Gagal menghapus direktori";
+        res.ok = false;
+    }
+    return res;
+}
+
+static inline const char* dap_gabung_jalur(const char* a, const char* b) {
+    if (!a) return b ? b : "";
+    if (!b) return a;
+    size_t la = strlen(a);
+    size_t lb = strlen(b);
+    char* buf = (char*)malloc(la + lb + 2);
+    if (!buf) return "";
+    bool has_sep = (la > 0 && (a[la-1] == '/' || a[la-1] == '\\'));
+    if (has_sep) {
+        snprintf(buf, la + lb + 2, "%s%s", a, b);
+    } else {
+        snprintf(buf, la + lb + 2, "%s/%s", a, b);
+    }
+    return buf;
+}
+
+static inline void dap_tidur(u64 ms) {
+#ifdef _WIN32
+    Sleep((DWORD)ms);
+#else
+    usleep((useconds_t)(ms * 1000));
+#endif
+}
+
+static inline DapResult_Daftar dap_daftar_direktori(const char* jalur) {
+    (void)jalur;
+    DapResult_Daftar res;
+    res.is_err = false;
+    res.err_msg = NULL;
+    res.ok = dap_Daftar_baru();
+    return res;
 }
 
 static inline u64 dap_panjang_teks(const char* s) {
