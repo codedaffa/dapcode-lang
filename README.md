@@ -288,19 +288,22 @@ Fitur Dokumentasi Otomatis DapCode:
 
 ## 🎨 Dukungan Editor & Ekstensi VS Code
 
-Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke paket biner **`.vsix`** siap pakai:
-- **Paket Instalasi Mandiri (`.vsix`):** Tersedia di `editors/vscode/dapcode-lang-0.1.0.vsix`.
+Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke paket biner **`.vsix`** siap pakai (Versi `0.2.0`):
+- **Paket Instalasi Mandiri (`.vsix`):** Tersedia di `editors/vscode/dapcode-lang-0.2.0.vsix`.
   ```powershell
-  code --install-extension editors/vscode/dapcode-lang-0.1.0.vsix
+  code --install-extension editors/vscode/dapcode-lang-0.2.0.vsix
   ```
 - **Integrasi LSP Cerdas (`extension.js`):**
-  - **Diagnostik Real-Time:** Pelaporan kesalahan sintaks dan tipe secara langsung saat mengetik.
-  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, fungsi bawaan (`ke_json`, `cetak`, dll), dan simbol lokal.
+  - **Diagnostik Real-Time:** Pelaporan kesalahan sintaks, kepemilikan (*borrow check*), dan tipe secara langsung saat mengetik.
+  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, fungsi pustaka standar (`ke_json`, `cetak`, `baca_berkas`, `buat_direktori`, `ambil_argumen_cli`, `pastikan_sama`, dll), dan simbol lokal.
   - **Auto-Completion Kontekstual:** Rekomendasi otomatis kata kunci bahasa Indonesia, tipe data, fungsi pustaka standar, serta deklarasi lokal.
   - **Document Formatting:** Format kode sumber otomatis saat dokumen diformat atau disimpan.
-- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `ke_json`, dan `ambil_kunci_json`.
+- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `ke_json`, unit test `uji`, asersi `pastikan`, komentar dokumen `///` & `//!`, operasi direktori `buat_direktori`, dan argumen CLI `ambil_argumen_cli`.
 - **Integrasi Menu & Perintah Cepat:**
   - `dapcode.run` -> Jalankan berkas aktif dengan `dapcodec run`.
+  - `dapcode.test` -> Jalankan pengujian unit aktif dengan `dapcodec test`.
+  - `dapcode.repl` -> Buka sesi konsol interaktif `dapcodec repl`.
+  - `dapcode.doc` -> Hasilkan dokumentasi dan buka di browser dengan `dapcodec doc --open`.
   - `dapcode.check` -> Periksa tipe dan kepemilikan dengan `dapcodec check`.
   - `dapcode.build` -> Kompilasi berkas aktif ke file `.exe` mandiri dengan `dapcodec build`.
   - `dapcode.restartLsp` -> Mulai ulang Language Server.

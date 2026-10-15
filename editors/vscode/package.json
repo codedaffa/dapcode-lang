@@ -1,8 +1,8 @@
 {
     "name": "dapcode-lang",
     "displayName": "DapCode Language Support",
-    "description": "Syntax highlighting, language server (LSP), snippets, and diagnostics for DapCode (.dap)",
-    "version": "0.1.0",
+    "description": "Syntax highlighting, language server (LSP), snippets, doc generator, test runner, and interactive REPL for DapCode (.dap)",
+    "version": "0.2.0",
     "publisher": "dapcode-core",
     "engines": {
         "vscode": "^1.75.0"
@@ -10,7 +10,8 @@
     "categories": [
         "Programming Languages",
         "Snippets",
-        "Linters"
+        "Linters",
+        "Testing"
     ],
     "keywords": [
         "dapcode",
@@ -18,7 +19,10 @@
         "compiler",
         "indonesia",
         "rust",
-        "language-server"
+        "language-server",
+        "testing",
+        "repl",
+        "documentation"
     ],
     "main": "./extension.js",
     "activationEvents": [
@@ -59,6 +63,21 @@
                 "category": "DapCode"
             },
             {
+                "command": "dapcode.test",
+                "title": "DapCode: Jalankan Pengujian Unit (Test)",
+                "category": "DapCode"
+            },
+            {
+                "command": "dapcode.repl",
+                "title": "DapCode: Buka Interactive REPL",
+                "category": "DapCode"
+            },
+            {
+                "command": "dapcode.doc",
+                "title": "DapCode: Hasilkan Dokumentasi Proyek (Doc)",
+                "category": "DapCode"
+            },
+            {
                 "command": "dapcode.check",
                 "title": "DapCode: Periksa Tipe & Kepemilikan (Check)",
                 "category": "DapCode"
@@ -79,24 +98,49 @@
                 {
                     "command": "dapcode.run",
                     "when": "resourceLangId == dapcode",
-                    "group": "navigation"
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "dapcode.test",
+                    "when": "resourceLangId == dapcode",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "dapcode.repl",
+                    "when": "resourceLangId == dapcode",
+                    "group": "navigation@3"
                 }
             ],
             "editor/context": [
                 {
                     "command": "dapcode.run",
                     "when": "resourceLangId == dapcode",
-                    "group": "1_modification"
+                    "group": "1_modification@1"
+                },
+                {
+                    "command": "dapcode.test",
+                    "when": "resourceLangId == dapcode",
+                    "group": "1_modification@2"
+                },
+                {
+                    "command": "dapcode.repl",
+                    "when": "resourceLangId == dapcode",
+                    "group": "1_modification@3"
+                },
+                {
+                    "command": "dapcode.doc",
+                    "when": "resourceLangId == dapcode",
+                    "group": "1_modification@4"
                 },
                 {
                     "command": "dapcode.check",
                     "when": "resourceLangId == dapcode",
-                    "group": "1_modification"
+                    "group": "1_modification@5"
                 },
                 {
                     "command": "dapcode.build",
                     "when": "resourceLangId == dapcode",
-                    "group": "1_modification"
+                    "group": "1_modification@6"
                 }
             ]
         },

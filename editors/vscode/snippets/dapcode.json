@@ -164,5 +164,89 @@
             "}"
         ],
         "description": "Melakukan HTTP POST request dengan payload JSON"
+    },
+    "Blok Pengujian Uji": {
+        "prefix": "uji",
+        "body": [
+            "uji \"${1:skenario pengujian}\" {",
+            "\t${2:hasil} := ${3:fungsi_diuji()}",
+            "\tpastikan_sama(${2:hasil}, ${4:nilai_diharapkan})",
+            "\t$0",
+            "}"
+        ],
+        "description": "Blok unit test bawaan DapCode"
+    },
+    "Asersi Pastikan": {
+        "prefix": "pastikan",
+        "body": [
+            "pastikan(${1:kondisi})"
+        ],
+        "description": "Asersi kebenaran kondisi dalam blok pengujian"
+    },
+    "Asersi Pastikan Sama": {
+        "prefix": "pastikan_sama",
+        "body": [
+            "pastikan_sama(${1:sebenarnya}, ${2:diharapkan})"
+        ],
+        "description": "Asersi kesamaan dua nilai dalam blok pengujian"
+    },
+    "Asersi Pastikan Tidak Sama": {
+        "prefix": "pastikan_tidak_sama",
+        "body": [
+            "pastikan_tidak_sama(${1:a}, ${2:b})"
+        ],
+        "description": "Asersi ketidaksamaan dua nilai dalam pengujian"
+    },
+    "Dokumen Modul": {
+        "prefix": "docm",
+        "body": [
+            "//! # ${1:Nama Modul}",
+            "//!",
+            "//! ${2:Deskripsi modul dan penjelasan penggunaannya.}"
+        ],
+        "description": "Komentar dokumentasi tingkat modul //!"
+    },
+    "Dokumen Fungsi / Simbol": {
+        "prefix": "doc",
+        "body": [
+            "/// ${1:Deskripsi fungsi atau struktur data}"
+        ],
+        "description": "Komentar dokumentasi deklarasi ///"
+    },
+    "Buat Direktori": {
+        "prefix": "buat_direktori",
+        "body": [
+            "buat_direktori(\"${1:jalur_folder}\") ? tangkap ${2:err} {",
+            "\tcetak(\"Gagal membuat direktori: {${2:err}}\")",
+            "\t$0",
+            "}"
+        ],
+        "description": "Membuat direktori baru secara rekursif"
+    },
+    "Daftar Direktori": {
+        "prefix": "daftar_direktori",
+        "body": [
+            "${1:daftar_entri} := daftar_direktori(\"${2:jalur_folder}\") ? tangkap ${3:err} {",
+            "\tcetak(\"Gagal membaca direktori: {${3:err}}\")",
+            "\t$0",
+            "}"
+        ],
+        "description": "Membaca daftar entri berkas dan folder"
+    },
+    "Ambil Argumen CLI": {
+        "prefix": "ambil_argumen_cli",
+        "body": [
+            "${1:argumen} := ambil_argumen_cli()"
+        ],
+        "description": "Mengambil daftar argumen baris perintah"
+    },
+    "Ambil Variabel Lingkungan": {
+        "prefix": "ambil_lingkungan",
+        "body": [
+            "${1:nilai} := ambil_lingkungan(\"${2:NAMA_VARIABEL}\") ? tangkap ${3:err} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Membaca variabel lingkungan sistem operasi"
     }
 }

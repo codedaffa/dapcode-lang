@@ -358,6 +358,45 @@ function activate(context) {
     );
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('dapcode.test', () => {
+            const editor = vscode.window.activeTextEditor;
+            const compiler = findCompilerPath();
+            const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode');
+            terminal.show();
+            if (editor && editor.document.languageId === 'dapcode') {
+                const filePath = editor.document.fileName;
+                terminal.sendText(`& "${compiler}" test "${filePath}"`);
+            } else {
+                terminal.sendText(`& "${compiler}" test`);
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dapcode.repl', () => {
+            const compiler = findCompilerPath();
+            const terminal = vscode.window.createTerminal('DapCode REPL');
+            terminal.show();
+            terminal.sendText(`& "${compiler}" repl`);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dapcode.doc', () => {
+            const compiler = findCompilerPath();
+            const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode');
+            terminal.show();
+            const editor = vscode.window.activeTextEditor;
+            if (editor && editor.document.languageId === 'dapcode') {
+                const filePath = editor.document.fileName;
+                terminal.sendText(`& "${compiler}" doc "${filePath}" --open`);
+            } else {
+                terminal.sendText(`& "${compiler}" doc --open`);
+            }
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('dapcode.check', () => {
             const editor = vscode.window.activeTextEditor;
             if (!editor) {
