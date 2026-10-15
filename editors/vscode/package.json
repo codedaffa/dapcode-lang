@@ -1,14 +1,28 @@
 {
     "name": "dapcode-lang",
     "displayName": "DapCode Language Support",
-    "description": "Syntax highlighting, language configuration, and tooling for DapCode (.dap)",
+    "description": "Syntax highlighting, language server (LSP), snippets, and diagnostics for DapCode (.dap)",
     "version": "0.1.0",
     "publisher": "dapcode-core",
     "engines": {
         "vscode": "^1.75.0"
     },
     "categories": [
-        "Programming Languages"
+        "Programming Languages",
+        "Snippets",
+        "Linters"
+    ],
+    "keywords": [
+        "dapcode",
+        "dapcodec",
+        "compiler",
+        "indonesia",
+        "rust",
+        "language-server"
+    ],
+    "main": "./extension.js",
+    "activationEvents": [
+        "onLanguage:dapcode"
     ],
     "contributes": {
         "languages": [
@@ -31,6 +45,76 @@
                 "scopeName": "source.dap",
                 "path": "./syntaxes/dapcode.tmLanguage.json"
             }
-        ]
+        ],
+        "snippets": [
+            {
+                "language": "dapcode",
+                "path": "./snippets/dapcode.json"
+            }
+        ],
+        "commands": [
+            {
+                "command": "dapcode.run",
+                "title": "DapCode: Jalankan Berkas Aktif (Run)",
+                "category": "DapCode"
+            },
+            {
+                "command": "dapcode.check",
+                "title": "DapCode: Periksa Tipe & Kepemilikan (Check)",
+                "category": "DapCode"
+            },
+            {
+                "command": "dapcode.build",
+                "title": "DapCode: Kompilasi ke Biner Mandiri (Build)",
+                "category": "DapCode"
+            },
+            {
+                "command": "dapcode.restartLsp",
+                "title": "DapCode: Mulai Ulang Language Server (LSP)",
+                "category": "DapCode"
+            }
+        ],
+        "menus": {
+            "editor/title": [
+                {
+                    "command": "dapcode.run",
+                    "when": "resourceLangId == dapcode",
+                    "group": "navigation"
+                }
+            ],
+            "editor/context": [
+                {
+                    "command": "dapcode.run",
+                    "when": "resourceLangId == dapcode",
+                    "group": "1_modification"
+                },
+                {
+                    "command": "dapcode.check",
+                    "when": "resourceLangId == dapcode",
+                    "group": "1_modification"
+                },
+                {
+                    "command": "dapcode.build",
+                    "when": "resourceLangId == dapcode",
+                    "group": "1_modification"
+                }
+            ]
+        },
+        "configuration": {
+            "type": "object",
+            "title": "DapCode",
+            "properties": {
+                "dapcode.compilerPath": {
+                    "type": "string",
+                    "default": "dapcodec",
+                    "description": "Jalur executable kompilator dapcodec (default: 'dapcodec')."
+                },
+                "dapcode.enableLsp": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Aktifkan integrasi LSP otomatis untuk diagnostik, hover, dan auto-completion."
+                }
+            }
+        }
     }
 }

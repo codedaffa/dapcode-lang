@@ -1,0 +1,148 @@
+{
+    "Fungsi": {
+        "prefix": "fungsi",
+        "body": [
+            "fungsi ${1:nama_fungsi}(${2:parameter}: ${3:Teks}) -> ${4:Unit} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Deklarasi fungsi DapCode"
+    },
+    "Fungsi Utama": {
+        "prefix": "utama",
+        "body": [
+            "fungsi utama() {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Titik masuk utama program DapCode (fungsi utama)"
+    },
+    "Struktur": {
+        "prefix": "struktur",
+        "body": [
+            "struktur ${1:NamaStruktur} {",
+            "\t${2:nama_bidang}: ${3:Teks},",
+            "\t$0",
+            "}"
+        ],
+        "description": "Deklarasi struktur data (struktur)"
+    },
+    "Sifat / Trait": {
+        "prefix": "sifat",
+        "body": [
+            "sifat ${1:NamaSifat} {",
+            "\tfungsi ${2:nama_metode}(ini) -> ${3:Teks}",
+            "}"
+        ],
+        "description": "Deklarasi sifat / trait (sifat)"
+    },
+    "Terapkan Sifat": {
+        "prefix": "terapkan",
+        "body": [
+            "terapkan ${1:NamaSifat} untuk ${2:NamaStruktur} {",
+            "\tfungsi ${3:nama_metode}(ini) -> ${4:Teks} {",
+            "\t\t$0",
+            "\t}",
+            "}"
+        ],
+        "description": "Implementasi sifat/trait untuk suatu struktur"
+    },
+    "Terapkan Metode": {
+        "prefix": "metode",
+        "body": [
+            "terapkan ${1:NamaStruktur} {",
+            "\tfungsi ${2:nama_metode}(ini) -> ${3:Unit} {",
+            "\t\t$0",
+            "\t}",
+            "}"
+        ],
+        "description": "Implementasi metode khusus untuk struktur"
+    },
+    "Percabangan Jika": {
+        "prefix": "jika",
+        "body": [
+            "jika ${1:kondisi} {",
+            "\t$2",
+            "} selain_itu {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Percabangan kondisi jika dan selain_itu"
+    },
+    "Perulangan Selama": {
+        "prefix": "selama",
+        "body": [
+            "selama ${1:kondisi} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Perulangan kondisi selama (while loop)"
+    },
+    "Perulangan Untuk Koleksi": {
+        "prefix": "untuk",
+        "body": [
+            "untuk ${1:item} di ${2:koleksi} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Perulangan untuk setiap item di koleksi (for-in loop)"
+    },
+    "Konkurensi Jalan Paralel": {
+        "prefix": "jalan_paralel",
+        "body": [
+            "${1:tugas} := jalan_paralel {",
+            "\t$0",
+            "}",
+            "${2:hasil} := tunggu(${1:tugas})"
+        ],
+        "description": "Blok coroutine asinkron jalan_paralel dan sinkronisasi tunggu"
+    },
+    "Penanganan Kesalahan Tangkap": {
+        "prefix": "tangkap",
+        "body": [
+            "? tangkap ${1:err} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Blok inline penanganan kesalahan (? tangkap err)"
+    },
+    "Pernyataan Impor": {
+        "prefix": "impor",
+        "body": [
+            "impor \"${1:modul.dap}\""
+        ],
+        "description": "Impor berkas modul DapCode"
+    },
+    "Cetak Konsol": {
+        "prefix": "cetak",
+        "body": [
+            "cetak(\"${1:pesan}\")"
+        ],
+        "description": "Cetak pesan atau nilai ke konsol"
+    },
+    "Serialisasi JSON": {
+        "prefix": "ke_json",
+        "body": [
+            "${1:teks_json} := ke_json(${2:data})"
+        ],
+        "description": "Serialisasi nilai atau struktur data ke string JSON"
+    },
+    "Penguraian Kunci JSON": {
+        "prefix": "ambil_kunci_json",
+        "body": [
+            "${1:nilai} := ambil_kunci_json(${2:teks_json}, \"${3:kunci}\") ? tangkap err {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Ekstrak kunci dari teks JSON dengan penanganan error"
+    },
+    "Comptime Block": {
+        "prefix": "comptime",
+        "body": [
+            "${1:hasil} := comptime {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Evaluasi blok ekspresi saat fase kompilasi"
+    }
+}

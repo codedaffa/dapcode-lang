@@ -112,6 +112,7 @@ dapcode-lang/
     ├── stdlib_test.rs            # Uji Pustaka Standar (Daftar, String, Math, Berkas, Waktu, JSON)
     ├── module_test.rs            # Uji Sistem Modul, Impor, & DapCode.toml
     ├── json_test.rs              # Uji Parser, Serializer, & Error Handling JSON
+    ├── lsp_test.rs               # Uji LSP (Init, Diagnostics, Hover, Completion)
     └── demo_test.rs
 ```
 
@@ -200,10 +201,22 @@ dapcodec repl
 
 ## 🎨 Dukungan Editor & Ekstensi VS Code
 
-Ekstensi resmi DapCode tersedia di folder `editors/vscode/`:
-- **Syntax Highlighting Lengkap:** Dukungan TextMate Grammar (`.dap`) untuk kata kunci Indonesia (`impor`, `fungsi`, `struktur`, `sifat`, dll), tipe data, operator aljabar, coroutine, string interpolation, dan blok tangkap error.
-- **Konfigurasi Bahasa:** Auto-closing brackets `{}`, `()`, `[]`, komentar baris `//`, dan blok `/* */`.
-- **Integrasi Workspace Otomatis:** Konfigurasi `.vscode/settings.json` sudah disiapkan secara otomatis untuk workspace ini.
+Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke paket biner **`.vsix`** siap pakai:
+- **Paket Instalasi Mandiri (`.vsix`):** Tersedia di `editors/vscode/dapcode-lang-0.1.0.vsix`.
+  ```powershell
+  code --install-extension editors/vscode/dapcode-lang-0.1.0.vsix
+  ```
+- **Integrasi LSP Cerdas (`extension.js`):**
+  - **Diagnostik Real-Time:** Pelaporan kesalahan sintaks dan tipe secara langsung saat mengetik.
+  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, fungsi bawaan (`ke_json`, `cetak`, dll), dan simbol lokal.
+  - **Auto-Completion Kontekstual:** Rekomendasi otomatis kata kunci bahasa Indonesia, tipe data, fungsi pustaka standar, serta deklarasi lokal.
+  - **Document Formatting:** Format kode sumber otomatis saat dokumen diformat atau disimpan.
+- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `ke_json`, dan `ambil_kunci_json`.
+- **Integrasi Menu & Perintah Cepat:**
+  - `dapcode.run` -> Jalankan berkas aktif dengan `dapcodec run`.
+  - `dapcode.check` -> Periksa tipe dan kepemilikan dengan `dapcodec check`.
+  - `dapcode.build` -> Kompilasi berkas aktif ke file `.exe` mandiri dengan `dapcodec build`.
+  - `dapcode.restartLsp` -> Mulai ulang Language Server.
 
 ---
 
@@ -212,4 +225,5 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/`:
 ```powershell
 cargo test
 ```
-Semua 11 modul test (21 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 12 modul test (25 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server & Client, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+

@@ -8,6 +8,7 @@
         { "include": "#keywords" },
         { "include": "#types" },
         { "include": "#constants" },
+        { "include": "#builtins" },
         { "include": "#function-declarations" },
         { "include": "#function-calls" },
         { "include": "#numbers" },
@@ -60,7 +61,7 @@
             "patterns": [
                 {
                     "name": "keyword.declaration.dap",
-                    "match": "\\b(struktur|sifat|terapkan|untuk|fungsi|comptime)\\b"
+                    "match": "\\b(struktur|sifat|terapkan|untuk|fungsi|comptime|impor)\\b"
                 },
                 {
                     "name": "keyword.control.dap",
@@ -80,6 +81,14 @@
                 }
             ]
         },
+        "builtins": {
+            "patterns": [
+                {
+                    "name": "support.function.builtin.dap",
+                    "match": "\\b(cetak|ke_json|uraikan_json|ambil_kunci_json|ambil_angka_json|ambil_bool_json|ada_kunci_json|valid_json|baca_berkas|tulis_berkas|ada_berkas|panjang_teks|ke_huruf_besar|ke_huruf_kecil|akar_kuadrat|pangkat|nilai_mutlak|waktu_sekarang_ms)\\b"
+                }
+            ]
+        },
         "constants": {
             "patterns": [
                 {
@@ -92,7 +101,7 @@
             "patterns": [
                 {
                     "name": "support.type.primitive.dap",
-                    "match": "\\b(u64|i64|f64|Teks|Bool|Unit|Tugas)\\b"
+                    "match": "\\b(u64|i64|f64|Teks|Bool|Unit|Tugas|Daftar|bulat|desimal|teks|bool|unit)\\b"
                 },
                 {
                     "name": "entity.name.type.struct.dap",
