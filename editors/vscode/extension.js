@@ -295,6 +295,74 @@ function activate(context) {
         })
     );
 
+    // 4. Definition Provider (Go to Definition)
+    context.subscriptions.push(
+        vscode.languages.registerDefinitionProvider('dapcode', {
+            async provideDefinition(document, position) {
+                const res = await sendRequest('textDocument/definition', {
+                    textDocument: { uri: document.uri.toString() },
+                    position: { line: position.line, character: position.character },
+                });
+                if (res && res.uri && res.range) {
+                    const targetUri = vscode.Uri.parse(res.uri);
+                    const targetRange = new vscode.Range(
+                        res.range.start.line,
+                        res.range.start.character,
+                        res.range.end.line,
+                        res.range.end.character
+                    );
+                    return new vscode.Location(targetUri, targetRange);
+                }
+                return null;
+            },
+        })
+    );
+
+    // 5. Document Symbol Provider (Outline View & Breadcrumbs)
+    function convertSymbol(sym) {
+        const range = new vscode.Range(
+            sym.range.start.line,
+            sym.range.start.character,
+            sym.range.end.line,
+            sym.range.end.character
+        );
+        const selRange = sym.selectionRange
+            ? new vscode.Range(
+                  sym.selectionRange.start.line,
+                  sym.selectionRange.start.character,
+                  sym.selectionRange.end.line,
+                  sym.selectionRange.end.character
+              )
+            : range;
+
+        const docSym = new vscode.DocumentSymbol(
+            sym.name,
+            sym.detail || '',
+            sym.kind || vscode.SymbolKind.Variable,
+            range,
+            selRange
+        );
+
+        if (Array.isArray(sym.children) && sym.children.length > 0) {
+            docSym.children = sym.children.map(convertSymbol);
+        }
+        return docSym;
+    }
+
+    context.subscriptions.push(
+        vscode.languages.registerDocumentSymbolProvider('dapcode', {
+            async provideDocumentSymbols(document) {
+                const res = await sendRequest('textDocument/documentSymbol', {
+                    textDocument: { uri: document.uri.toString() },
+                });
+                if (Array.isArray(res)) {
+                    return res.map(convertSymbol);
+                }
+                return [];
+            },
+        })
+    );
+
     // Document sync events
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument((doc) => {

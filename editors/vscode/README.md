@@ -8,6 +8,8 @@ Ekstensi resmi untuk bahasa pemrograman **DapCode (`.dap`)** yang menyediakan pe
 
 - 🎨 **TextMate Syntax Highlighting Lengkap:** Pewarnaan sintaksis komprehensif untuk kata kunci bahasa Indonesia (`fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `impor`, `jalan_paralel`, `uji`, dll), komentar dokumentasi tingkat modul (`//!`) dan deklarasi (`///`), interpolasi string `"{nama}"`, tipe data aljabar, operator walrus `:=`, dan konstanta boolean.
 - ⚡ **Language Server Protocol (LSP) Real-Time:** Terhubung langsung ke kompilator resmi `dapcodec lsp`:
+  - **Go to Definition (F12):** Navigasi lompat ke definisi simbol lokal (variabel lokal, parameter fungsi), deklarasi fungsi/struktur/sifat, hingga lintas berkas (`impor "modul.dap"`).
+  - **Document Symbols & Outline Tree:** Penjelajah hierarki simbol berkas lengkap (struktur beserta bidang-bidangnya, sifat beserta tanda tangan metodenya, blok implementasi, fungsi, pengujian unit, dan modul impor).
   - **Diagnostik Kesalahan Seketika:** Pelaporan kesalahan kompilasi tipe (*TypeMismatch*), sintaks, dan kepemilikan (*borrow check*) langsung di baris kode saat mengetik.
   - **Hover Tooltips:** Dokumentasi penjelasan dan *signature* fungsi pustaka standar bawaan (`ke_json`, `cetak`, `baca_berkas`, `buat_direktori`, `ambil_argumen_cli`, `pastikan_sama`, dll) maupun deklarasi fungsi dan struktur lokal.
   - **Auto-Completion Cerdas:** Rekomendasi kata kunci, tipe data, fungsi pustaka standar, serta simbol kode lokal saat mengetik.
