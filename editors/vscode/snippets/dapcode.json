@@ -452,6 +452,126 @@
             "}"
         ],
         "description": "Ekstrak substring pertama yang cocok dengan regex (Error Union)"
+    },
+    "Kanvas Bersihkan": {
+        "prefix": "kanvas_bersihkan",
+        "body": [
+            "kanvas_bersihkan(${1:0.05}, ${2:0.05}, ${3:0.08}, ${4:1.0})"
+        ],
+        "description": "Membersihkan kanvas dengan warna latar RGBA (0.0 - 1.0)"
+    },
+    "Kanvas Warna Isi": {
+        "prefix": "kanvas_warna_isi",
+        "body": [
+            "kanvas_warna_isi(${1:0.2}, ${2:0.6}, ${3:1.0}, ${4:1.0})"
+        ],
+        "description": "Mengatur warna isi (fill color) untuk bentuk berikutnya pada Kanvas 2D"
+    },
+    "Kanvas Warna Garis": {
+        "prefix": "kanvas_warna_garis",
+        "body": [
+            "kanvas_warna_garis(${1:1.0}, ${2:1.0}, ${3:1.0}, ${4:0.8})"
+        ],
+        "description": "Mengatur warna garis tepi (stroke color) pada Kanvas 2D"
+    },
+    "Kanvas Tebal Garis": {
+        "prefix": "kanvas_tebal_garis",
+        "body": [
+            "kanvas_tebal_garis(${1:2.0})"
+        ],
+        "description": "Mengatur ketebalan garis (line width) pada Kanvas 2D"
+    },
+    "Kanvas Persegi Isi": {
+        "prefix": "kanvas_persegi",
+        "body": [
+            "kanvas_persegi(${1:x}, ${2:y}, ${3:lebar}, ${4:tinggi})"
+        ],
+        "description": "Menggambar persegi terisi (fill rectangle) pada kanvas"
+    },
+    "Kanvas Bingkai Persegi": {
+        "prefix": "kanvas_bingkai_persegi",
+        "body": [
+            "kanvas_bingkai_persegi(${1:x}, ${2:y}, ${3:lebar}, ${4:tinggi})"
+        ],
+        "description": "Menggambar bingkai persegi (stroke rectangle) pada kanvas"
+    },
+    "Kanvas Lingkaran Isi": {
+        "prefix": "kanvas_lingkaran",
+        "body": [
+            "kanvas_lingkaran(${1:x}, ${2:y}, ${3:radius})"
+        ],
+        "description": "Menggambar lingkaran terisi (fill circle) pada kanvas"
+    },
+    "Kanvas Bingkai Lingkaran": {
+        "prefix": "kanvas_bingkai_lingkaran",
+        "body": [
+            "kanvas_bingkai_lingkaran(${1:x}, ${2:y}, ${3:radius})"
+        ],
+        "description": "Menggambar bingkai lingkaran (stroke circle) pada kanvas"
+    },
+    "Kanvas Garis": {
+        "prefix": "kanvas_garis",
+        "body": [
+            "kanvas_garis(${1:x1}, ${2:y1}, ${3:x2}, ${4:y2})"
+        ],
+        "description": "Menggambar garis lurus dari (x1, y1) ke (x2, y2)"
+    },
+    "Kanvas Titik": {
+        "prefix": "kanvas_titik",
+        "body": [
+            "kanvas_titik(${1:x}, ${2:y}, ${3:3.0})"
+        ],
+        "description": "Menggambar titik / partikel pada posisi (x, y)"
+    },
+    "Kanvas Teks": {
+        "prefix": "kanvas_teks",
+        "body": [
+            "kanvas_teks(\"${1:Teks}\", ${2:x}, ${3:y}, ${4:16.0})"
+        ],
+        "description": "Menggambar teks pada kanvas dengan ukuran font tertentu"
+    },
+    "Kanvas Dimensi": {
+        "prefix": "kanvas_dimensi",
+        "body": [
+            "lebar := kanvas_lebar()",
+            "tinggi := kanvas_tinggi()"
+        ],
+        "description": "Mendapatkan dimensi resolusi lebar dan tinggi Kanvas 2D"
+    },
+    "Kompilasi ke WebAssembly": {
+        "prefix": "kompilasi_ke_wasm",
+        "body": [
+            "${1:wasm_base64} := kompilasi_ke_wasm(${2:kode_sumber}) ? tangkap err {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Mengompilasi kode sumber DapCode ke WebAssembly (.wasm) Base64 secara in-memory"
+    },
+    "Template Kanvas 2D WebAssembly": {
+        "prefix": "kanvas_template",
+        "body": [
+            "fungsi render() -> Unit {",
+            "\tw := kanvas_lebar()",
+            "\th := kanvas_tinggi()",
+            "\tkanvas_bersihkan(0.05, 0.05, 0.08, 1.0)",
+            "\t",
+            "\tkanvas_warna_isi(0.2, 0.6, 1.0, 1.0)",
+            "\tkanvas_lingkaran(w / 2.0, h / 2.0, 50.0)",
+            "\t",
+            "\tkanvas_warna_garis(1.0, 1.0, 1.0, 0.8)",
+            "\tkanvas_tebal_garis(2.0)",
+            "\tkanvas_bingkai_lingkaran(w / 2.0, h / 2.0, 55.0)",
+            "\t",
+            "\tkanvas_warna_isi(1.0, 1.0, 1.0, 0.9)",
+            "\tkanvas_teks(\"DapCode WebAssembly Canvas 2D\", w / 2.0 - 120.0, h / 2.0 + 80.0, 14.0)",
+            "}",
+            "",
+            "fungsi utama() -> u64 {",
+            "\trender()",
+            "\tkembali 1",
+            "}"
+        ],
+        "description": "Kerangka fungsi render grafis Kanvas 2D interaktif untuk target WebAssembly"
     }
 }
 

@@ -138,6 +138,12 @@
                 "command": "dapcode.debug",
                 "title": "DapCode: Debug Berkas Aktif (Debug)",
                 "category": "DapCode"
+            },
+            {
+                "command": "dapcode.openPlayground",
+                "title": "DapCode: Buka Web Playground & Canvas Preview",
+                "category": "DapCode",
+                "icon": "$(play-circle)"
             }
         ],
         "menus": {
@@ -156,6 +162,11 @@
                     "command": "dapcode.repl",
                     "when": "resourceLangId == dapcode",
                     "group": "navigation@3"
+                },
+                {
+                    "command": "dapcode.openPlayground",
+                    "when": "resourceLangId == dapcode",
+                    "group": "navigation@4"
                 }
             ],
             "editor/context": [
@@ -188,6 +199,11 @@
                     "command": "dapcode.build",
                     "when": "resourceLangId == dapcode",
                     "group": "1_modification@6"
+                },
+                {
+                    "command": "dapcode.openPlayground",
+                    "when": "resourceLangId == dapcode",
+                    "group": "1_modification@7"
                 }
             ]
         },
