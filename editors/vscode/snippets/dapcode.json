@@ -309,5 +309,34 @@
             "respons_teks(\"${1:Halo Dunia}\")"
         ],
         "description": "Membuat ResponsHttp 200 OK dengan format teks polos"
+    },
+    "Buka Basis Data": {
+        "prefix": "buka_db",
+        "body": [
+            "db := buka_basis_data(\"${1:data.db}\") ? tangkap err {",
+            "\tcetak(\"Gagal membuka database: {err}\")",
+            "\tkembali",
+            "}"
+        ],
+        "description": "Buka atau buat basis data mandiri DapCode"
+    },
+    "Simpan Basis Data": {
+        "prefix": "db_simpan",
+        "body": [
+            "db.simpan(\"${1:kunci}\", ${2:nilai_teks}) ? tangkap err {",
+            "\tcetak(\"Gagal menyimpan ke basis data: {err}\")",
+            "}"
+        ],
+        "description": "Simpan nilai ke basis data berdasarkan kunci"
+    },
+    "Ambil Basis Data": {
+        "prefix": "db_ambil",
+        "body": [
+            "${1:data} := db.ambil(\"${2:kunci}\") ? tangkap err {",
+            "\tcetak(\"Data tidak ditemukan: {err}\")",
+            "\t$0",
+            "}"
+        ],
+        "description": "Ambil nilai dari basis data berdasarkan kunci"
     }
 }

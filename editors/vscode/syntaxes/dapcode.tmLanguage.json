@@ -93,7 +93,7 @@
             "patterns": [
                 {
                     "name": "support.function.builtin.dap",
-                    "match": "\\b(cetak|ke_json|uraikan_json|urai_json|ambil_kunci_json|ambil_angka_json|ambil_bool_json|ada_kunci_json|valid_json|baca_berkas|tulis_berkas|tambah_berkas|berkas_ada|ada_berkas|buat_direktori|daftar_direktori|hapus_berkas|hapus_direktori|gabung_jalur|tidur|ambil_argumen_cli|ambil_lingkungan|atur_lingkungan|pastikan|pastikan_sama|pastikan_tidak_sama|panjang_teks|ke_huruf_besar|ke_huruf_kecil|akar_kuadrat|pangkat|nilai_mutlak|waktu_sekarang_ms|ambil_http|kirim_http_post|ambil_status_http|buat_server_http|kirim_respons_http|respons_json|respons_teks|dorong|tarik|panjang|ambil|sha256|md5|ke_base64|dari_base64)\\b"
+                    "match": "\\b(cetak|ke_json|uraikan_json|urai_json|ambil_kunci_json|ambil_angka_json|ambil_bool_json|ada_kunci_json|valid_json|baca_berkas|tulis_berkas|tambah_berkas|berkas_ada|ada_berkas|buat_direktori|daftar_direktori|hapus_berkas|hapus_direktori|gabung_jalur|tidur|ambil_argumen_cli|ambil_lingkungan|atur_lingkungan|pastikan|pastikan_sama|pastikan_tidak_sama|panjang_teks|ke_huruf_besar|ke_huruf_kecil|akar_kuadrat|pangkat|nilai_mutlak|waktu_sekarang_ms|ambil_http|kirim_http_post|ambil_status_http|buat_server_http|kirim_respons_http|respons_json|respons_teks|buka_basis_data|db_simpan|db_ambil|db_hapus|db_ada|db_daftar_kunci|db_padatkan|dorong|tarik|panjang|ambil|sha256|md5|ke_base64|dari_base64)\\b"
                 }
             ]
         },
@@ -109,7 +109,7 @@
             "patterns": [
                 {
                     "name": "support.type.primitive.dap",
-                    "match": "\\b(u64|i64|f64|Teks|Bool|Unit|Tugas|Daftar|bulat|desimal|teks|bool|unit|PermintaanHttp|ResponsHttp)\\b"
+                    "match": "\\b(u64|i64|f64|Teks|Bool|Unit|Tugas|Daftar|bulat|desimal|teks|bool|unit|PermintaanHttp|ResponsHttp|BasisData)\\b"
                 },
                 {
                     "name": "entity.name.type.struct.dap",

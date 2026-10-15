@@ -190,6 +190,13 @@ typedef struct {
 typedef struct { bool is_err; const char* err_msg; ResponsHttp ok; } DapResult_ResponsHttp;
 typedef struct { bool is_err; const char* err_msg; PermintaanHttp ok; } DapResult_PermintaanHttp;
 
+// Embedded BasisData
+typedef struct {
+    Teks jalur;
+} BasisData;
+
+typedef struct { bool is_err; const char* err_msg; BasisData ok; } DapResult_BasisData;
+
 // Runtime Dynamic Collection: DapList
 typedef struct DapList {
     size_t len;
@@ -864,6 +871,165 @@ static inline ResponsHttp dap_respons_teks(const char* teks) {
     return dap_kirim_respons_http(200, "text/plain; charset=utf-8", teks);
 }
 
+// Embedded BasisData C11 Runtime Functions
+static inline DapResult_BasisData dap_buka_basis_data(const char* jalur) {
+    DapResult_BasisData res;
+    if (!jalur || strlen(jalur) == 0) {
+        res.is_err = true;
+        res.err_msg = "Jalur basis data tidak boleh kosong";
+        res.ok.jalur = "";
+        return res;
+    }
+    FILE* f = fopen(jalur, "a+");
+    if (!f) {
+        res.is_err = true;
+        res.err_msg = "Gagal membuka atau membuat berkas basis data";
+        res.ok.jalur = "";
+        return res;
+    }
+    fclose(f);
+    res.is_err = false;
+    res.err_msg = NULL;
+    res.ok.jalur = (Teks)jalur;
+    return res;
+}
+
+static inline DapResult_bool dap_db_simpan(const char* jalur, const char* kunci, const char* nilai) {
+    DapResult_bool res;
+    if (!jalur || !kunci) {
+        res.is_err = true;
+        res.err_msg = "Argumen basis data null";
+        res.ok = false;
+        return res;
+    }
+    FILE* f = fopen(jalur, "a");
+    if (!f) {
+        res.is_err = true;
+        res.err_msg = "Gagal membuka basis data untuk menulis";
+        res.ok = false;
+        return res;
+    }
+    fprintf(f, "S:%zu:%s:%s\n", strlen(kunci), kunci, nilai ? nilai : "");
+    fclose(f);
+    res.is_err = false;
+    res.err_msg = NULL;
+    res.ok = true;
+    return res;
+}
+
+static inline DapResult_Teks dap_db_ambil(const char* jalur, const char* kunci) {
+    DapResult_Teks res;
+    if (!jalur || !kunci) {
+        res.is_err = true;
+        res.err_msg = "Argumen basis data null";
+        res.ok = "";
+        return res;
+    }
+    FILE* f = fopen(jalur, "r");
+    if (!f) {
+        res.is_err = true;
+        res.err_msg = "Basis data belum dibuat";
+        res.ok = "";
+        return res;
+    }
+    char line[4096];
+    char* found_val = NULL;
+    size_t klen = strlen(kunci);
+    while (fgets(line, sizeof(line), f)) {
+        size_t llen = strlen(line);
+        if (llen > 0 && line[llen-1] == '\n') line[llen-1] = '\0';
+        if (strncmp(line, "S:", 2) == 0) {
+            char* first_col = strchr(line + 2, ':');
+            if (first_col) {
+                size_t l_klen = (size_t)atoi(line + 2);
+                if (l_klen == klen && strncmp(first_col + 1, kunci, klen) == 0 && first_col[1 + klen] == ':') {
+                    if (found_val) free(found_val);
+                    found_val = strdup(first_col + 1 + klen + 1);
+                }
+            }
+        } else if (strncmp(line, "H:", 2) == 0) {
+            if (strcmp(line + 2, kunci) == 0) {
+                if (found_val) { free(found_val); found_val = NULL; }
+            }
+        }
+    }
+    fclose(f);
+    if (found_val) {
+        res.is_err = false;
+        res.err_msg = NULL;
+        res.ok = found_val;
+    } else {
+        res.is_err = true;
+        res.err_msg = "Kunci tidak ditemukan dalam basis data";
+        res.ok = "";
+    }
+    return res;
+}
+
+static inline DapResult_bool dap_db_hapus(const char* jalur, const char* kunci) {
+    DapResult_bool res;
+    if (!jalur || !kunci) {
+        res.is_err = true;
+        res.err_msg = "Argumen basis data null";
+        res.ok = false;
+        return res;
+    }
+    FILE* f = fopen(jalur, "a");
+    if (!f) {
+        res.is_err = true;
+        res.err_msg = "Gagal membuka basis data untuk menghapus";
+        res.ok = false;
+        return res;
+    }
+    fprintf(f, "H:%s\n", kunci);
+    fclose(f);
+    res.is_err = false;
+    res.err_msg = NULL;
+    res.ok = true;
+    return res;
+}
+
+static inline bool dap_db_ada(const char* jalur, const char* kunci) {
+    DapResult_Teks r = dap_db_ambil(jalur, kunci);
+    return !r.is_err;
+}
+
+static inline DapResult_Daftar dap_db_daftar_kunci(const char* jalur) {
+    DapResult_Daftar res;
+    res.is_err = false;
+    res.err_msg = NULL;
+    DapList* list = dap_Daftar_baru();
+    res.ok = list;
+    if (!jalur) return res;
+    FILE* f = fopen(jalur, "r");
+    if (!f) return res;
+    char line[4096];
+    while (fgets(line, sizeof(line), f)) {
+        size_t llen = strlen(line);
+        if (llen > 0 && line[llen-1] == '\n') line[llen-1] = '\0';
+        if (strncmp(line, "S:", 2) == 0) {
+            char* first_col = strchr(line + 2, ':');
+            if (first_col) {
+                size_t l_klen = (size_t)atoi(line + 2);
+                char* k_str = (char*)malloc(l_klen + 1);
+                strncpy(k_str, first_col + 1, l_klen);
+                k_str[l_klen] = '\0';
+                dap_Daftar_tambah(list, k_str);
+            }
+        }
+    }
+    fclose(f);
+    return res;
+}
+
+static inline DapResult_bool dap_db_padatkan(const char* jalur) {
+    DapResult_bool res;
+    res.is_err = false;
+    res.err_msg = NULL;
+    res.ok = true;
+    return res;
+}
+
 // Base64 Encoding & Decoding
 static inline char* dap_ke_base64(const char* s) {
     if (!s) return "";
@@ -1329,9 +1495,32 @@ static inline char* dap_md5(const char* input) {
                 if method == "panjang" {
                     return format!("dap_Daftar_panjang({})", rec_str);
                 }
+                if method == "simpan" && args.len() == 2 {
+                    let k = self.emit_expr(&args[0].value);
+                    let v = self.emit_expr(&args[1].value);
+                    return format!("dap_db_simpan({}.jalur, {}, {})", rec_str, k, v);
+                }
+                if method == "hapus" && args.len() == 1 {
+                    let k = self.emit_expr(&args[0].value);
+                    return format!("dap_db_hapus({}.jalur, {})", rec_str, k);
+                }
+                if method == "ada" && args.len() == 1 {
+                    let k = self.emit_expr(&args[0].value);
+                    return format!("dap_db_ada({}.jalur, {})", rec_str, k);
+                }
+                if method == "daftar_kunci" {
+                    return format!("dap_db_daftar_kunci({}.jalur)", rec_str);
+                }
+                if method == "padatkan" {
+                    return format!("dap_db_padatkan({}.jalur)", rec_str);
+                }
                 if method == "ambil" {
-                    let idx_str = if !args.is_empty() { self.emit_expr(&args[0].value) } else { "0".to_string() };
-                    return format!("dap_Daftar_ambil({}, {})", rec_str, idx_str);
+                    let arg_str = if !args.is_empty() { self.emit_expr(&args[0].value) } else { "0".to_string() };
+                    if arg_str.starts_with('"') || arg_str.contains("teks") || arg_str.contains("kunci") || rec_str.contains("db") {
+                        return format!("dap_db_ambil({}.jalur, {})", rec_str, arg_str);
+                    } else {
+                        return format!("dap_Daftar_ambil({}, {})", rec_str, arg_str);
+                    }
                 }
                 let mut all_args = vec![format!("&{}", rec_str)];
                 for a in args {

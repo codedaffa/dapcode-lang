@@ -1,0 +1,83 @@
+/// Contoh Basis Data Mandiri & Persistensi Data REST API Bawaan DapCode
+/// Menunjukkan penggunaan BasisData terstruktur lokal tanpa dependensi eksternal.
+
+fungsi demo_database_langsung() {
+    cetak("--- 1. Operasi Basis Data Langsung (CRUD) ---")
+    db_file := "contoh_toko.db"
+
+    db := buka_basis_data(db_file) ? tangkap err {
+        cetak("Gagal membuka database: {err}")
+        kembali
+    }
+
+    // 1. Simpan data produk
+    db.simpan("produk:101", "\{\"nama\":\"Kopi Arabika Gayo\",\"harga\":35000,\"stok\":20\}") ? tangkap err {
+        cetak("Gagal menyimpan: {err}")
+    }
+    db.simpan("produk:102", "\{\"nama\":\"Teh Hitam Organik\",\"harga\":18000,\"stok\":45\}") ? tangkap err {
+        cetak("Gagal menyimpan: {err}")
+    }
+
+    // 2. Periksa keberadaan
+    ada_101 := db.ada("produk:101")
+    cetak("Produk 101 terdaftar: {ada_101}")
+
+    // 3. Ambil data
+    data_101 := db.ambil("produk:101") ? tangkap err {
+        cetak("Gagal mengambil data: {err}")
+        kembali
+    }
+    cetak("Data produk 101: {data_101}")
+
+    // 4. Daftar semua kunci aktif
+    kunci_list := db.daftar_kunci() ? tangkap err {
+        Daftar()
+    }
+    cetak("Jumlah total entri di database: {kunci_list.panjang()}")
+
+    // 5. Padatkan log berkas append-only
+    db.padatkan() ? tangkap err {
+        cetak("Gagal memadatkan: {err}")
+    }
+    cetak("Basis data berhasil dipadatkan!")
+}
+
+// Fungsi penangan HTTP Web Server yang terhubung langsung ke BasisData
+fungsi tangani_api_db(req: PermintaanHttp) -> ResponsHttp {
+    db := buka_basis_data("contoh_toko.db") ? tangkap err {
+        kembali kirim_respons_http(500, "text/plain", "Database error: " + err)
+    }
+
+    // Endpoint GET /api/produk/101
+    jika req.jalur == "/api/produk/101" {
+        json_data := db.ambil("produk:101") ? tangkap err {
+            kembali kirim_respons_http(404, "text/plain", "Produk tidak ditemukan")
+        }
+        kembali respons_json(json_data)
+    }
+
+    // Endpoint GET /api/daftar
+    jika req.jalur == "/api/daftar" {
+        kunci_list := db.daftar_kunci() ? tangkap err {
+            Daftar()
+        }
+        kembali respons_json(ke_json(kunci_list))
+    }
+
+    kembali kirim_respons_http(404, "text/plain", "Endpoint tidak ditemukan")
+}
+
+fungsi utama() {
+    demo_database_langsung()
+
+    cetak("")
+    cetak("--- 2. REST API Persisten Berbasis BasisData ---")
+    cetak("Server melayani endpoint persistensi lokal.")
+    cetak("Menjalankan server selama 1 permintaan uji...")
+
+    // Jalankan server HTTP yang terintegrasi dengan database
+    _hasil := buat_server_http(8081, "tangani_api_db", 1) ? tangkap err {
+        cetak("Server error: {err}")
+        kembali
+    }
+}

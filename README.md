@@ -369,6 +369,34 @@ fungsi utama() {
 }
 ```
 
+### 17. Basis Data Mandiri & Penyimpanan Persisten Lokal (`BasisData` / DapDb)
+DapCode menyertakan mesin basis data persisten mandiri berbasis *append-only log* dengan indeks memori (terinspirasi Bitcask) tanpa dependensi eksternal:
+```dap
+fungsi utama() {
+    // 1. Buka atau buat basis data pada disk
+    db := buka_basis_data("toko.db") ? tangkap err {
+        cetak("Gagal membuka basis data: {err}")
+        kembali
+    }
+
+    // 2. Simpan nilai teks atau dokumen JSON
+    db.simpan("produk:101", "{\"nama\":\"Kopi Arabika\",\"harga\":35000}") ? tangkap err {
+        cetak("Gagal simpan: {err}")
+    }
+
+    // 3. Periksa keberadaan kunci & ambil data
+    jika db.ada("produk:101") {
+        data := db.ambil("produk:101") ? tangkap err { "" }
+        cetak("Data: {data}")
+    }
+
+    // 4. Ambil semua kunci & padatkan log berkas
+    kunci_list := db.daftar_kunci() ? tangkap err { Daftar() }
+    cetak("Total data: {kunci_list.panjang()}")
+    db.padatkan()
+}
+```
+
 ---
 
 ## 🎨 Dukungan Editor & Ekstensi VS Code
@@ -380,10 +408,10 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
   ```
 - **Integrasi LSP Cerdas (`extension.js`):**
   - **Diagnostik Real-Time:** Pelaporan kesalahan sintaks, kepemilikan (*borrow check*), dan tipe secara langsung saat mengetik.
-  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, fungsi pustaka standar (`buat_server_http`, `kirim_respons_http`, `respons_json`, `respons_teks`, `ke_json`, `cetak`, `baca_berkas`, `buat_direktori`, `ambil_argumen_cli`, `pastikan_sama`, dll), dan simbol lokal.
+  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`), fungsi pustaka standar (`buka_basis_data`, `db_simpan`, `db_ambil`, `db_hapus`, `db_ada`, `buat_server_http`, `kirim_respons_http`, `respons_json`, `respons_teks`, `ke_json`, `cetak`, dll), dan simbol lokal.
   - **Auto-Completion Kontekstual:** Rekomendasi otomatis kata kunci bahasa Indonesia, tipe data, fungsi pustaka standar, serta deklarasi lokal.
   - **Document Formatting:** Format kode sumber otomatis saat dokumen diformat atau disimpan.
-- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `server_http`, `respons_json`, `respons_teks`, `ke_json`, unit test `uji`, asersi `pastikan`, komentar dokumen `///` & `//!`, operasi direktori `buat_direktori`, dan argumen CLI `ambil_argumen_cli`.
+- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `server_http`, `buka_db`, `db_simpan`, `db_ambil`, `respons_json`, `respons_teks`, `ke_json`, unit test `uji`, asersi `pastikan`, komentar dokumen `///` & `//!`, operasi direktori `buat_direktori`, dan argumen CLI `ambil_argumen_cli`.
 - **Integrasi Menu & Perintah Cepat:**
   - `dapcode.run` -> Jalankan berkas aktif dengan `dapcodec run`.
   - `dapcode.test` -> Jalankan pengujian unit aktif dengan `dapcodec test`.
@@ -400,5 +428,5 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 20 modul test (56 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 21 modul test (60+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, Embedded Database (BasisData & DapDb), Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 

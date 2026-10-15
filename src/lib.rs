@@ -3,6 +3,7 @@ pub mod cli;
 pub mod codegen;
 pub mod comptime;
 pub mod crypto;
+pub mod db;
 pub mod diag;
 pub mod doc;
 pub mod eval;

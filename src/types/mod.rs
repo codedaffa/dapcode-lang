@@ -422,6 +422,75 @@ impl TypeChecker {
                 Type::Struct("ResponsHttp".to_string()),
             ),
         );
+
+        // Standard Library: Embedded Database (BasisData)
+        let mut db_fields = HashMap::new();
+        db_fields.insert("jalur".to_string(), (0, Type::String));
+        self.structs.insert(
+            "BasisData".to_string(),
+            StructInfo {
+                name: "BasisData".to_string(),
+                fields: db_fields,
+                field_order: vec!["jalur".to_string()],
+                span: Span::DUMMY,
+            },
+        );
+
+        self.functions.insert(
+            "buka_basis_data".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(
+                    Box::new(Type::Struct("BasisData".to_string())),
+                    Box::new(Type::String),
+                ),
+            ),
+        );
+        self.functions.insert(
+            "db_simpan".to_string(),
+            (
+                vec![Type::String, Type::String, Type::String],
+                Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "db_ambil".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "db_hapus".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "db_ada".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::Bool,
+            ),
+        );
+        self.functions.insert(
+            "db_daftar_kunci".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(
+                    Box::new(Type::List(Box::new(Type::String))),
+                    Box::new(Type::String),
+                ),
+            ),
+        );
+        self.functions.insert(
+            "db_padatkan".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)),
+            ),
+        );
     }
 
     pub fn check_program(&mut self, program: &Program) -> Result<()> {
@@ -1072,6 +1141,57 @@ impl TypeChecker {
                                 other, elem_ty
                             ))
                             .with_span(*span)),
+                        }
+                    }
+                    Type::Struct(s_name) if s_name == "BasisData" => {
+                        match method.as_str() {
+                            "simpan" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'simpan' membutuhkan 2 argumen (kunci: Teks, nilai: Teks)").with_span(*span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                let v_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&v_ty, &Type::String, args[1].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            "ambil" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ambil' membutuhkan 1 argumen (kunci: Teks)").with_span(*span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "hapus" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'hapus' membutuhkan 1 argumen (kunci: Teks)").with_span(*span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            "ada" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ada' membutuhkan 1 argumen (kunci: Teks)").with_span(*span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "daftar_kunci" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'daftar_kunci' tidak menerima argumen").with_span(*span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::List(Box::new(Type::String))), Box::new(Type::String)))
+                            }
+                            "padatkan" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'padatkan' tidak menerima argumen").with_span(*span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada BasisData", other)).with_span(*span)),
                         }
                     }
                     Type::Struct(s_name) => {

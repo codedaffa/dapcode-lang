@@ -1269,83 +1269,92 @@ impl Evaluator {
                         };
                     }
 
-                    // HTTP Web Server Builtins
-                    if name == "kirim_respons_http" {
+                    // Standard Library: Embedded Database (BasisData)
+                    if name == "buka_basis_data" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'buka_basis_data' membutuhkan 1 argumen (jalur)").with_span(*span));
+                        }
+                        let p_val = self.eval_expr(&args[0].value, env)?;
+                        let path = match p_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return match crate::db::db_buka(&path) {
+                            Ok(_) => {
+                                let mut fields = HashMap::new();
+                                fields.insert("jalur".to_string(), Value::String(path));
+                                Ok(Value::ErrorUnion(Ok(Box::new(Value::Struct {
+                                    name: "BasisData".to_string(),
+                                    fields,
+                                }))))
+                            }
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
+                    if name == "db_simpan" {
                         if args.len() != 3 {
-                            return Err(Diagnostic::error("'kirim_respons_http' membutuhkan 3 argumen (status, tipe_konten, konten)").with_span(*span));
+                            return Err(Diagnostic::error("'db_simpan' membutuhkan 3 argumen (jalur, kunci, nilai)").with_span(*span));
                         }
-                        let s_val = self.eval_expr(&args[0].value, env)?;
-                        let t_val = self.eval_expr(&args[1].value, env)?;
-                        let k_val = self.eval_expr(&args[2].value, env)?;
-                        let status = match s_val {
-                            Value::Int(n) => n,
-                            Value::Float(f) => f as u64,
-                            _ => 200,
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        let k = self.eval_expr(&args[1].value, env)?.to_string();
+                        let v = self.eval_expr(&args[2].value, env)?.to_string();
+                        return match crate::db::db_simpan(&p, &k, &v) {
+                            Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(res))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
                         };
-                        let tipe_konten = match t_val {
-                            Value::String(s) => s,
-                            other => other.to_string(),
-                        };
-                        let konten = match k_val {
-                            Value::String(s) => s,
-                            other => other.to_string(),
-                        };
-                        let mut fields = HashMap::new();
-                        fields.insert("status".to_string(), Value::Int(status));
-                        fields.insert("tipe_konten".to_string(), Value::String(tipe_konten));
-                        fields.insert("konten".to_string(), Value::String(konten));
-                        return Ok(Value::Struct {
-                            name: "ResponsHttp".to_string(),
-                            fields,
-                        });
                     }
-                    if name == "respons_json" {
+                    if name == "db_ambil" {
                         if args.len() != 2 {
-                            return Err(Diagnostic::error("'respons_json' membutuhkan 2 argumen (status, data_json)").with_span(*span));
+                            return Err(Diagnostic::error("'db_ambil' membutuhkan 2 argumen (jalur, kunci)").with_span(*span));
                         }
-                        let s_val = self.eval_expr(&args[0].value, env)?;
-                        let d_val = self.eval_expr(&args[1].value, env)?;
-                        let status = match s_val {
-                            Value::Int(n) => n,
-                            Value::Float(f) => f as u64,
-                            _ => 200,
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        let k = self.eval_expr(&args[1].value, env)?.to_string();
+                        return match crate::db::db_ambil(&p, &k) {
+                            Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(res))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
                         };
-                        let data_json = match d_val {
-                            Value::String(s) => s,
-                            other => other.to_string(),
-                        };
-                        let mut fields = HashMap::new();
-                        fields.insert("status".to_string(), Value::Int(status));
-                        fields.insert("tipe_konten".to_string(), Value::String("application/json; charset=utf-8".to_string()));
-                        fields.insert("konten".to_string(), Value::String(data_json));
-                        return Ok(Value::Struct {
-                            name: "ResponsHttp".to_string(),
-                            fields,
-                        });
                     }
-                    if name == "respons_teks" {
+                    if name == "db_hapus" {
                         if args.len() != 2 {
-                            return Err(Diagnostic::error("'respons_teks' membutuhkan 2 argumen (status, teks)").with_span(*span));
+                            return Err(Diagnostic::error("'db_hapus' membutuhkan 2 argumen (jalur, kunci)").with_span(*span));
                         }
-                        let s_val = self.eval_expr(&args[0].value, env)?;
-                        let t_val = self.eval_expr(&args[1].value, env)?;
-                        let status = match s_val {
-                            Value::Int(n) => n,
-                            Value::Float(f) => f as u64,
-                            _ => 200,
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        let k = self.eval_expr(&args[1].value, env)?.to_string();
+                        return match crate::db::db_hapus(&p, &k) {
+                            Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(res))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
                         };
-                        let teks = match t_val {
-                            Value::String(s) => s,
-                            other => other.to_string(),
+                    }
+                    if name == "db_ada" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'db_ada' membutuhkan 2 argumen (jalur, kunci)").with_span(*span));
+                        }
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        let k = self.eval_expr(&args[1].value, env)?.to_string();
+                        return Ok(Value::Bool(crate::db::db_ada(&p, &k)));
+                    }
+                    if name == "db_daftar_kunci" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'db_daftar_kunci' membutuhkan 1 argumen (jalur)").with_span(*span));
+                        }
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        return match crate::db::db_daftar_kunci(&p) {
+                            Ok(keys) => {
+                                let v_keys: Vec<Value> = keys.into_iter().map(Value::String).collect();
+                                Ok(Value::ErrorUnion(Ok(Box::new(Value::List(Arc::new(Mutex::new(v_keys)))))))
+                            }
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
                         };
-                        let mut fields = HashMap::new();
-                        fields.insert("status".to_string(), Value::Int(status));
-                        fields.insert("tipe_konten".to_string(), Value::String("text/plain; charset=utf-8".to_string()));
-                        fields.insert("konten".to_string(), Value::String(teks));
-                        return Ok(Value::Struct {
-                            name: "ResponsHttp".to_string(),
-                            fields,
-                        });
+                    }
+                    if name == "db_padatkan" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'db_padatkan' membutuhkan 1 argumen (jalur)").with_span(*span));
+                        }
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        return match crate::db::db_padatkan(&p) {
+                            Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(res))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
                     }
                     if name == "buat_server_http" {
                         if args.len() < 2 || args.len() > 3 {
@@ -1591,7 +1600,57 @@ impl Evaluator {
                     }
                 }
 
-                if let Value::Struct { name: struct_name, .. } = &rec_val {
+                if let Value::Struct { name: struct_name, fields } = &rec_val {
+                    if struct_name == "BasisData" {
+                        let path = fields.get("jalur").map(|v| match v {
+                            Value::String(s) => s.clone(),
+                            other => other.to_string(),
+                        }).unwrap_or_default();
+                        match method.as_str() {
+                            "simpan" => {
+                                let k = self.eval_expr(&args[0].value, env)?.to_string();
+                                let v = self.eval_expr(&args[1].value, env)?.to_string();
+                                return match crate::db::db_simpan(&path, &k, &v) {
+                                    Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(res))))),
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
+                            }
+                            "ambil" => {
+                                let k = self.eval_expr(&args[0].value, env)?.to_string();
+                                return match crate::db::db_ambil(&path, &k) {
+                                    Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(res))))),
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
+                            }
+                            "hapus" => {
+                                let k = self.eval_expr(&args[0].value, env)?.to_string();
+                                return match crate::db::db_hapus(&path, &k) {
+                                    Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(res))))),
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
+                            }
+                            "ada" => {
+                                let k = self.eval_expr(&args[0].value, env)?.to_string();
+                                return Ok(Value::Bool(crate::db::db_ada(&path, &k)));
+                            }
+                            "daftar_kunci" => {
+                                return match crate::db::db_daftar_kunci(&path) {
+                                    Ok(keys) => {
+                                        let v_keys: Vec<Value> = keys.into_iter().map(Value::String).collect();
+                                        Ok(Value::ErrorUnion(Ok(Box::new(Value::List(Arc::new(Mutex::new(v_keys)))))))
+                                    }
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
+                            }
+                            "padatkan" => {
+                                return match crate::db::db_padatkan(&path) {
+                                    Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(res))))),
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
+                            }
+                            other => return Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada BasisData", other)).with_span(*span)),
+                        }
+                    }
                     if let Some(struct_methods) = self.methods.get(struct_name) {
                         if let Some(target_method) = struct_methods.get(method).cloned() {
                             let mut all_args = vec![rec_val];
