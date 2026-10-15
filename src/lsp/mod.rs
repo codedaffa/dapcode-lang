@@ -402,6 +402,10 @@ impl LspServer {
             "db_ada" => Some("### `fungsi db_ada(jalur: Teks, kunci: Teks) -> Bool`\\n\\n**Pustaka Standar DapCode - Basis Data**\\n\\nMemeriksa apakah suatu kunci ada di dalam basis data.".to_string()),
             "db_daftar_kunci" => Some("### `fungsi db_daftar_kunci(jalur: Teks) -> Daftar<Teks> ! Teks`\\n\\n**Pustaka Standar DapCode - Basis Data**\\n\\nMengambil seluruh daftar kunci aktif yang tersimpan dalam basis data.".to_string()),
             "db_padatkan" => Some("### `fungsi db_padatkan(jalur: Teks) -> Bool ! Teks`\\n\\n**Pustaka Standar DapCode - Basis Data**\\n\\nMemadatkan berkas log basis data append-only untuk menghemat ruang disk.".to_string()),
+            "cocok_regex" => Some("### `fungsi cocok_regex(pola: Teks, teks: Teks) -> Bool`\\n\\n**Pustaka Standar DapCode - Reguler Ekspresi (Regex)**\\n\\nMemeriksa apakah string `teks` cocok dengan pola regex `pola`. Mendukung kelas karakter, kuantifier greedy (*, +, ?, {n}), jangkar (^, $), dan alternasi (a|b).\\n\\n*Contoh:* `cocok_regex(\"\\\\d+\", \"Pesanan 101\")` -> `benar`".to_string()),
+            "cari_regex" => Some("### `fungsi cari_regex(pola: Teks, teks: Teks) -> Daftar<Teks>`\\n\\n**Pustaka Standar DapCode - Reguler Ekspresi (Regex)**\\n\\nMenemukan seluruh kecocokan pola regex yang tidak tumpang tindih dan mengembalikannya sebagai daftar teks (*list of strings*).\\n\\n*Contoh:* `cari_regex(\"\\\\d+\", \"Kopi 15000, Teh 8000\")` -> `[\"15000\", \"8000\"]`".to_string()),
+            "ganti_regex" => Some("### `fungsi ganti_regex(pola: Teks, teks: Teks, pengganti: Teks) -> Teks`\\n\\n**Pustaka Standar DapCode - Reguler Ekspresi (Regex)**\\n\\nMengganti setiap kemunculan pola regex dalam teks dengan string pengganti.\\n\\n*Contoh:* `ganti_regex(\"\\\\d+\", \"Item 123\", \"XXX\")` -> `\"Item XXX\"`".to_string()),
+            "ekstrak_regex" => Some("### `fungsi ekstrak_regex(pola: Teks, teks: Teks) -> Teks ! Teks`\\n\\n**Pustaka Standar DapCode - Reguler Ekspresi (Regex)**\\n\\nMengekstrak substring kecocokan pertama dari pola regex atau mengembalikan galat jika tidak ditemukan.\\n\\n*Contoh:* `ekstrak_regex(\"\\\\w+@\\\\w+\\\\.\\\\w+\", \"Email: info@dapcode.com\")` -> `\"info@dapcode.com\"`".to_string()),
             "struktur" => Some("### Kata Kunci `struktur`\\n\\nMendeklarasikan tipe data komposit baru dengan bidang-bidang bertipe.".to_string()),
             "sifat" => Some("### Kata Kunci `sifat`\\n\\nMendeklarasikan kontrak antarmuka (trait) perilaku bersama.".to_string()),
             "terapkan" => Some("### Kata Kunci `terapkan`\\n\\nMengimplementasikan sifat (trait) atau kumpulan metode untuk suatu struktur.".to_string()),
@@ -475,6 +479,10 @@ impl LspServer {
             ("buat_server_websocket", "buat_server_websocket(${1:8080}, \"${2:tangani_pesan}\")", 3, "Jalankan dedicated WebSocket Server DapCode"),
             ("adalah_websocket", "adalah_websocket()", 2, "Periksa apakah permintaan adalah Upgrade WebSocket"),
             ("tingkatkan_websocket", "tingkatkan_websocket(\"${1:tangani_pesan}\")", 2, "Tingkatkan permintaan HTTP menjadi koneksi WebSocket dua arah"),
+            ("cocok_regex", "cocok_regex(\"${1:pola}\", ${2:teks})", 3, "Periksa kecocokan pola regex pada teks"),
+            ("cari_regex", "cari_regex(\"${1:pola}\", ${2:teks})", 3, "Temukan seluruh kemunculan pola regex sebagai Daftar"),
+            ("ganti_regex", "ganti_regex(\"${1:pola}\", ${2:teks}, \"${3:pengganti}\")", 3, "Ganti kemunculan pola regex dengan teks baru"),
+            ("ekstrak_regex", "ekstrak_regex(\"${1:pola}\", ${2:teks})", 3, "Ekstrak kecocokan pertama pola regex (Error Union)"),
         ];
 
         for (label, snippet, kind, doc) in builtins {

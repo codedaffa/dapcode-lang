@@ -16,6 +16,7 @@ pub mod modules;
 pub mod net;
 pub mod ownership;
 pub mod parser;
+pub mod regex;
 pub mod span;
 pub mod types;
 

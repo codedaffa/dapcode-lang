@@ -584,6 +584,33 @@ impl TypeChecker {
                 Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)),
             ),
         );
+
+        // Standard Library: Reguler Ekspresi (Regex)
+        self.functions.insert(
+            "cocok_regex".to_string(),
+            (vec![Type::String, Type::String], Type::Bool),
+        );
+        self.functions.insert(
+            "cari_regex".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::List(Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "ganti_regex".to_string(),
+            (
+                vec![Type::String, Type::String, Type::String],
+                Type::String,
+            ),
+        );
+        self.functions.insert(
+            "ekstrak_regex".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
+            ),
+        );
     }
 
     pub fn check_program(&mut self, program: &Program) -> Result<()> {

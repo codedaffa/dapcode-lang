@@ -1,0 +1,43 @@
+// ===================================================================
+// Contoh Penggunaan: Pustaka Standar Reguler Ekspresi (Regex) DapCode
+// ===================================================================
+
+fungsi utama() {
+    cetak("=== Demo Pustaka Standar Regex DapCode ===")
+
+    // 1. Pencocokan Pola (cocok_regex)
+    kode := "TRX-88921-ID"
+    jika cocok_regex("^TRX-\\d+-ID$", kode) {
+        cetak("Format kode valid: {kode}")
+    } selain_itu {
+        cetak("Format kode tidak valid!")
+    }
+
+    // 2. Pencarian Semua Kemunculan (cari_regex)
+    paragraf := "Harga grosir: Kopi 15000, Teh 7500, Gula 12500, Susu 18000"
+    daftar_harga := cari_regex("\\d+", paragraf)
+    cetak("\nDitemukan {daftar_harga.panjang()} angka harga dalam teks:")
+    untuk h di daftar_harga {
+        cetak("  - Rp {h}")
+    }
+
+    // 3. Sensor / Penggantian Teks (ganti_regex)
+    biodata := "Hubungi saya di 08123456789 atau nomor kantor 0219876543"
+    sensor_hp := ganti_regex("\\d{4,}", biodata, "[NOMOR DISEMBUNYIKAN]")
+    cetak("\nHasil sensor kontak:")
+    cetak(sensor_hp)
+
+    // 4. Ekstraksi Informasi Penting (ekstrak_regex)
+    catatan := "Surel pengembang: contact@dapcode.org dan alternatif halo@dev.id"
+    surel := ekstrak_regex("\\w+@\\w+\\.\\w+", catatan) ? tangkap err {
+        cetak("Gagal mengekstrak surel: {err}")
+        kembali
+    }
+    cetak("\nSurel utama yang berhasil diekstrak: {surel}")
+
+    // 5. Alternasi Pilihan Kata (a|b)
+    percakapan := "Hari ini cuacanya hujan deras di Jakarta"
+    jika cocok_regex("cerah|hujan|mendung", percakapan) {
+        cetak("\nTerdeteksi informasi cuaca dalam percakapan.")
+    }
+}

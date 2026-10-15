@@ -1640,6 +1640,46 @@ impl Evaluator {
                             Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
                         };
                     }
+
+                    // Standard Library: Reguler Ekspresi (Regex)
+                    if name == "cocok_regex" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'cocok_regex' membutuhkan 2 argumen: (pola, teks)").with_span(*span));
+                        }
+                        let pola = self.eval_expr(&args[0].value, env)?.to_string();
+                        let teks = self.eval_expr(&args[1].value, env)?.to_string();
+                        return Ok(Value::Bool(crate::regex::cocok_regex(&pola, &teks)));
+                    }
+                    if name == "cari_regex" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'cari_regex' membutuhkan 2 argumen: (pola, teks)").with_span(*span));
+                        }
+                        let pola = self.eval_expr(&args[0].value, env)?.to_string();
+                        let teks = self.eval_expr(&args[1].value, env)?.to_string();
+                        let matches = crate::regex::cari_regex(&pola, &teks);
+                        let v_list: Vec<Value> = matches.into_iter().map(Value::String).collect();
+                        return Ok(Value::List(std::sync::Arc::new(std::sync::Mutex::new(v_list))));
+                    }
+                    if name == "ganti_regex" {
+                        if args.len() != 3 {
+                            return Err(Diagnostic::error("'ganti_regex' membutuhkan 3 argumen: (pola, teks, pengganti)").with_span(*span));
+                        }
+                        let pola = self.eval_expr(&args[0].value, env)?.to_string();
+                        let teks = self.eval_expr(&args[1].value, env)?.to_string();
+                        let pengganti = self.eval_expr(&args[2].value, env)?.to_string();
+                        return Ok(Value::String(crate::regex::ganti_regex(&pola, &teks, &pengganti)));
+                    }
+                    if name == "ekstrak_regex" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'ekstrak_regex' membutuhkan 2 argumen: (pola, teks)").with_span(*span));
+                        }
+                        let pola = self.eval_expr(&args[0].value, env)?.to_string();
+                        let teks = self.eval_expr(&args[1].value, env)?.to_string();
+                        return match crate::regex::ekstrak_regex(&pola, &teks) {
+                            Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(res))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
                     if name == "buat_server_http" {
                         if args.len() < 2 || args.len() > 3 {
                             return Err(Diagnostic::error("'buat_server_http' membutuhkan 2 atau 3 argumen: (port, nama_penangan, maks_permintaan: opsional)").with_span(*span));

@@ -375,7 +375,29 @@ static inline char* _dap_to_str_uint(unsigned int x) { return _dap_fmt_u64((uint
 static inline char* _dap_to_str_long(long x) { return _dap_fmt_i64((int64_t)x); }
 static inline char* _dap_to_str_ulong(unsigned long x) { return _dap_fmt_u64((uint64_t)x); }
 static inline char* _dap_to_str_bool(bool x) { return x ? "benar" : "salah"; }
-static inline char* _dap_to_str_ptr(const void* x) { return _dap_fmt_ptr((void*)x); }
+static inline char* _dap_to_str_ptr(const void* x) {
+    if (!x) return "";
+    uintptr_t val = (uintptr_t)x;
+    if (val < 0x10000) {
+        char* b = (char*)malloc(32);
+        snprintf(b, 32, "%llu", (unsigned long long)val);
+        return b;
+    }
+    const unsigned char* s = (const unsigned char*)x;
+    bool is_str = true;
+    size_t i = 0;
+    while (i < 1024 && s[i] != '\0') {
+        if (s[i] < 32 && s[i] != '\t' && s[i] != '\n' && s[i] != '\r') {
+            is_str = false;
+            break;
+        }
+        i++;
+    }
+    if (is_str && i > 0 && i < 1024) {
+        return (char*)x;
+    }
+    return _dap_fmt_ptr((void*)x);
+}
 
 #define dap_to_str(x) _Generic((x), \
     char*: _dap_to_str_str, \
@@ -2140,6 +2162,259 @@ static inline char* dap_md5(const char* input) {
     return res;
 }
 
+// ==========================================
+// Pustaka Standar Reguler Ekspresi (Regex) C11
+// ==========================================
+
+static inline bool _dap_match_class(char c, const char* p, int* p_len) {
+    if (*p == '.') {
+        *p_len = 1;
+        return c != '\0' && c != '\n';
+    }
+    if (*p == '\\') {
+        char esc = p[1];
+        *p_len = 2;
+        if (esc == 'd') return isdigit((unsigned char)c) != 0;
+        if (esc == 'D') return !isdigit((unsigned char)c);
+        if (esc == 'w') return (isalnum((unsigned char)c) || c == '_') != 0;
+        if (esc == 'W') return !(isalnum((unsigned char)c) || c == '_');
+        if (esc == 's') return isspace((unsigned char)c) != 0;
+        if (esc == 'S') return !isspace((unsigned char)c);
+        if (esc == 'n') return c == '\n';
+        if (esc == 't') return c == '\t';
+        if (esc == 'r') return c == '\r';
+        return c == esc;
+    }
+    if (*p == '[') {
+        const char* end = strchr(p, ']');
+        if (!end) { *p_len = 1; return c == *p; }
+        *p_len = (int)(end - p + 1);
+        bool neg = (p[1] == '^');
+        const char* cur = neg ? p + 2 : p + 1;
+        bool matched = false;
+        while (cur < end) {
+            if (cur + 2 < end && cur[1] == '-') {
+                if (c >= cur[0] && c <= cur[2]) { matched = true; break; }
+                cur += 3;
+            } else if (*cur == '\\') {
+                int elen = 0;
+                if (_dap_match_class(c, cur, &elen)) { matched = true; break; }
+                cur += elen;
+            } else {
+                if (c == *cur) { matched = true; break; }
+                cur++;
+            }
+        }
+        return neg ? !matched : matched;
+    }
+    *p_len = 1;
+    return c == *p;
+}
+
+static bool _dap_match_here(const char* p, const char* t, int* len) {
+    if (*p == '\0') { *len = 0; return true; }
+    if (*p == '$' && *(p+1) == '\0') {
+        if (*t == '\0') { *len = 0; return true; }
+        return false;
+    }
+
+    int u_len = 0;
+    bool m_first = _dap_match_class(*t, p, &u_len);
+    char q = p[u_len];
+
+    if (q == '*') {
+        int max_m = 0;
+        int dummy;
+        while (t[max_m] != '\0' && _dap_match_class(t[max_m], p, &dummy)) {
+            max_m++;
+        }
+        for (int k = max_m; k >= 0; k--) {
+            int sub_len = 0;
+            if (_dap_match_here(p + u_len + 1, t + k, &sub_len)) {
+                *len = k + sub_len;
+                return true;
+            }
+        }
+        return false;
+    }
+    if (q == '+') {
+        if (!m_first) return false;
+        int max_m = 1;
+        int dummy;
+        while (t[max_m] != '\0' && _dap_match_class(t[max_m], p, &dummy)) {
+            max_m++;
+        }
+        for (int k = max_m; k >= 1; k--) {
+            int sub_len = 0;
+            if (_dap_match_here(p + u_len + 1, t + k, &sub_len)) {
+                *len = k + sub_len;
+                return true;
+            }
+        }
+        return false;
+    }
+    if (q == '?') {
+        if (m_first) {
+            int sub_len = 0;
+            if (_dap_match_here(p + u_len + 1, t + 1, &sub_len)) {
+                *len = 1 + sub_len;
+                return true;
+            }
+        }
+        int sub_len = 0;
+        if (_dap_match_here(p + u_len + 1, t, &sub_len)) {
+            *len = sub_len;
+            return true;
+        }
+        return false;
+    }
+
+    if (m_first) {
+        int sub_len = 0;
+        if (_dap_match_here(p + u_len, t + 1, &sub_len)) {
+            *len = 1 + sub_len;
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool _dap_match_branch(const char* p, const char* t, int* match_start, int* match_len) {
+    if (*p == '^') {
+        int m_len = 0;
+        if (_dap_match_here(p + 1, t, &m_len)) {
+            *match_start = 0;
+            *match_len = m_len;
+            return true;
+        }
+        return false;
+    }
+    int t_len = (int)strlen(t);
+    for (int i = 0; i <= t_len; i++) {
+        int m_len = 0;
+        if (_dap_match_here(p, t + i, &m_len)) {
+            *match_start = i;
+            *match_len = m_len;
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool _dap_match_regex(const char* pola, const char* teks, int* match_start, int* match_len) {
+    if (!pola || !teks) return false;
+    char buf[512];
+    strncpy(buf, pola, sizeof(buf)-1);
+    buf[sizeof(buf)-1] = '\0';
+    char* bar = strchr(buf, '|');
+    if (bar) {
+        *bar = '\0';
+        if (_dap_match_branch(buf, teks, match_start, match_len)) return true;
+        return _dap_match_branch(bar + 1, teks, match_start, match_len);
+    }
+    return _dap_match_branch(pola, teks, match_start, match_len);
+}
+
+static inline bool dap_cocok_regex(const char* pola, const char* teks) {
+    int s = 0, l = 0;
+    return _dap_match_regex(pola, teks, &s, &l);
+}
+
+static inline DapResult_Teks dap_ekstrak_regex(const char* pola, const char* teks) {
+    DapResult_Teks res;
+    if (!pola || !teks) {
+        res.is_err = true;
+        res.err_msg = "Argumen regex null";
+        res.ok = "";
+        return res;
+    }
+    int s = 0, l = 0;
+    if (_dap_match_regex(pola, teks, &s, &l)) {
+        char* b = (char*)malloc(l + 1);
+        if (!b) {
+            res.is_err = true;
+            res.err_msg = "Alokasi memori gagal";
+            res.ok = "";
+            return res;
+        }
+        strncpy(b, teks + s, l);
+        b[l] = '\0';
+        res.is_err = false;
+        res.err_msg = NULL;
+        res.ok = b;
+        return res;
+    }
+    res.is_err = true;
+    res.err_msg = "Pola regex tidak cocok pada teks";
+    res.ok = "";
+    return res;
+}
+
+static inline DapList* dap_cari_regex(const char* pola, const char* teks) {
+    DapList* list = dap_Daftar_baru();
+    if (!pola || !teks) return list;
+    const char* cur = teks;
+    int s = 0, l = 0;
+    while (*cur != '\0' && _dap_match_regex(pola, cur, &s, &l)) {
+        char* b = (char*)malloc(l + 1);
+        if (b) {
+            strncpy(b, cur + s, l);
+            b[l] = '\0';
+            dap_Daftar_tambah(list, b);
+        }
+        int adv = s + (l > 0 ? l : 1);
+        if ((int)strlen(cur) < adv) break;
+        cur += adv;
+    }
+    return list;
+}
+
+static inline char* dap_ganti_regex(const char* pola, const char* teks, const char* pengganti) {
+    if (!pola || !teks) return strdup("");
+    if (!pengganti) pengganti = "";
+    size_t out_cap = strlen(teks) * 2 + strlen(pengganti) + 64;
+    char* out = (char*)malloc(out_cap);
+    if (!out) return strdup(teks);
+    out[0] = '\0';
+    size_t out_len = 0;
+
+    const char* cur = teks;
+    int s = 0, l = 0;
+    while (*cur != '\0' && _dap_match_regex(pola, cur, &s, &l)) {
+        if (s > 0) {
+            while (out_len + s + strlen(pengganti) + 1 >= out_cap) {
+                out_cap *= 2;
+                out = (char*)realloc(out, out_cap);
+            }
+            strncat(out, cur, s);
+            out_len += s;
+        }
+        size_t p_len = strlen(pengganti);
+        while (out_len + p_len + 1 >= out_cap) {
+            out_cap *= 2;
+            out = (char*)realloc(out, out_cap);
+        }
+        strcat(out, pengganti);
+        out_len += p_len;
+
+        int adv = s + (l > 0 ? l : 1);
+        if ((int)strlen(cur) < adv) {
+            cur += strlen(cur);
+            break;
+        }
+        cur += adv;
+    }
+    size_t rem = strlen(cur);
+    if (rem > 0) {
+        while (out_len + rem + 1 >= out_cap) {
+            out_cap += rem + 64;
+            out = (char*)realloc(out, out_cap);
+        }
+        strcat(out, cur);
+    }
+    return out;
+}
+
 "#,
         );
     }
@@ -2292,7 +2567,7 @@ static inline char* dap_md5(const char* input) {
                     idx_var, idx_var, list_var, idx_var
                 ));
                 self.out.push_str(&format!(
-                    "        uintptr_t {} = (uintptr_t){}->items[{}];\n",
+                    "        void* {} = {}->items[{}];\n",
                     var_name, list_var, idx_var
                 ));
                 for s in &body.stmts {

@@ -46,6 +46,7 @@ Kompilator dan toolchain resminya, **`dapcodec`**, diimplementasikan sepenuhnya 
    - **Utilitas Waktu & Timer:** `waktu_sekarang_ms() -> u64`, `tidur(ms: u64) -> Unit`.
    - **Lingkungan OS & Argumen Baris Perintah (CLI & Environment):** `ambil_argumen_cli() -> Daftar<Teks>`, `ambil_lingkungan(nama) -> Teks ! Teks`, `atur_lingkungan(nama, nilai) -> Unit`.
    - **Kriptografi & Enkoding (Cryptography & Encoding):** Utilitas hashing dan encoding RFC-compliant bawaan: `sha256(teks) -> Teks` (FIPS 180-4 SHA-256 64-karakter hex), `md5(teks) -> Teks` (RFC 1321 MD5 32-karakter hex), `ke_base64(teks) -> Teks` (RFC 4648 Base64 encoder), `dari_base64(teks) -> Teks ! Teks` (RFC 4648 Base64 decoder dengan validasi format).
+   - **Reguler Ekspresi (Regex):** Mesin regex zero-dependency bawaan: `cocok_regex(pola, teks) -> Bool`, `cari_regex(pola, teks) -> Daftar<Teks>`, `ganti_regex(pola, teks, pengganti) -> Teks`, dan `ekstrak_regex(pola, teks) -> Teks ! Teks`. Mendukung kelas karakter (`[a-z]`, `\d`, `\w`, `\s`), kuantifier greedy (`*`, `+`, `?`, `{n}`), jangkar (`^`, `$`), dan alternasi (`a|b`).
 
 8. **Sistem Modul & Multi-Berkas (`impor` & `DapCode.toml`):**
    - Kata kunci `impor "nama_berkas.dap"` untuk memecah kode menjadi modul-modul independen.
@@ -64,7 +65,8 @@ dapcode-lang/
 ├── examples/
 │   ├── demo.dap                  # Program percontohan resmi DapCode
 │   ├── uji_stdlib.dap            # Demonstrasi fitur Pustaka Standar (Stdlib)
-│   ├── demo_uji.dap              # Demonstrasi Test Runner Terbawa (uji, pastikan)
+│   ├── uji_regex.dap             # Demonstrasi Reguler Ekspresi (Regex)
+│   ├── demo_uji.dap              # Demonstrasi Test Runner Terbawa (uji, pastikan) Demonstrasi Test Runner Terbawa (uji, pastikan)
 │   └── proyek_multiberkas/       # Contoh proyek multi-berkas dengan DapCode.toml
 │       ├── DapCode.toml
 │       └── src/

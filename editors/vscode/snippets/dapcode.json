@@ -422,6 +422,36 @@
             "}"
         ],
         "description": "Upgrade HTTP route ke WebSocket real-time frame connection"
+    },
+    "Cocokkan Regex": {
+        "prefix": "cocok_regex",
+        "body": [
+            "cocok_regex(\"${1:\\\\d+}\", ${2:teks})"
+        ],
+        "description": "Periksa kecocokan pola regular expression pada teks"
+    },
+    "Cari Regex Semua": {
+        "prefix": "cari_regex",
+        "body": [
+            "hasil := cari_regex(\"${1:\\\\d+}\", ${2:teks})"
+        ],
+        "description": "Cari seluruh substring yang cocok dengan pola regex sebagai Daftar<Teks>"
+    },
+    "Ganti Regex": {
+        "prefix": "ganti_regex",
+        "body": [
+            "ganti_regex(\"${1:pola}\", ${2:teks}, \"${3:pengganti}\")"
+        ],
+        "description": "Ganti seluruh kecocokan regex dengan teks pengganti"
+    },
+    "Ekstrak Regex": {
+        "prefix": "ekstrak_regex",
+        "body": [
+            "${1:hasil} := ekstrak_regex(\"${2:\\\\w+@\\\\w+\\\\.com}\", ${3:teks}) ? tangkap err {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Ekstrak substring pertama yang cocok dengan regex (Error Union)"
     }
 }
 
