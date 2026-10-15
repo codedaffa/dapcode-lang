@@ -21,6 +21,23 @@ fn run_dap_code(src: &str) -> (Value, Vec<String>) {
     (result, output)
 }
 
+fn run_dap_code_with_args(src: &str, args: Vec<String>) -> (Value, Vec<String>) {
+    let mut sm = SourceMap::new();
+    let (file_id, _) = sm.add_file("stdlib_test.dap", src.to_string());
+    let mut lexer = Lexer::new(src, file_id);
+    let tokens = lexer.tokenize().expect("Lexing failed");
+    let mut parser = Parser::new(tokens, file_id);
+    let program = parser.parse_program().expect("Parsing failed");
+
+    let mut checker = TypeChecker::new(file_id);
+    checker.check_program(&program).expect("Type checking failed");
+
+    let mut eval = Evaluator::with_cli_args(args);
+    let result = eval.run_program(&program).expect("Execution failed");
+    let output = eval.get_output();
+    (result, output)
+}
+
 #[test]
 fn test_stdlib_daftar_collection() {
     let src = r#"
@@ -217,5 +234,42 @@ fungsi utama() -> u64 {
 
     // Double check cleanup
     let _ = std::fs::remove_dir_all("temp_test_dir_dap");
+}
+
+#[test]
+fn test_stdlib_cli_args_and_env() {
+    let src = r#"
+fungsi utama() -> Teks {
+    // 1. Uji Argumen Baris Perintah (CLI)
+    args := ambil_argumen_cli()
+    p := args.panjang()
+    arg0 := args.ambil(0) ? tangkap err {
+        "kosong"
+    }
+
+    // 2. Uji Variabel Lingkungan (Set & Get)
+    atur_lingkungan("DAPCODE_TEST_KEY", "NilaiRahasia999")
+    nilai_env := ambil_lingkungan("DAPCODE_TEST_KEY") ? tangkap err {
+        kembali "Gagal baca env"
+    }
+
+    // 3. Uji Variabel Lingkungan yang tidak ada (Error Union catch)
+    tidak_ada := ambil_lingkungan("KEY_YANG_PASTI_TIDAK_ADA_XYZ") ? tangkap err {
+        "berhasil_tertangkap"
+    }
+
+    jika p > 0 && nilai_env == "NilaiRahasia999" && tidak_ada == "berhasil_tertangkap" {
+        arg0
+    } selain_itu {
+        "gagal"
+    }
+}
+"#;
+
+    let (res, _) = run_dap_code_with_args(src, vec!["program.dap".to_string(), "--mode=cepat".to_string()]);
+    match res {
+        Value::String(s) => assert_eq!(s, "program.dap"),
+        other => panic!("Expected Value::String('program.dap'), got {:?}", other),
+    }
 }
 

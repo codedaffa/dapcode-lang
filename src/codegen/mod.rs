@@ -128,7 +128,8 @@ impl<'a> CodeGenerator<'a> {
         // 5. Emit main entry point
         self.out.push_str(
             r#"int main(int argc, char** argv) {
-    (void)argc; (void)argv;
+    _dap_cli_argc = argc;
+    _dap_cli_argv = argv;
     dap_utama();
     return 0;
 }
@@ -506,6 +507,41 @@ static inline f64 dap_nilai_mutlak(f64 x) {
 
 static inline u64 dap_waktu_sekarang_ms(void) {
     return (u64)time(NULL) * 1000;
+}
+
+// Standard Library: Environment & CLI Arguments
+static int _dap_cli_argc = 0;
+static char** _dap_cli_argv = NULL;
+
+static inline DapList* dap_ambil_argumen_cli(void) {
+    DapList* list = dap_Daftar_baru();
+    for (int i = 0; i < _dap_cli_argc; i++) {
+        dap_Daftar_tambah(list, (void*)_dap_cli_argv[i]);
+    }
+    return list;
+}
+
+static inline DapResult_Teks dap_ambil_lingkungan(const char* name) {
+    DapResult_Teks res;
+    const char* val = getenv(name ? name : "");
+    if (val) {
+        res.is_err = false;
+        res.err_msg = NULL;
+        res.ok = val;
+    } else {
+        res.is_err = true;
+        res.err_msg = "Variabel lingkungan tidak ditemukan";
+        res.ok = "";
+    }
+    return res;
+}
+
+static inline void dap_atur_lingkungan(const char* name, const char* value) {
+#ifdef _WIN32
+    _putenv_s(name ? name : "", value ? value : "");
+#else
+    setenv(name ? name : "", value ? value : "", 1);
+#endif
 }
 
 // Standard Library: JSON Builtins

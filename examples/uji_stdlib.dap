@@ -144,6 +144,28 @@ fungsi demonstrasi_jaringan() {
     cetak("Respons HTTP berhasil diterima! Ada kunci 'headers': {ada_header}")
 }
 
+fungsi demonstrasi_lingkungan_dan_cli() {
+    cetak("\n=== 6. Uji Argumen CLI & Variabel Lingkungan ===")
+    
+    // 1. Baca argumen baris perintah
+    argumen := ambil_argumen_cli()
+    total_arg := argumen.panjang()
+    cetak("Total argumen CLI yang diterima: {total_arg}")
+    
+    // 2. Setel & baca variabel lingkungan
+    atur_lingkungan("DAPCODE_MODE", "PRODUKSI")
+    mode := ambil_lingkungan("DAPCODE_MODE") ? tangkap err {
+        "tidak_disetel"
+    }
+    cetak("Nilai variabel lingkungan DAPCODE_MODE: {mode}")
+
+    // 3. Tangani variabel lingkungan yang tidak ada secara aman
+    rahasia := ambil_lingkungan("VARIABEL_RAHASIA_XYZ") ? tangkap err {
+        "Aman: tertangkap saat variabel lingkungan tidak ada"
+    }
+    cetak("Pengecekan variabel tidak terdaftar: {rahasia}")
+}
+
 fungsi utama() {
     cetak("===========================================")
     cetak("      DEMONSTRASI PUSTAKA STANDAR DAPCODE   ")
@@ -153,6 +175,7 @@ fungsi utama() {
     demonstrasi_berkas_dan_waktu()
     demonstrasi_json()
     demonstrasi_jaringan()
+    demonstrasi_lingkungan_dan_cli()
     cetak("
 Semua demonstrasi Pustaka Standar selesai dengan sukses!")
 }

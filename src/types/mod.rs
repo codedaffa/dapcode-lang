@@ -238,6 +238,29 @@ impl TypeChecker {
             (vec![Type::U64], Type::Unit),
         );
 
+        // Standard Library: Environment & CLI Arguments
+        self.functions.insert(
+            "ambil_argumen_cli".to_string(),
+            (
+                vec![],
+                Type::List(Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "ambil_lingkungan".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "atur_lingkungan".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::Unit,
+            ),
+        );
+
         // Standard Library: JSON Utilities
         let json_val_arg = self.fresh_var();
         self.functions.insert(

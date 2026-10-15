@@ -40,6 +40,9 @@ pub enum Commands {
     Run {
         /// Berkas sumber .dap (opsional jika DapCode.toml ada di direktori saat ini)
         file: Option<PathBuf>,
+        /// Argumen baris perintah yang diteruskan ke program DapCode
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
     },
     /// Memeriksa tipe (type check) dan analisis kepemilikan (ownership) tanpa eksekusi
     Check {
@@ -117,7 +120,7 @@ pub fn run_cli() -> io::Result<()> {
 
     match cli.command {
         Commands::Init { name } => cmd_init(name.as_deref()),
-        Commands::Run { file } => cmd_run(file.as_deref()),
+        Commands::Run { file, args } => cmd_run(file.as_deref(), args),
         Commands::Check { file } => cmd_check(file.as_deref()),
         Commands::Build { file, output } => cmd_build(file.as_deref(), output),
         Commands::DumpAst { file } => cmd_dump_ast(file.as_deref()),
@@ -230,7 +233,7 @@ fn cmd_init(name: Option<&str>) -> io::Result<()> {
     }
 }
 
-fn cmd_run(file: Option<&Path>) -> io::Result<()> {
+fn cmd_run(file: Option<&Path>, args: Vec<String>) -> io::Result<()> {
     let target = resolve_target_file(file)?;
     let mut sm = SourceMap::new();
     let (file_id, mut program) = match load_program_and_modules(&target, &mut sm) {
@@ -256,7 +259,9 @@ fn cmd_run(file: Option<&Path>) -> io::Result<()> {
     let _ownership = OwnershipAnalyzer::new().analyze_program(&program);
 
     // 4. Direct Execution (Evaluator & Concurrency Runtime)
-    let mut evaluator = Evaluator::new();
+    let mut program_args = vec![target.to_string_lossy().to_string()];
+    program_args.extend(args);
+    let mut evaluator = Evaluator::with_cli_args(program_args);
     if let Err(diag) = evaluator.run_program(&program) {
         eprint!("{}", diag.render(&sm));
     }

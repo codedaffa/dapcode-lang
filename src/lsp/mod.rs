@@ -356,6 +356,9 @@ impl LspServer {
             "hapus_direktori" => Some("### `fungsi hapus_direktori(jalur: Teks) -> Bool ! Teks`\\n\\n**Pustaka Standar DapCode - Sistem Berkas**\\n\\nMenghapus direktori beserta seluruh isinya dari disk.".to_string()),
             "gabung_jalur" => Some("### `fungsi gabung_jalur(induk: Teks, anak: Teks) -> Teks`\\n\\n**Pustaka Standar DapCode - Sistem Berkas**\\n\\nMenggabungkan dua segmen jalur direktori secara konsisten lintas sistem operasi.".to_string()),
             "tidur" => Some("### `fungsi tidur(milidetik: u64) -> Unit`\\n\\n**Pustaka Standar DapCode - Waktu & Konkurensi**\\n\\nMenunda jalannya eksekusi utas/coroutine saat ini selama durasi milidetik yang ditentukan.".to_string()),
+            "ambil_argumen_cli" => Some("### `fungsi ambil_argumen_cli() -> Daftar<Teks>`\\n\\n**Pustaka Standar DapCode - Lingkungan & CLI**\\n\\nMengambil daftar argumen baris perintah (*command-line arguments*) yang diteruskan saat program dijalankan.".to_string()),
+            "ambil_lingkungan" => Some("### `fungsi ambil_lingkungan(nama: Teks) -> Teks ! Teks`\\n\\n**Pustaka Standar DapCode - Lingkungan**\\n\\nMembaca nilai variabel lingkungan (*environment variable*) dari sistem operasi. Mengembalikan error union jika variabel tidak disetel.".to_string()),
+            "atur_lingkungan" => Some("### `fungsi atur_lingkungan(nama: Teks, nilai: Teks) -> Unit`\\n\\n**Pustaka Standar DapCode - Lingkungan**\\n\\nMengatur atau memperbarui nilai variabel lingkungan (*environment variable*) pada proses saat ini.".to_string()),
             "akar_kuadrat" => Some("### `fungsi akar_kuadrat(x: f64) -> f64`\\n\\n**Pustaka Standar DapCode - Matematika**\\n\\nMenghitung nilai akar kuadrat non-negatif.".to_string()),
             "pangkat" => Some("### `fungsi pangkat(dasar: f64, eksponen: f64) -> f64`\\n\\n**Pustaka Standar DapCode - Matematika**\\n\\nMenghitung hasil pemangkatan eksponensial.".to_string()),
             "nilai_mutlak" => Some("### `fungsi nilai_mutlak(x: f64) -> f64`\\n\\n**Pustaka Standar DapCode - Matematika**\\n\\nMenghitung nilai mutlak (absolut).".to_string()),
@@ -455,6 +458,9 @@ impl LspServer {
             ("hapus_direktori", "hapus_direktori(\"${1:jalur}\")", 3, "Hapus direktori dari disk"),
             ("gabung_jalur", "gabung_jalur(\"${1:induk}\", \"${2:anak}\")", 3, "Gabungkan dua segmen jalur"),
             ("tidur", "tidur(${1:100})", 3, "Tunda eksekusi (milidetik)"),
+            ("ambil_argumen_cli", "ambil_argumen_cli()", 3, "Ambil daftar argumen baris perintah"),
+            ("ambil_lingkungan", "ambil_lingkungan(\"${1:NAMA_VARIABEL}\")", 3, "Baca variabel lingkungan OS"),
+            ("atur_lingkungan", "atur_lingkungan(\"${1:NAMA_VARIABEL}\", \"${2:nilai}\")", 3, "Setel variabel lingkungan OS"),
         ];
 
         for (label, snippet, kind, doc) in keywords {

@@ -207,6 +207,7 @@ pub struct Evaluator {
     functions: HashMap<String, FnDecl>,
     // struct_name -> method_name -> FnDecl
     methods: HashMap<String, HashMap<String, FnDecl>>,
+    cli_args: Vec<String>,
 }
 
 impl Evaluator {
@@ -215,7 +216,21 @@ impl Evaluator {
             output: Arc::new(Mutex::new(Vec::new())),
             functions: HashMap::new(),
             methods: HashMap::new(),
+            cli_args: std::env::args().collect(),
         }
+    }
+
+    pub fn with_cli_args(args: Vec<String>) -> Self {
+        Evaluator {
+            output: Arc::new(Mutex::new(Vec::new())),
+            functions: HashMap::new(),
+            methods: HashMap::new(),
+            cli_args: args,
+        }
+    }
+
+    pub fn set_cli_args(&mut self, args: Vec<String>) {
+        self.cli_args = args;
     }
 
     pub fn get_output(&self) -> Vec<String> {
@@ -895,6 +910,52 @@ impl Evaluator {
                         std::thread::sleep(std::time::Duration::from_millis(ms));
                         return Ok(Value::Unit);
                     }
+                    if name == "ambil_argumen_cli" {
+                        if !args.is_empty() {
+                            return Err(Diagnostic::error("'ambil_argumen_cli' tidak membutuhkan argumen").with_span(*span));
+                        }
+                        let items: Vec<Value> = self.cli_args
+                            .iter()
+                            .map(|s| Value::String(s.clone()))
+                            .collect();
+                        return Ok(Value::List(Arc::new(Mutex::new(items))));
+                    }
+                    if name == "ambil_lingkungan" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'ambil_lingkungan' membutuhkan 1 argumen (nama_variabel)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        let key = match val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return match std::env::var(&key) {
+                            Ok(v) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(v))))),
+                            Err(_) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(format!(
+                                "Variabel lingkungan '{}' tidak ditemukan",
+                                key
+                            )))))),
+                        };
+                    }
+                    if name == "atur_lingkungan" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'atur_lingkungan' membutuhkan 2 argumen (nama_variabel, nilai)").with_span(*span));
+                        }
+                        let k_val = self.eval_expr(&args[0].value, env)?;
+                        let v_val = self.eval_expr(&args[1].value, env)?;
+                        let key = match k_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        let value = match v_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        unsafe {
+                            std::env::set_var(&key, &value);
+                        }
+                        return Ok(Value::Unit);
+                    }
                     if name == "ke_json" {
                         if args.len() != 1 {
                             return Err(Diagnostic::error("'ke_json' membutuhkan 1 argumen").with_span(*span));
@@ -1264,6 +1325,7 @@ impl Evaluator {
                     output: Arc::clone(&self.output),
                     functions: self.functions.clone(),
                     methods: self.methods.clone(),
+                    cli_args: self.cli_args.clone(),
                 };
 
                 let handle = thread::spawn(move || {

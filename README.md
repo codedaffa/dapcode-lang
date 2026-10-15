@@ -44,6 +44,7 @@ Kompilator dan toolchain resminya, **`dapcodec`**, diimplementasikan sepenuhnya 
    - **Utilitas String:** `panjang_teks(s) -> u64`, `ke_huruf_besar(s) -> Teks`, `ke_huruf_kecil(s) -> Teks`.
    - **Utilitas Matematika:** `akar_kuadrat(x) -> f64`, `pangkat(dasar, eksponen) -> f64`, `nilai_mutlak(x) -> f64`.
    - **Utilitas Waktu & Timer:** `waktu_sekarang_ms() -> u64`, `tidur(ms: u64) -> Unit`.
+   - **Lingkungan OS & Argumen Baris Perintah (CLI & Environment):** `ambil_argumen_cli() -> Daftar<Teks>`, `ambil_lingkungan(nama) -> Teks ! Teks`, `atur_lingkungan(nama, nilai) -> Unit`.
 
 8. **Sistem Modul & Multi-Berkas (`impor` & `DapCode.toml`):**
    - Kata kunci `impor "nama_berkas.dap"` untuk memecah kode menjadi modul-modul independen.
@@ -142,6 +143,9 @@ Perintah ini otomatis membuat:
 # Jalankan berkas tunggal
 dapcodec run examples/demo.dap
 dapcodec run examples/uji_stdlib.dap
+
+# Jalankan berkas dengan meneruskan argumen baris perintah
+dapcodec run app.dap -- argumen1 argumen2 --opsi=aktif
 
 # Jalankan proyek multi-berkas (otomatis membaca DapCode.toml)
 cd examples/proyek_multiberkas
@@ -276,5 +280,5 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 15 modul test (40 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 15 modul test (41 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 
