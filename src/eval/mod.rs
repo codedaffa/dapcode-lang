@@ -1295,6 +1295,52 @@ impl Evaluator {
                         let kunci = self.eval_expr(&args[1].value, env)?.to_string();
                         return Ok(Value::Bool(crate::net::ada_kueri_param(&kueri, &kunci)));
                     }
+                    if name == "respons_berkas" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'respons_berkas' membutuhkan 1 argumen (jalur_berkas)").with_span(*span));
+                        }
+                        let path_val = self.eval_expr(&args[0].value, env)?.to_string();
+                        return match crate::net::respons_berkas(&path_val) {
+                            Ok(http_resp) => {
+                                let mut fields = HashMap::new();
+                                fields.insert("status".to_string(), Value::Int(http_resp.status));
+                                fields.insert("tipe_konten".to_string(), Value::String(http_resp.content_type));
+                                fields.insert("konten".to_string(), Value::String(http_resp.body));
+                                fields.insert("header".to_string(), Value::String(String::new()));
+                                fields.insert("_jalur_berkas".to_string(), Value::String(path_val));
+                                Ok(Value::ErrorUnion(Ok(Box::new(Value::Struct {
+                                    name: "ResponsHttp".to_string(),
+                                    fields,
+                                }))))
+                            }
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
+                    if name == "sajikan_berkas_statis" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'sajikan_berkas_statis' membutuhkan 2 argumen: (folder_dasar, jalur)").with_span(*span));
+                        }
+                        let folder = self.eval_expr(&args[0].value, env)?.to_string();
+                        let path_val = self.eval_expr(&args[1].value, env)?.to_string();
+                        return match crate::net::sajikan_berkas_statis(&folder, &path_val) {
+                            Ok(http_resp) => {
+                                let mut fields = HashMap::new();
+                                fields.insert("status".to_string(), Value::Int(http_resp.status));
+                                fields.insert("tipe_konten".to_string(), Value::String(http_resp.content_type));
+                                fields.insert("konten".to_string(), Value::String(http_resp.body));
+                                fields.insert("header".to_string(), Value::String(String::new()));
+                                let clean = path_val.split('?').next().unwrap_or("").trim_start_matches('/');
+                                let rel = if clean.is_empty() { "index.html" } else { clean };
+                                let full_p = std::path::Path::new(&folder).join(rel);
+                                fields.insert("_jalur_berkas".to_string(), Value::String(full_p.to_string_lossy().to_string()));
+                                Ok(Value::ErrorUnion(Ok(Box::new(Value::Struct {
+                                    name: "ResponsHttp".to_string(),
+                                    fields,
+                                }))))
+                            }
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
 
                     // Cryptography & Encoding Utilities
                     if name == "sha256" {
@@ -1534,10 +1580,16 @@ impl Evaluator {
                                             }
                                         }
                                     }
+                                    let raw_body = if let Some(h_p) = fields.get("_jalur_berkas") {
+                                        std::fs::read(h_p.to_string()).ok()
+                                    } else {
+                                        None
+                                    };
                                     Ok(crate::net::HttpServerResponse {
                                         status,
                                         content_type,
                                         body,
+                                        raw_body,
                                         headers,
                                     })
                                 }
@@ -1554,6 +1606,7 @@ impl Evaluator {
                                         status: 200,
                                         content_type,
                                         body: s,
+                                        raw_body: None,
                                         headers: HashMap::new(),
                                     })
                                 }
@@ -1562,6 +1615,7 @@ impl Evaluator {
                                         status: 500,
                                         content_type: "text/plain; charset=utf-8".to_string(),
                                         body: format!("500 Internal Server Error: {}", e),
+                                        raw_body: None,
                                         headers: HashMap::new(),
                                     })
                                 }
@@ -1571,6 +1625,7 @@ impl Evaluator {
                                         status: 200,
                                         content_type: "text/plain; charset=utf-8".to_string(),
                                         body: s,
+                                        raw_body: None,
                                         headers: HashMap::new(),
                                     })
                                 }
@@ -1579,6 +1634,7 @@ impl Evaluator {
                                         status: 200,
                                         content_type: "application/json; charset=utf-8".to_string(),
                                         body: value_to_json(&other),
+                                        raw_body: None,
                                         headers: HashMap::new(),
                                     })
                                 }
@@ -1768,6 +1824,27 @@ impl Evaluator {
                             "ada_kueri" => {
                                 let kunci = self.eval_expr(&args[0].value, env)?.to_string();
                                 return Ok(Value::Bool(crate::net::ada_kueri_param(&kueri, &kunci)));
+                            }
+                            "sajikan_statis" => {
+                                let folder = self.eval_expr(&args[0].value, env)?.to_string();
+                                return match crate::net::sajikan_berkas_statis(&folder, &jalur) {
+                                    Ok(http_resp) => {
+                                        let mut fields = HashMap::new();
+                                        fields.insert("status".to_string(), Value::Int(http_resp.status));
+                                        fields.insert("tipe_konten".to_string(), Value::String(http_resp.content_type));
+                                        fields.insert("konten".to_string(), Value::String(http_resp.body));
+                                        fields.insert("header".to_string(), Value::String(String::new()));
+                                        let clean = jalur.split('?').next().unwrap_or("").trim_start_matches('/');
+                                        let rel = if clean.is_empty() { "index.html" } else { clean };
+                                        let full_p = std::path::Path::new(&folder).join(rel);
+                                        fields.insert("_jalur_berkas".to_string(), Value::String(full_p.to_string_lossy().to_string()));
+                                        Ok(Value::ErrorUnion(Ok(Box::new(Value::Struct {
+                                            name: "ResponsHttp".to_string(),
+                                            fields,
+                                        }))))
+                                    }
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
                             }
                             other => return Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada PermintaanHttp", other)).with_span(*span)),
                         }

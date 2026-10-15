@@ -432,6 +432,32 @@ fungsi utama() {
 }
 ```
 
+### 19. Sajian Aset Statis & Deteksi MIME Otomatis (`sajikan_berkas_statis`, `respons_berkas`, `req.sajikan_statis`)
+DapCode menyediakan subsistem penyajian berkas statis (*static file serving*) siap pakai dengan deteksi tipe MIME otomatis, proteksi directory traversal (`..`), dan integritas binary asset:
+```dap
+fungsi tangani_web(req: PermintaanHttp) -> ResponsHttp {
+    // 1. Endpoint API Dinamis
+    jika req.jalur == "/api/status" {
+        kembali respons_json("{\"status\":\"online\"}").cors()
+    }
+
+    // 2. Sajikan Aset Statis dari direktori publik (HTML, CSS, JS, Gambar, Font)
+    // Otomatis mengarahkan '/' ke 'index.html' dan mencegah akses di luar direktori
+    aset := req.sajikan_statis("publik") ? tangkap err {
+        // 3. Fallback jika berkas tidak ditemukan
+        kirim_respons_http(404, "text/html; charset=utf-8", "<h1>404 Tidak Ditemukan</h1>")
+    }
+
+    kembali aset
+}
+
+fungsi utama() {
+    buat_server_http(8080, "tangani_web") ? tangkap err {
+        cetak("Server error: {err}")
+    }
+}
+```
+
 ---
 
 ## 🎨 Dukungan Editor & Ekstensi VS Code
@@ -443,10 +469,10 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
   ```
 - **Integrasi LSP Cerdas (`extension.js`):**
   - **Diagnostik Real-Time:** Pelaporan kesalahan sintaks, kepemilikan (*borrow check*), dan tipe secara langsung saat mengetik.
-  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`), fungsi pustaka standar (`buka_basis_data`, `db_simpan`, `db_ambil`, `db_hapus`, `db_ada`, `buat_server_http`, `kirim_respons_http`, `respons_json`, `respons_teks`, `cocok_rute`, `ambil_param_rute`, `ambil_kueri_param`, `ada_kueri_param`, `tambah_header`, `respons_cors`, `ke_json`, `cetak`, dll), dan simbol lokal.
+  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`), fungsi pustaka standar (`buka_basis_data`, `db_simpan`, `db_ambil`, `db_hapus`, `db_ada`, `buat_server_http`, `kirim_respons_http`, `respons_json`, `respons_teks`, `respons_berkas`, `sajikan_berkas_statis`, `cocok_rute`, `ambil_param_rute`, `ambil_kueri_param`, `ada_kueri_param`, `tambah_header`, `respons_cors`, `ke_json`, `cetak`, dll), dan simbol lokal.
   - **Auto-Completion Kontekstual:** Rekomendasi otomatis kata kunci bahasa Indonesia, tipe data, fungsi pustaka standar, serta deklarasi lokal.
   - **Document Formatting:** Format kode sumber otomatis saat dokumen diformat atau disimpan.
-- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `server_http`, `buka_db`, `db_simpan`, `db_ambil`, `respons_json`, `respons_teks`, `cocok_rute`, `ambil_kueri_param`, `respons_cors`, `ke_json`, unit test `uji`, asersi `pastikan`, komentar dokumen `///` & `//!`, operasi direktori `buat_direktori`, dan argumen CLI `ambil_argumen_cli`.
+- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `server_http`, `buka_db`, `db_simpan`, `db_ambil`, `respons_json`, `respons_teks`, `respons_berkas`, `sajikan_berkas_statis`, `req.sajikan_statis`, `cocok_rute`, `ambil_kueri_param`, `respons_cors`, `ke_json`, unit test `uji`, asersi `pastikan`, komentar dokumen `///` & `//!`, operasi direktori `buat_direktori`, dan argumen CLI `ambil_argumen_cli`.
 - **Integrasi Menu & Perintah Cepat:**
   - `dapcode.run` -> Jalankan berkas aktif dengan `dapcodec run`.
   - `dapcode.test` -> Jalankan pengujian unit aktif dengan `dapcodec test`.
@@ -463,5 +489,5 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 22 modul test (64+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & CORS, Embedded Database (BasisData & DapDb), Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 23 modul test (67+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & CORS, Static Files & MIME Asset Serving, Embedded Database (BasisData & DapDb), Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 

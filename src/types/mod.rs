@@ -470,6 +470,26 @@ impl TypeChecker {
             "ada_kueri_param".to_string(),
             (vec![Type::String, Type::String], Type::Bool),
         );
+        self.functions.insert(
+            "respons_berkas".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(
+                    Box::new(Type::Struct("ResponsHttp".to_string())),
+                    Box::new(Type::String),
+                ),
+            ),
+        );
+        self.functions.insert(
+            "sajikan_berkas_statis".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::ErrorUnion(
+                    Box::new(Type::Struct("ResponsHttp".to_string())),
+                    Box::new(Type::String),
+                ),
+            ),
+        );
 
         // Standard Library: Embedded Database (BasisData)
         let mut db_fields = HashMap::new();
@@ -1277,6 +1297,17 @@ impl TypeChecker {
                                 let k_ty = self.check_expr(&args[0].value)?;
                                 self.unify(&k_ty, &Type::String, args[0].span)?;
                                 Ok(Type::Bool)
+                            }
+                            "sajikan_statis" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'sajikan_statis' membutuhkan 1 argumen (folder_dasar: Teks)").with_span(*span));
+                                }
+                                let f_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&f_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(
+                                    Box::new(Type::Struct("ResponsHttp".to_string())),
+                                    Box::new(Type::String),
+                                ))
                             }
                             other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada PermintaanHttp", other)).with_span(*span)),
                         }

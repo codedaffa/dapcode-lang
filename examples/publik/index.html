@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DapCode Web Server &mdash; Static Asset Suite</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="hero">
+            <div class="badge">🚀 DapCode v0.1.0 High-Performance Engine</div>
+            <h1>Server Aset Statis &amp; Web Framework</h1>
+            <p class="subtitle">Disajikan langsung dari disk menggunakan engine HTTP DapCode murni dengan deteksi MIME otomatis &amp; perlindungan traversal direktori.</p>
+        </header>
+
+        <section class="card-grid">
+            <div class="card">
+                <div class="card-icon">⚡</div>
+                <h3>Kecepatan Super Cepat</h3>
+                <p>Eksekusi C11 native dengan footprint memori sangat kecil dan perceus deterministic reference counting.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🛡️</div>
+                <h3>Keamanan Traversal</h3>
+                <p>Proteksi terhadap serangan path traversal <code>../</code> yang divalidasi langsung di tingkat parser URL &amp; filesystem.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">📦</div>
+                <h3>Deteksi MIME Cerdas</h3>
+                <p>Mendukung HTML, CSS, JavaScript, JSON, SVG, PNG, WebP, PDF, Font WOFF2, dan berbagai format modern secara instan.</p>
+            </div>
+        </section>
+
+        <section class="api-demo">
+            <h2>Uji Coba Integrasi API Dinamis</h2>
+            <div class="terminal">
+                <div class="terminal-header">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                    <span class="terminal-title">status_koneksi.sh</span>
+                </div>
+                <div class="terminal-body" id="status-box">
+                    Memuat status server...
+                </div>
+            </div>
+            <div class="actions">
+                <button id="btn-ping" class="btn primary">Ping API Dinamis</button>
+                <button id="btn-statis" class="btn secondary">Muat style.css Langsung</button>
+            </div>
+        </section>
+
+        <footer>
+            <p>&copy; 2026 DapCode Language. Dibuat dengan kecintaan untuk ekosistem rekayasa perangkat lunak Indonesia.</p>
+        </footer>
+    </div>
+    <script src="/app.js"></script>
+</body>
+</html>

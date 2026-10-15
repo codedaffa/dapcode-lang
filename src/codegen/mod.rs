@@ -153,12 +153,23 @@ impl<'a> CodeGenerator<'a> {
 #include <time.h>
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <direct.h>
+typedef int socklen_t;
 #else
 #include <pthread.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#define closesocket close
+#define SOCKET int
+#define INVALID_SOCKET -1
+#define SOCKET_ERROR -1
 #endif
 
 typedef uint64_t u64;
@@ -190,6 +201,7 @@ typedef struct {
 
 typedef struct { bool is_err; const char* err_msg; ResponsHttp ok; } DapResult_ResponsHttp;
 typedef struct { bool is_err; const char* err_msg; PermintaanHttp ok; } DapResult_PermintaanHttp;
+typedef ResponsHttp (*dap_http_handler_t)(PermintaanHttp);
 
 // Embedded BasisData
 typedef struct {
@@ -900,6 +912,141 @@ static inline ResponsHttp dap_respons_cors(ResponsHttp r) {
     return r;
 }
 
+static inline DapResult_u64 dap_buat_server_http(u64 port, dap_http_handler_t handler, u64 max_req) {
+    DapResult_u64 res;
+    res.is_err = false;
+    res.err_msg = NULL;
+    res.ok = 0;
+
+    if (!handler) {
+        res.is_err = true;
+        res.err_msg = "Fungsi penangan (handler) HTTP tidak ditemukan";
+        return res;
+    }
+
+#ifdef _WIN32
+    WSADATA wsa;
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        res.is_err = true;
+        res.err_msg = "Gagal inisialisasi Winsock";
+        return res;
+    }
+#endif
+
+    SOCKET server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd == INVALID_SOCKET) {
+        res.is_err = true;
+        res.err_msg = "Gagal membuat socket TCP";
+        return res;
+    }
+
+    int opt = 1;
+#ifdef _WIN32
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+#else
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+#endif
+
+    struct sockaddr_in address;
+    memset(&address, 0, sizeof(address));
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons((uint16_t)port);
+
+    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) == SOCKET_ERROR) {
+        closesocket(server_fd);
+        res.is_err = true;
+        res.err_msg = "Gagal bind port server HTTP (mungkin port sedang digunakan)";
+        return res;
+    }
+
+    if (listen(server_fd, 64) == SOCKET_ERROR) {
+        closesocket(server_fd);
+        res.is_err = true;
+        res.err_msg = "Gagal listen pada socket HTTP";
+        return res;
+    }
+
+    u64 count = 0;
+    while (max_req == 0 || count < max_req) {
+        struct sockaddr_in client_addr;
+        socklen_t addrlen = sizeof(client_addr);
+        SOCKET client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &addrlen);
+        if (client_fd == INVALID_SOCKET) {
+            break;
+        }
+
+        char buffer[8192];
+        memset(buffer, 0, sizeof(buffer));
+        int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+        if (bytes_read > 0) {
+            char metode[32] = "GET";
+            char target[1024] = "/";
+            sscanf(buffer, "%31s %1023s", metode, target);
+
+            char jalur[1024];
+            char kueri[1024] = "";
+            char* qmark = strchr(target, '?');
+            if (qmark) {
+                size_t path_len = (size_t)(qmark - target);
+                if (path_len >= sizeof(jalur)) path_len = sizeof(jalur) - 1;
+                strncpy(jalur, target, path_len);
+                jalur[path_len] = '\0';
+                strncpy(kueri, qmark + 1, sizeof(kueri) - 1);
+                kueri[sizeof(kueri) - 1] = '\0';
+            } else {
+                strncpy(jalur, target, sizeof(jalur) - 1);
+                jalur[sizeof(jalur) - 1] = '\0';
+            }
+
+            const char* body_start = strstr(buffer, "\r\n\r\n");
+            const char* req_body = body_start ? (body_start + 4) : "";
+
+            PermintaanHttp req;
+            req.metode = metode;
+            req.jalur = jalur;
+            req.kueri = kueri;
+            req.isi = (Teks)req_body;
+
+            ResponsHttp resp = handler(req);
+
+            const char* status_text = "OK";
+            if (resp.status == 404) status_text = "Not Found";
+            else if (resp.status == 400) status_text = "Bad Request";
+            else if (resp.status == 403) status_text = "Forbidden";
+            else if (resp.status == 500) status_text = "Internal Server Error";
+            else if (resp.status == 201) status_text = "Created";
+
+            size_t body_len = resp.konten ? strlen(resp.konten) : 0;
+            char header_buf[4096];
+            snprintf(header_buf, sizeof(header_buf),
+                "HTTP/1.1 %llu %s\r\n"
+                "Content-Type: %s\r\n"
+                "Content-Length: %zu\r\n"
+                "%s"
+                "Connection: close\r\n\r\n",
+                (unsigned long long)resp.status, status_text,
+                resp.tipe_konten ? resp.tipe_konten : "text/plain",
+                body_len,
+                resp.header ? resp.header : "");
+
+            send(client_fd, header_buf, (int)strlen(header_buf), 0);
+            if (body_len > 0) {
+                send(client_fd, resp.konten, (int)body_len, 0);
+            }
+        }
+        closesocket(client_fd);
+        count++;
+    }
+
+    closesocket(server_fd);
+#ifdef _WIN32
+    WSACleanup();
+#endif
+    res.ok = count;
+    return res;
+}
+
 // Router Pattern Matching & Query Parser C11 implementation
 static inline bool dap_cocok_rute(const char* pola, const char* jalur) {
     if (!pola || !jalur) return false;
@@ -1061,6 +1208,89 @@ static inline DapResult_Teks dap_ambil_kueri_param(const char* kueri, const char
 static inline bool dap_ada_kueri_param(const char* kueri, const char* kunci) {
     DapResult_Teks r = dap_ambil_kueri_param(kueri, kunci);
     return !r.is_err;
+}
+
+// Static Files & MIME Detection C11 Helpers
+static inline const char* dap_deteksi_tipe_mime(const char* jalur) {
+    if (!jalur) return "application/octet-stream";
+    const char* dot = strrchr(jalur, '.');
+    if (!dot) return "application/octet-stream";
+    if (strcmp(dot, ".html") == 0 || strcmp(dot, ".htm") == 0) return "text/html; charset=utf-8";
+    if (strcmp(dot, ".css") == 0) return "text/css; charset=utf-8";
+    if (strcmp(dot, ".js") == 0 || strcmp(dot, ".mjs") == 0) return "application/javascript; charset=utf-8";
+    if (strcmp(dot, ".json") == 0) return "application/json; charset=utf-8";
+    if (strcmp(dot, ".svg") == 0) return "image/svg+xml";
+    if (strcmp(dot, ".png") == 0) return "image/png";
+    if (strcmp(dot, ".jpg") == 0 || strcmp(dot, ".jpeg") == 0) return "image/jpeg";
+    if (strcmp(dot, ".gif") == 0) return "image/gif";
+    if (strcmp(dot, ".webp") == 0) return "image/webp";
+    if (strcmp(dot, ".ico") == 0) return "image/x-icon";
+    if (strcmp(dot, ".txt") == 0) return "text/plain; charset=utf-8";
+    if (strcmp(dot, ".md") == 0) return "text/markdown; charset=utf-8";
+    if (strcmp(dot, ".wasm") == 0) return "application/wasm";
+    if (strcmp(dot, ".xml") == 0) return "application/xml; charset=utf-8";
+    if (strcmp(dot, ".pdf") == 0) return "application/pdf";
+    return "application/octet-stream";
+}
+
+static inline DapResult_ResponsHttp dap_respons_berkas(const char* jalur_berkas) {
+    DapResult_ResponsHttp res;
+    if (!jalur_berkas) {
+        res.is_err = true;
+        res.err_msg = "Jalur berkas tidak boleh kosong";
+        res.ok = dap_kirim_respons_http(404, "text/plain", "");
+        return res;
+    }
+    FILE* f = fopen(jalur_berkas, "rb");
+    if (!f) {
+        res.is_err = true;
+        res.err_msg = "Berkas tidak ditemukan";
+        res.ok = dap_kirim_respons_http(404, "text/plain", "Berkas tidak ditemukan");
+        return res;
+    }
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char* buf = (char*)malloc(sz + 1);
+    if (!buf) {
+        fclose(f);
+        res.is_err = true;
+        res.err_msg = "Alokasi memori gagal";
+        res.ok = dap_kirim_respons_http(500, "text/plain", "Alokasi memori gagal");
+        return res;
+    }
+    size_t read_bytes = fread(buf, 1, sz, f);
+    buf[read_bytes] = '\0';
+    fclose(f);
+
+    const char* mime = dap_deteksi_tipe_mime(jalur_berkas);
+    res.is_err = false;
+    res.err_msg = NULL;
+    res.ok = dap_kirim_respons_http(200, mime, buf);
+    return res;
+}
+
+static inline DapResult_ResponsHttp dap_sajikan_berkas_statis(const char* folder_dasar, const char* jalur) {
+    DapResult_ResponsHttp res;
+    if (!folder_dasar || !jalur) {
+        res.is_err = true;
+        res.err_msg = "Parameter tidak valid";
+        res.ok = dap_kirim_respons_http(400, "text/plain", "Parameter tidak valid");
+        return res;
+    }
+    if (strstr(jalur, "..")) {
+        res.is_err = true;
+        res.err_msg = "Akses jalur ditolak";
+        res.ok = dap_kirim_respons_http(403, "text/plain", "Akses jalur ditolak");
+        return res;
+    }
+    const char* rel = jalur;
+    while (*rel == '/') rel++;
+    if (*rel == '\0') rel = "index.html";
+
+    char path_buf[512];
+    snprintf(path_buf, sizeof(path_buf), "%s/%s", folder_dasar, rel);
+    return dap_respons_berkas(path_buf);
 }
 
 // Embedded BasisData C11 Runtime Functions
@@ -1654,6 +1884,20 @@ static inline char* dap_md5(const char* input) {
                         let arg_str = self.emit_expr(&args[0].value);
                         return format!("dap_tunggu({})", arg_str);
                     }
+                    if name == "buat_server_http" && args.len() >= 2 {
+                        let port_str = self.emit_expr(&args[0].value);
+                        let handler_fn = if let Expr::Lit(Literal::String(h), _) = &args[1].value {
+                            format!("(dap_http_handler_t)dap_{}", h)
+                        } else {
+                            format!("(dap_http_handler_t){}", self.emit_expr(&args[1].value))
+                        };
+                        let max_str = if args.len() > 2 {
+                            self.emit_expr(&args[2].value)
+                        } else {
+                            "0".to_string()
+                        };
+                        return format!("dap_buat_server_http({}, {}, {})", port_str, handler_fn, max_str);
+                    }
                     if name == "Daftar" {
                         if args.is_empty() {
                             return "dap_Daftar_baru()".to_string();
@@ -1746,6 +1990,10 @@ static inline char* dap_md5(const char* input) {
                 }
                 if method == "cors" && args.is_empty() {
                     return format!("dap_respons_cors({})", rec_str);
+                }
+                if method == "sajikan_statis" && args.len() == 1 {
+                    let f = self.emit_expr(&args[0].value);
+                    return format!("dap_sajikan_berkas_statis({}, {}.jalur)", f, rec_str);
                 }
                 if method == "ambil" {
                     let arg_str = if !args.is_empty() { self.emit_expr(&args[0].value) } else { "0".to_string() };
@@ -1902,14 +2150,17 @@ static inline char* dap_md5(const char* input) {
         };
 
         // Call GCC / Clang with C11 standard and math library
-        let output = Command::new(&c_compiler)
-            .arg("-std=c11")
+        let mut cmd = Command::new(&c_compiler);
+        cmd.arg("-std=c11")
             .arg("-O2")
             .arg(&c_file)
             .arg("-o")
             .arg(output_exe)
-            .arg("-lm")
-            .output();
+            .arg("-lm");
+        if cfg!(windows) {
+            cmd.arg("-lws2_32");
+        }
+        let output = cmd.output();
 
         match output {
             Ok(res) if res.status.success() => Ok(()),

@@ -366,5 +366,32 @@
             "respons_cors(${1:respons_json(\"${2:{\\\"status\\\": \\\"sukses\\\"}}\")})"
         ],
         "description": "Menambahkan header CORS ke respons HTTP"
+    },
+    "Respons Berkas": {
+        "prefix": "respons_berkas",
+        "body": [
+            "respons_berkas(\"${1:jalur_berkas}\") ? tangkap err {",
+            "\tkirim_respons_http(404, \"text/plain\", \"Berkas tidak ditemukan: {err}\")",
+            "}"
+        ],
+        "description": "Membaca berkas dan menghasilkan respons HTTP dengan MIME otomatis"
+    },
+    "Sajikan Berkas Statis": {
+        "prefix": "sajikan_berkas_statis",
+        "body": [
+            "sajikan_berkas_statis(\"${1:folder_publik}\", ${2:req}.jalur) ? tangkap err {",
+            "\tkirim_respons_http(404, \"text/plain\", \"Aset statis tidak ditemukan\")",
+            "}"
+        ],
+        "description": "Menyajikan aset statis dari direktori publik secara aman dengan MIME detection"
+    },
+    "Permintaan Sajikan Statis": {
+        "prefix": "req.sajikan_statis",
+        "body": [
+            "${1:req}.sajikan_statis(\"${2:publik}\") ? tangkap err {",
+            "\tkirim_respons_http(404, \"text/plain\", \"404 Tidak Ditemukan\")",
+            "}"
+        ],
+        "description": "Metode permintaan HTTP untuk menyajikan berkas statis dari folder"
     }
 }

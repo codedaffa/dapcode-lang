@@ -270,6 +270,7 @@ pub struct HttpServerResponse {
     pub status: u64,
     pub content_type: String,
     pub body: String,
+    pub raw_body: Option<Vec<u8>>,
     pub headers: std::collections::HashMap<String, String>,
 }
 
@@ -279,6 +280,7 @@ impl Default for HttpServerResponse {
             status: 200,
             content_type: "text/plain; charset=utf-8".to_string(),
             body: String::new(),
+            raw_body: None,
             headers: std::collections::HashMap::new(),
         }
     }
@@ -345,7 +347,10 @@ pub fn format_http_response(resp: &HttpServerResponse) -> Vec<u8> {
         _ => "OK",
     };
 
-    let body_bytes = resp.body.as_bytes();
+    let body_bytes: &[u8] = match &resp.raw_body {
+        Some(bytes) => bytes.as_slice(),
+        None => resp.body.as_bytes(),
+    };
     let mut header = format!(
         "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nServer: DapCode-HTTP/1.0\r\n",
         resp.status, status_text, resp.content_type, body_bytes.len()
@@ -473,6 +478,102 @@ pub fn url_decode(s: &str) -> String {
     String::from_utf8_lossy(&res).to_string()
 }
 
+/// Menentukan MIME Content-Type berdasarkan ekstensi berkas
+pub fn deteksi_tipe_mime(jalur: &str) -> &'static str {
+    let ext = std::path::Path::new(jalur)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    match ext.as_str() {
+        "html" | "htm" => "text/html; charset=utf-8",
+        "css" => "text/css; charset=utf-8",
+        "js" | "mjs" => "application/javascript; charset=utf-8",
+        "json" => "application/json; charset=utf-8",
+        "svg" => "image/svg+xml",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "ico" => "image/x-icon",
+        "txt" => "text/plain; charset=utf-8",
+        "md" => "text/markdown; charset=utf-8",
+        "wasm" => "application/wasm",
+        "xml" => "application/xml; charset=utf-8",
+        "pdf" => "application/pdf",
+        "mp4" => "video/mp4",
+        "mp3" => "audio/mpeg",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+        "ttf" => "font/ttf",
+        _ => "application/octet-stream",
+    }
+}
+
+/// Membaca berkas dari disk dan menghasilkan ResponsHttp dengan Content-Type yang sesuai
+pub fn respons_berkas(jalur_berkas: &str) -> Result<HttpServerResponse, String> {
+    let p = std::path::Path::new(jalur_berkas);
+    if !p.exists() {
+        return Err(format!("Berkas tidak ditemukan: {}", jalur_berkas));
+    }
+    if !p.is_file() {
+        return Err(format!("Jalur bukan merupakan berkas: {}", jalur_berkas));
+    }
+
+    let bytes = std::fs::read(p)
+        .map_err(|e| format!("Gagal membaca berkas '{}': {}", jalur_berkas, e))?;
+    let content_type = deteksi_tipe_mime(jalur_berkas).to_string();
+
+    let is_text = content_type.starts_with("text/")
+        || content_type.contains("json")
+        || content_type.contains("javascript")
+        || content_type.contains("xml")
+        || content_type.contains("svg");
+
+    let body_str = if is_text {
+        String::from_utf8_lossy(&bytes).to_string()
+    } else {
+        String::new()
+    };
+
+    Ok(HttpServerResponse {
+        status: 200,
+        content_type,
+        body: body_str,
+        raw_body: Some(bytes),
+        headers: std::collections::HashMap::new(),
+    })
+}
+
+/// Menyajikan berkas statis dari folder publik dengan proteksi path traversal
+pub fn sajikan_berkas_statis(folder_dasar: &str, jalur_permintaan: &str) -> Result<HttpServerResponse, String> {
+    let clean_req = url_decode(jalur_permintaan.split('?').next().unwrap_or(""));
+    let req_path = clean_req.trim_start_matches('/');
+
+    let target_rel = if req_path.is_empty() || req_path == "/" {
+        "index.html"
+    } else {
+        req_path
+    };
+
+    if target_rel.contains("..") {
+        return Err("Akses jalur ditolak (upaya directory traversal terdeteksi)".to_string());
+    }
+
+    let base = std::path::Path::new(folder_dasar);
+    let full_path = base.join(target_rel);
+
+    let final_path = if full_path.is_dir() {
+        full_path.join("index.html")
+    } else {
+        full_path
+    };
+
+    let path_str = final_path.to_string_lossy().to_string();
+    respons_berkas(&path_str)
+}
+
 pub fn run_http_server<F>(
     port: u16,
     max_requests: u64,
@@ -514,6 +615,7 @@ where
                     status: 400,
                     content_type: "text/plain; charset=utf-8".to_string(),
                     body: format!("400 Bad Request: {}", err),
+                    raw_body: None,
                     headers: std::collections::HashMap::new(),
                 };
                 let _ = stream.write_all(&format_http_response(&err_resp));
@@ -527,6 +629,7 @@ where
                 status: 500,
                 content_type: "text/plain; charset=utf-8".to_string(),
                 body: format!("500 Internal Server Error: {}", err_msg),
+                raw_body: None,
                 headers: std::collections::HashMap::new(),
             },
         };
@@ -578,6 +681,7 @@ mod tests {
             status: 200,
             content_type: "application/json".to_string(),
             body: "{\"status\": \"sukses\"}".to_string(),
+            raw_body: None,
             headers,
         };
         let formatted = format_http_response(&resp);
@@ -617,6 +721,29 @@ mod tests {
         assert!(ada_kueri_param(q, "halaman"));
         assert!(ada_kueri_param(q, "aktif"));
         assert!(!ada_kueri_param(q, "tidak_ada"));
+    }
+
+    #[test]
+    fn test_mime_detection_and_static_files() {
+        assert_eq!(deteksi_tipe_mime("index.html"), "text/html; charset=utf-8");
+        assert_eq!(deteksi_tipe_mime("style.css"), "text/css; charset=utf-8");
+        assert_eq!(deteksi_tipe_mime("app.js"), "application/javascript; charset=utf-8");
+        assert_eq!(deteksi_tipe_mime("data.json"), "application/json; charset=utf-8");
+        assert_eq!(deteksi_tipe_mime("logo.png"), "image/png");
+        assert_eq!(deteksi_tipe_mime("icon.svg"), "image/svg+xml");
+
+        let temp_dir = std::env::temp_dir().join("dapcode_mime_test");
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let html_file = temp_dir.join("index.html");
+        std::fs::write(&html_file, "<h1>Halo DapCode</h1>").unwrap();
+
+        let resp = sajikan_berkas_statis(temp_dir.to_str().unwrap(), "/").unwrap();
+        assert_eq!(resp.status, 200);
+        assert_eq!(resp.content_type, "text/html; charset=utf-8");
+        assert_eq!(resp.body, "<h1>Halo DapCode</h1>");
+
+        let traversal = sajikan_berkas_statis(temp_dir.to_str().unwrap(), "/../rahasia.txt");
+        assert!(traversal.is_err());
     }
 }
 
