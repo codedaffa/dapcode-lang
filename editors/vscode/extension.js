@@ -341,6 +341,32 @@ function activate(context) {
         })
     );
 
+    function runInTerminal(terminal, compiler, subcommand, fileArg = '', extraArgs = '') {
+        const isBash = (vscode.env.shell && /bash|sh|zsh/i.test(vscode.env.shell)) ||
+                       (terminal.name && /bash|sh|zsh/i.test(terminal.name));
+        
+        let comp = compiler;
+        let file = fileArg;
+        
+        if (isBash) {
+            comp = comp.replace(/\\/g, '/');
+            if (file) file = file.replace(/\\/g, '/');
+            const filePart = file ? ` "${file}"` : '';
+            const extraPart = extraArgs ? ` ${extraArgs}` : '';
+            terminal.sendText(`"${comp}" ${subcommand}${filePart}${extraPart}`);
+        } else {
+            const isCmd = (vscode.env.shell && /cmd\.exe/i.test(vscode.env.shell)) || 
+                          (terminal.name && /cmd/i.test(terminal.name));
+            const filePart = file ? ` "${file}"` : '';
+            const extraPart = extraArgs ? ` ${extraArgs}` : '';
+            if (isCmd) {
+                terminal.sendText(`"${comp}" ${subcommand}${filePart}${extraPart}`);
+            } else {
+                terminal.sendText(`& "${comp}" ${subcommand}${filePart}${extraPart}`);
+            }
+        }
+    }
+
     // Commands
     context.subscriptions.push(
         vscode.commands.registerCommand('dapcode.run', () => {
@@ -353,7 +379,7 @@ function activate(context) {
             const compiler = findCompilerPath();
             const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode');
             terminal.show();
-            terminal.sendText(`& "${compiler}" run "${filePath}"`);
+            runInTerminal(terminal, compiler, 'run', filePath);
         })
     );
 
@@ -364,10 +390,9 @@ function activate(context) {
             const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode');
             terminal.show();
             if (editor && editor.document.languageId === 'dapcode') {
-                const filePath = editor.document.fileName;
-                terminal.sendText(`& "${compiler}" test "${filePath}"`);
+                runInTerminal(terminal, compiler, 'test', editor.document.fileName);
             } else {
-                terminal.sendText(`& "${compiler}" test`);
+                runInTerminal(terminal, compiler, 'test');
             }
         })
     );
@@ -377,7 +402,7 @@ function activate(context) {
             const compiler = findCompilerPath();
             const terminal = vscode.window.createTerminal('DapCode REPL');
             terminal.show();
-            terminal.sendText(`& "${compiler}" repl`);
+            runInTerminal(terminal, compiler, 'repl');
         })
     );
 
@@ -388,10 +413,9 @@ function activate(context) {
             terminal.show();
             const editor = vscode.window.activeTextEditor;
             if (editor && editor.document.languageId === 'dapcode') {
-                const filePath = editor.document.fileName;
-                terminal.sendText(`& "${compiler}" doc "${filePath}" --open`);
+                runInTerminal(terminal, compiler, 'doc', editor.document.fileName, '--open');
             } else {
-                terminal.sendText(`& "${compiler}" doc --open`);
+                runInTerminal(terminal, compiler, 'doc', '', '--open');
             }
         })
     );
@@ -407,7 +431,7 @@ function activate(context) {
             const compiler = findCompilerPath();
             const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode');
             terminal.show();
-            terminal.sendText(`& "${compiler}" check "${filePath}"`);
+            runInTerminal(terminal, compiler, 'check', filePath);
         })
     );
 
@@ -422,7 +446,7 @@ function activate(context) {
             const compiler = findCompilerPath();
             const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode');
             terminal.show();
-            terminal.sendText(`& "${compiler}" build "${filePath}"`);
+            runInTerminal(terminal, compiler, 'build', filePath);
         })
     );
 
