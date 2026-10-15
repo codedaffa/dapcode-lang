@@ -6,12 +6,12 @@ fungsi tangani_permintaan(req: PermintaanHttp) -> ResponsHttp {
 
     // Rute 1: API Status Layanan
     jika req.jalur == "/api/status" {
-        kembali respons_json("{\"layanan\":\"DapCode Microservice\",\"status\":\"aktif\",\"versi\":\"1.0.0\"}")
+        kembali respons_json("\{\"layanan\":\"DapCode Microservice\",\"status\":\"aktif\",\"versi\":\"1.0.0\"\}")
     }
 
     // Rute 2: API Data Produk (REST JSON)
     jika req.jalur == "/api/produk" {
-        kembali respons_json("{\"id\":101,\"nama\":\"Kopi Robusta DapCode\",\"harga\":25000,\"stok\":50}")
+        kembali respons_json("\{\"id\":101,\"nama\":\"Kopi Robusta DapCode\",\"harga\":25000,\"stok\":50\}")
     }
 
     // Rute 3: Endpoint Teks Sederhana
