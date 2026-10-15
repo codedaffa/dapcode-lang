@@ -9,7 +9,9 @@ use crate::fmt::Formatter;
 use crate::ir::IRBuilder;
 use crate::lexer::Lexer;
 use crate::lsp::LspServer;
-use crate::modules::{DependencyLocation, Lockfile, ModuleLoader, ProjectManifest};
+use crate::modules::{
+    copy_dir_all, fetch_git_dependency, DependencyLocation, Lockfile, ModuleLoader, ProjectManifest,
+};
 use crate::ownership::OwnershipAnalyzer;
 use crate::parser::{Parser, Precedence};
 use crate::span::SourceMap;
@@ -113,6 +115,12 @@ pub enum Commands {
     Update,
     /// Menampilkan diagram pohon dependensi proyek
     Tree,
+    /// Menyimpan semua dependensi secara lokal ke folder 'vendor/' (offline vendoring)
+    Vendor {
+        /// Direktori target vendor (default: "vendor")
+        #[arg(short, long, default_value = "vendor")]
+        target: PathBuf,
+    },
     /// Subperintah manajer paket DapCode (dappkg)
     #[command(subcommand)]
     Pkg(PkgCommands),
@@ -188,6 +196,12 @@ pub enum PkgCommands {
     Tree,
     /// Memverifikasi integritas hash SHA-256 semua dependensi terhadap DapCode.lock
     Check,
+    /// Menyimpan semua dependensi secara lokal ke direktori 'vendor/' untuk kompilasi offline
+    Vendor {
+        /// Direktori target vendor (default: "vendor")
+        #[arg(short, long, default_value = "vendor")]
+        target: PathBuf,
+    },
 }
 
 pub fn run_cli() -> io::Result<()> {
@@ -219,6 +233,7 @@ pub fn run_cli() -> io::Result<()> {
         Commands::Install => cmd_install(),
         Commands::Update => cmd_update(),
         Commands::Tree => cmd_tree(),
+        Commands::Vendor { target } => cmd_vendor(Some(target)),
         Commands::Pkg(pkg_cmd) => handle_pkg_cmd(pkg_cmd),
         Commands::Remove { name } => cmd_remove(&name),
         Commands::Test { file, filter } => cmd_test(file.as_deref(), filter.as_deref()),
@@ -981,12 +996,26 @@ pub fn cmd_add_in(
         }
     };
 
-    let loc = if let Some(p) = path {
-        DependencyLocation::Path(p)
+    let (real_name, loc) = if let Some(p) = path {
+        (name.to_string(), DependencyLocation::Path(p))
     } else if let Some(g) = git {
-        DependencyLocation::Git(g)
+        (name.to_string(), DependencyLocation::Git(g))
     } else if let Some(v) = version {
-        DependencyLocation::Version(v)
+        (name.to_string(), DependencyLocation::Version(v))
+    } else if name.starts_with("https://")
+        || name.starts_with("http://")
+        || name.starts_with("git@")
+        || name.starts_with("git://")
+        || name.ends_with(".git")
+    {
+        let clean = name.trim_end_matches(['/', '\\']);
+        let clean = clean.strip_suffix(".git").unwrap_or(clean);
+        let derived = clean
+            .rsplit(['/', '\\', ':'])
+            .next()
+            .unwrap_or(name)
+            .to_string();
+        (derived, DependencyLocation::Git(name.to_string()))
     } else {
         let p = PathBuf::from(name);
         if p.exists() && p.is_dir() {
@@ -995,18 +1024,39 @@ pub fn cmd_add_in(
                 .and_then(|n| n.to_str())
                 .unwrap_or(name)
                 .to_string();
-            manifest.add_dependency(&pkg_name, DependencyLocation::Path(p));
-            manifest.save_to_file(&manifest_path)?;
-            println!(
-                "{} Berhasil menambahkan dependensi lokal '{}' ke {}",
-                "sukses:".green().bold(),
-                pkg_name.cyan(),
-                ProjectManifest::MANIFEST_FILENAME.bold()
-            );
-            return Ok(());
+            (pkg_name, DependencyLocation::Path(p))
+        } else {
+            (name.to_string(), DependencyLocation::Version("0.1.0".to_string()))
         }
-        DependencyLocation::Version("0.1.0".to_string())
     };
+
+    let manifest_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+
+    // Jika dependensi Git, otomatis unduh/kloning ke cache lokal
+    if let DependencyLocation::Git(ref g_url) = loc {
+        let cache_dir = manifest_dir.join(".dapcode").join("dependensi").join(&real_name);
+        println!(
+            "{} Mengunduh repositori Git '{}'...",
+            "info:".blue().bold(),
+            g_url.cyan()
+        );
+        match fetch_git_dependency(g_url, &cache_dir) {
+            Ok(_) => {
+                println!(
+                    "  {} Berhasil mengkloning ke '{}'",
+                    "v".green().bold(),
+                    cache_dir.display()
+                );
+            }
+            Err(e) => {
+                println!(
+                    "  {} Peringatan pengunduhan git: {}",
+                    "!".yellow().bold(),
+                    e
+                );
+            }
+        }
+    }
 
     let loc_desc = match &loc {
         DependencyLocation::Path(p) => format!("jalur = \"{}\"", p.display()),
@@ -1014,10 +1064,9 @@ pub fn cmd_add_in(
         DependencyLocation::Version(v) => format!("versi = \"{}\"", v),
     };
 
-    manifest.add_dependency(name, loc);
+    manifest.add_dependency(&real_name, loc);
     manifest.save_to_file(&manifest_path)?;
 
-    let manifest_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
     let lockfile_path = manifest_dir.join(Lockfile::LOCKFILE_FILENAME);
     if let Ok(lock) = Lockfile::generate_or_update(&manifest, manifest_dir) {
         let _ = lock.save_to_file(&lockfile_path);
@@ -1026,7 +1075,7 @@ pub fn cmd_add_in(
     println!(
         "{} Berhasil menambahkan dependensi '{}' ({}) ke {}",
         "sukses:".green().bold(),
-        name.cyan(),
+        real_name.cyan(),
         loc_desc,
         ProjectManifest::MANIFEST_FILENAME.bold()
     );
@@ -1120,6 +1169,19 @@ pub fn cmd_install_in(dir: &Path) -> io::Result<()> {
 
     let mut installed_count = 0;
     for (name, loc) in &manifest.dependensi {
+        // Cek jika sudah di-vendor di vendor/<name>
+        let vendor_dir = manifest_dir.join("vendor").join(name);
+        if vendor_dir.exists() && vendor_dir.is_dir() {
+            println!(
+                "  {} [vendor] {} -> {}",
+                "v".green().bold(),
+                name.bold(),
+                vendor_dir.display()
+            );
+            installed_count += 1;
+            continue;
+        }
+
         match loc {
             DependencyLocation::Path(p) => {
                 let abs_p = if p.is_absolute() {
@@ -1146,23 +1208,48 @@ pub fn cmd_install_in(dir: &Path) -> io::Result<()> {
             }
             DependencyLocation::Git(url) => {
                 let cache_dir = manifest_dir.join(".dapcode").join("dependensi").join(name);
-                if cache_dir.exists() {
+                if cache_dir.exists() && cache_dir.read_dir().map(|mut d| d.next().is_some()).unwrap_or(false) {
+                    let mut ver = "git-latest".to_string();
+                    let dep_manifest = cache_dir.join(ProjectManifest::MANIFEST_FILENAME);
+                    if let Ok(m) = ProjectManifest::from_file(&dep_manifest) {
+                        ver = format!("v{}", m.versi);
+                    }
                     println!(
-                        "  {} [git] {} (terpasang dari {})",
+                        "  {} [git] {} {} (terpasang di {})",
                         "v".green().bold(),
                         name.bold(),
-                        url
-                    );
-                } else {
-                    let _ = fs::create_dir_all(&cache_dir);
-                    println!(
-                        "  {} [git] {} (siap di {})",
-                        "v".green().bold(),
-                        name.bold(),
+                        ver.cyan(),
                         cache_dir.display()
                     );
+                    installed_count += 1;
+                } else {
+                    match fetch_git_dependency(url, &cache_dir) {
+                        Ok(_) => {
+                            let mut ver = "git-latest".to_string();
+                            let dep_manifest = cache_dir.join(ProjectManifest::MANIFEST_FILENAME);
+                            if let Ok(m) = ProjectManifest::from_file(&dep_manifest) {
+                                ver = format!("v{}", m.versi);
+                            }
+                            println!(
+                                "  {} [git] {} {} (berhasil dikloning dari {})",
+                                "v".green().bold(),
+                                name.bold(),
+                                ver.cyan(),
+                                url
+                            );
+                            installed_count += 1;
+                        }
+                        Err(e) => {
+                            println!(
+                                "  {} [git] {} (peringatan unduhan: {})",
+                                "!".yellow().bold(),
+                                name.bold(),
+                                e
+                            );
+                            installed_count += 1;
+                        }
+                    }
                 }
-                installed_count += 1;
             }
             DependencyLocation::Version(ver) => {
                 let cache_dir = manifest_dir.join(".dapcode").join("dependensi").join(name);
@@ -1252,6 +1339,30 @@ pub fn cmd_update_in(dir: &Path) -> io::Result<()> {
         manifest.nama.cyan()
     );
 
+    for (name, loc) in &manifest.dependensi {
+        if let DependencyLocation::Git(url) = loc {
+            let cache_dir = manifest_dir.join(".dapcode").join("dependensi").join(name);
+            match fetch_git_dependency(url, &cache_dir) {
+                Ok(_) => {
+                    println!(
+                        "  {} [git] {} berhasil diperbarui dari {}",
+                        "v".green().bold(),
+                        name.bold(),
+                        url
+                    );
+                }
+                Err(e) => {
+                    println!(
+                        "  {} [git] {} (peringatan update: {})",
+                        "!".yellow().bold(),
+                        name.bold(),
+                        e
+                    );
+                }
+            }
+        }
+    }
+
     let lockfile = Lockfile::generate_or_update(&manifest, manifest_dir).map_err(|e| {
         io::Error::new(io::ErrorKind::Other, e.to_string())
     })?;
@@ -1264,6 +1375,106 @@ pub fn cmd_update_in(dir: &Path) -> io::Result<()> {
         "sukses:".green().bold(),
         Lockfile::LOCKFILE_FILENAME.bold(),
         lockfile.paket.len()
+    );
+
+    Ok(())
+}
+
+pub fn cmd_vendor(target: Option<PathBuf>) -> io::Result<()> {
+    let current_dir = std::env::current_dir()?;
+    let t = target.unwrap_or_else(|| PathBuf::from("vendor"));
+    cmd_vendor_in(&current_dir, &t)
+}
+
+pub fn cmd_vendor_in(dir: &Path, target: &Path) -> io::Result<()> {
+    let (manifest_path, manifest) = match ProjectManifest::find_upwards(dir) {
+        Some(m) => m,
+        None => {
+            eprintln!(
+                "{}: Tidak dapat menemukan '{}' di direktori saat ini atau induk.",
+                "kesalahan".red().bold(),
+                ProjectManifest::MANIFEST_FILENAME
+            );
+            return Err(io::Error::new(io::ErrorKind::NotFound, "DapCode.toml tidak ditemukan"));
+        }
+    };
+
+    let manifest_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+    let vendor_dir = if target.is_absolute() {
+        target.to_path_buf()
+    } else {
+        manifest_dir.join(target)
+    };
+
+    fs::create_dir_all(&vendor_dir)?;
+    println!(
+        "{} Melakukan vendor dependensi ke '{}'...",
+        "info:".blue().bold(),
+        vendor_dir.display()
+    );
+
+    let mut count = 0;
+    for (name, loc) in &manifest.dependensi {
+        let dest_pkg_dir = vendor_dir.join(name);
+        match loc {
+            DependencyLocation::Path(rel_p) => {
+                let abs_p = if rel_p.is_absolute() {
+                    rel_p.clone()
+                } else {
+                    manifest_dir.join(rel_p)
+                };
+                if abs_p.exists() {
+                    copy_dir_all(&abs_p, &dest_pkg_dir)?;
+                    println!(
+                        "  {} [lokal] {} disalin ke vendor",
+                        "v".green().bold(),
+                        name.bold()
+                    );
+                    count += 1;
+                }
+            }
+            DependencyLocation::Git(url) => {
+                let cache_dir = manifest_dir.join(".dapcode").join("dependensi").join(name);
+                if !cache_dir.exists() {
+                    let _ = fetch_git_dependency(url, &cache_dir);
+                }
+                if cache_dir.exists() {
+                    copy_dir_all(&cache_dir, &dest_pkg_dir)?;
+                    println!(
+                        "  {} [git] {} disalin ke vendor",
+                        "v".green().bold(),
+                        name.bold()
+                    );
+                    count += 1;
+                }
+            }
+            DependencyLocation::Version(_) => {
+                let cache_dir = manifest_dir.join(".dapcode").join("dependensi").join(name);
+                if cache_dir.exists() {
+                    copy_dir_all(&cache_dir, &dest_pkg_dir)?;
+                    println!(
+                        "  {} [versi] {} disalin ke vendor",
+                        "v".green().bold(),
+                        name.bold()
+                    );
+                    count += 1;
+                }
+            }
+        }
+    }
+
+    let lockfile = Lockfile::generate_or_update(&manifest, manifest_dir).map_err(|e| {
+        io::Error::new(io::ErrorKind::Other, e.to_string())
+    })?;
+
+    let lockfile_path = manifest_dir.join(Lockfile::LOCKFILE_FILENAME);
+    lockfile.save_to_file(&lockfile_path)?;
+
+    println!(
+        "{} Berhasil mem-vendor {} dependensi ke '{}'. Proyek kini siap dikompilasi secara offline!",
+        "sukses:".green().bold(),
+        count,
+        vendor_dir.display()
     );
 
     Ok(())
@@ -1418,6 +1629,7 @@ pub fn handle_pkg_cmd(cmd: PkgCommands) -> io::Result<()> {
         PkgCommands::Update => cmd_update(),
         PkgCommands::Tree => cmd_tree(),
         PkgCommands::Check => cmd_pkg_check(),
+        PkgCommands::Vendor { target } => cmd_vendor(Some(target)),
     }
 }
 

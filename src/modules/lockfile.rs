@@ -145,9 +145,38 @@ impl Lockfile {
     }
 
     pub fn compute_package_hash(
+        name: &str,
         loc: &DependencyLocation,
         manifest_dir: &Path,
     ) -> Result<(String, String)> {
+        // 1. Prioritaskan jika paket telah di-vendor di folder vendor/<nama>
+        let vendor_dir = manifest_dir.join("vendor").join(name);
+        if vendor_dir.exists() && vendor_dir.is_dir() {
+            let mut pkg_version = "0.1.0".to_string();
+            let pkg_manifest = vendor_dir.join(ProjectManifest::MANIFEST_FILENAME);
+            if pkg_manifest.exists() {
+                if let Ok(m) = ProjectManifest::from_file(&pkg_manifest) {
+                    pkg_version = m.versi;
+                }
+            }
+
+            let mut files = Vec::new();
+            Self::collect_package_files(&vendor_dir, &vendor_dir, &mut files)?;
+            files.sort_by(|a, b| a.0.cmp(&b.0));
+
+            let mut hash_payload = format!("vendor:{}\n", name);
+            for (rel_file, content) in files {
+                hash_payload.push_str(&rel_file);
+                hash_payload.push(':');
+                hash_payload.push_str(&content);
+                hash_payload.push('\n');
+            }
+
+            let hash = crypto::sha256(&hash_payload);
+            return Ok((hash, pkg_version));
+        }
+
+        // 2. Evaluasi berdasarkan tipe lokasi dependensi
         match loc {
             DependencyLocation::Path(rel_p) => {
                 let abs_p = if rel_p.is_absolute() {
@@ -193,29 +222,60 @@ impl Lockfile {
                 Ok((hash, pkg_version))
             }
             DependencyLocation::Git(url) => {
-                let cache_dir = manifest_dir.join(".dapcode").join("dependensi");
-                let mut hash_payload = format!("git:{}", url);
+                let cache_dir = manifest_dir.join(".dapcode").join("dependensi").join(name);
+                let mut pkg_version = "git-latest".to_string();
 
-                // Jika ada cache lokal dari repo git
-                if cache_dir.exists() {
+                if cache_dir.exists() && cache_dir.is_dir() {
+                    let pkg_manifest = cache_dir.join(ProjectManifest::MANIFEST_FILENAME);
+                    if pkg_manifest.exists() {
+                        if let Ok(m) = ProjectManifest::from_file(&pkg_manifest) {
+                            pkg_version = m.versi;
+                        }
+                    }
+
                     let mut files = Vec::new();
                     let _ = Self::collect_package_files(&cache_dir, &cache_dir, &mut files);
                     files.sort_by(|a, b| a.0.cmp(&b.0));
+
+                    let mut hash_payload = format!("git:{}\n", url);
                     for (rel_file, content) in files {
                         hash_payload.push_str(&rel_file);
                         hash_payload.push(':');
                         hash_payload.push_str(&content);
                         hash_payload.push('\n');
                     }
+                    if hash_payload == format!("git:{}\n", url) {
+                        hash_payload = format!("git:{}", url);
+                    }
+                    let hash = crypto::sha256(&hash_payload);
+                    Ok((hash, pkg_version))
+                } else {
+                    let hash_payload = format!("git:{}", url);
+                    let hash = crypto::sha256(&hash_payload);
+                    Ok((hash, pkg_version))
                 }
-
-                let hash = crypto::sha256(&hash_payload);
-                Ok((hash, "git-latest".to_string()))
             }
             DependencyLocation::Version(ver) => {
-                let hash_payload = format!("registry:versi:{}", ver);
-                let hash = crypto::sha256(&hash_payload);
-                Ok((hash, ver.clone()))
+                let cache_dir = manifest_dir.join(".dapcode").join("dependensi").join(name);
+                if cache_dir.exists() && cache_dir.is_dir() {
+                    let mut files = Vec::new();
+                    let _ = Self::collect_package_files(&cache_dir, &cache_dir, &mut files);
+                    files.sort_by(|a, b| a.0.cmp(&b.0));
+
+                    let mut hash_payload = format!("versi:{}\n", ver);
+                    for (rel_file, content) in files {
+                        hash_payload.push_str(&rel_file);
+                        hash_payload.push(':');
+                        hash_payload.push_str(&content);
+                        hash_payload.push('\n');
+                    }
+                    let hash = crypto::sha256(&hash_payload);
+                    Ok((hash, ver.clone()))
+                } else {
+                    let hash_payload = format!("registry:versi:{}", ver);
+                    let hash = crypto::sha256(&hash_payload);
+                    Ok((hash, ver.clone()))
+                }
             }
         }
     }
@@ -274,7 +334,7 @@ impl Lockfile {
         let mut lockfile = Lockfile::default();
 
         for (name, loc) in &manifest.dependensi {
-            let (hash, versi) = Self::compute_package_hash(loc, manifest_dir)?;
+            let (hash, versi) = Self::compute_package_hash(name, loc, manifest_dir)?;
             let (sumber, target) = match loc {
                 DependencyLocation::Path(p) => (
                     "lokal".to_string(),
@@ -317,7 +377,7 @@ impl Lockfile {
                 }
             };
 
-            let (actual_hash, _) = Self::compute_package_hash(loc, manifest_dir)?;
+            let (actual_hash, _) = Self::compute_package_hash(name, loc, manifest_dir)?;
             let cocok = locked.hash_sha256 == actual_hash;
 
             reports.push(VerificationReport {

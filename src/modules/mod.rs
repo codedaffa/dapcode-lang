@@ -386,16 +386,21 @@ impl ModuleLoader {
             };
 
             if let Some(loc) = manifest.dependensi.get(dep_name) {
-                let pkg_dir = match loc {
-                    DependencyLocation::Path(p) => {
-                        if p.is_absolute() {
-                            p.clone()
-                        } else {
-                            manifest_dir.join(p)
+                let vendor_dir = manifest_dir.join("vendor").join(dep_name);
+                let pkg_dir = if vendor_dir.exists() && vendor_dir.is_dir() {
+                    vendor_dir
+                } else {
+                    match loc {
+                        DependencyLocation::Path(p) => {
+                            if p.is_absolute() {
+                                p.clone()
+                            } else {
+                                manifest_dir.join(p)
+                            }
                         }
-                    }
-                    DependencyLocation::Git(_) | DependencyLocation::Version(_) => {
-                        manifest_dir.join(".dapcode").join("dependensi").join(dep_name)
+                        DependencyLocation::Git(_) | DependencyLocation::Version(_) => {
+                            manifest_dir.join(".dapcode").join("dependensi").join(dep_name)
+                        }
                     }
                 };
 
@@ -467,4 +472,69 @@ impl ModuleLoader {
         ))
         .with_span(span))
     }
+}
+
+/// Mengunduh repositori Git remote ke direktori cache lokal secara otomatis
+pub fn fetch_git_dependency(url: &str, target_dir: &Path) -> std::io::Result<()> {
+    if target_dir.exists() && target_dir.is_dir() {
+        if target_dir.join(".git").exists() {
+            let _ = std::process::Command::new("git")
+                .current_dir(target_dir)
+                .args(["pull", "--ff-only"])
+                .output();
+        }
+        return Ok(());
+    }
+
+    if let Some(parent) = target_dir.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+
+    match std::process::Command::new("git")
+        .args(["clone", "--depth", "1", url, &target_dir.to_string_lossy()])
+        .output()
+    {
+        Ok(output) => {
+            if output.status.success() {
+                Ok(())
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let _ = fs::create_dir_all(target_dir);
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Git clone gagal untuk '{}': {}", url, stderr.trim()),
+                ))
+            }
+        }
+        Err(e) => {
+            let _ = fs::create_dir_all(target_dir);
+            Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Gagal mengeksekusi git (apakah git terpasang?): {}", e),
+            ))
+        }
+    }
+}
+
+/// Menyalin seluruh berkas direktori secara rekursif (mengabaikan berkas tersembunyi & build target)
+pub fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
+    if !dst.exists() {
+        fs::create_dir_all(dst)?;
+    }
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        let file_name = entry.file_name();
+        let name_str = file_name.to_string_lossy();
+        if name_str.starts_with('.') || name_str == "target" || name_str == "build" {
+            continue;
+        }
+        let dest_path = dst.join(&file_name);
+        if file_type.is_dir() {
+            copy_dir_all(&entry.path(), &dest_path)?;
+        } else {
+            fs::copy(entry.path(), dest_path)?;
+        }
+    }
+    Ok(())
 }
