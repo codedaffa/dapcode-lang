@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proyek DapCode - Dokumentasi Resmi DapCode</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0b0f19;
+            --bg-surface: #111827;
+            --bg-surface-elevated: #1f2937;
+            --border-color: #374151;
+            --primary: #38bdf8;
+            --primary-glow: rgba(56, 189, 248, 0.2);
+            --accent: #818cf8;
+            --success: #34d399;
+            --warning: #fbbf24;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --code-bg: #030712;
+            --sidebar-width: 320px;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-base);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        /* Sidebar Navigation */
+        #sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-surface);
+            border-right: 1px solid var(--border-color);
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+        .sidebar-header {
+            padding: 24px 20px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+        .brand-logo {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #0b0f19;
+            font-size: 1.1rem;
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+        .brand-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .brand-version {
+            font-size: 0.75rem;
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--primary);
+            padding: 2px 8px;
+            border-radius: 12px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            margin-left: 6px;
+        }
+        .search-box {
+            padding: 16px 20px 8px;
+        }
+        .search-input {
+            width: 100%;
+            background: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+        .nav-tree {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 14px;
+        }
+        .nav-group-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin: 16px 8px 8px;
+            font-weight: 600;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border-radius: 6px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.15s ease;
+            margin-bottom: 2px;
+        }
+        .nav-item:hover {
+            color: var(--primary);
+            background: rgba(56, 189, 248, 0.08);
+            transform: translateX(3px);
+        }
+        .item-tag {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-surface-elevated);
+        }
+        .tag-fn { color: var(--primary); }
+        .tag-struct { color: var(--accent); }
+        .tag-trait { color: var(--warning); }
+        /* Main Content */
+        #content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 48px 64px;
+            max-width: 1100px;
+        }
+        .hero {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.05), rgba(129, 140, 248, 0.08));
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 36px 40px;
+            margin-bottom: 48px;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(90deg, #f9fafb, #93c5fd);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .stats-bar {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .stat-badge {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        .stat-num {
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 48px 0 24px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .section-header h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+        /* Item Card */
+        .item-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .item-card:hover {
+            border-color: rgba(56, 189, 248, 0.4);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+        .item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .item-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.35rem;
+            font-weight: 600;
+        }
+        .code-block {
+            background: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px 18px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            color: #7dd3fc;
+            overflow-x: auto;
+            position: relative;
+            margin-bottom: 16px;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--bg-surface-elevated);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .copy-btn:hover {
+            color: var(--text-main);
+            border-color: var(--primary);
+        }
+        .item-doc {
+            color: #d1d5db;
+            line-height: 1.65;
+            margin-bottom: 16px;
+            font-size: 0.98rem;
+            white-space: pre-wrap;
+        }
+        .params-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-size: 0.9rem;
+        }
+        .params-table th, .params-table td {
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .params-table th {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+        .param-name {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--primary);
+        }
+        .param-type {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent);
+        }
+        .return-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(52, 211, 153, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(52, 211, 153, 0.25);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+        footer {
+            margin-top: 64px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <a href='#' class="brand">
+                <div class="brand-logo">D</div>
+                <div>
+                    <span class="brand-title">Proyek DapCode</span>
+                    <span class="brand-version">v0.1.0</span>
+                </div>
+            </a>
+        </div>
+        <div class="search-box">
+            <input type="text" id="search-input" class="search-input" placeholder="Cari fungsi, tipe..." oninput="filterDocs()">
+        </div>
+        <nav class="nav-tree"><div class="nav-group-title">Modul: demo</div><a href="#struct-produk" class="nav-item doc-entry" data-name="produk">
+                        <span>Produk</span>
+                        <span class="item-tag tag-struct">struct</span>
+                    </a><a href="#trait-bisadidiskon" class="nav-item doc-entry" data-name="bisadidiskon">
+                        <span>BisaDidiskon</span>
+                        <span class="item-tag tag-trait">trait</span>
+                    </a><a href="#impl-terapkan-produk" class="nav-item doc-entry" data-name="terapkan produk">
+                        <span>terapkan Produk</span>
+                        <span class="item-tag ">impl</span>
+                    </a><a href="#fn-cari_produk" class="nav-item doc-entry" data-name="cari_produk">
+                        <span>cari_produk</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: demo_uji</div><a href="#fn-kali" class="nav-item doc-entry" data-name="kali">
+                        <span>kali</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-bagi" class="nav-item doc-entry" data-name="bagi">
+                        <span>bagi</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#uji-perhitungan-perkalian-dasar" class="nav-item doc-entry" data-name="perhitungan perkalian dasar">
+                        <span>perhitungan perkalian dasar</span>
+                        <span class="item-tag ">uji</span>
+                    </a><a href="#uji-pembagian-normal-dan-error-union" class="nav-item doc-entry" data-name="pembagian normal dan error union">
+                        <span>pembagian normal dan error union</span>
+                        <span class="item-tag ">uji</span>
+                    </a><a href="#uji-validasi-string-dan-boolean" class="nav-item doc-entry" data-name="validasi string dan boolean">
+                        <span>validasi string dan boolean</span>
+                        <span class="item-tag ">uji</span>
+                    </a><div class="nav-group-title">Modul: geometri</div><a href="#struct-titik" class="nav-item doc-entry" data-name="titik">
+                        <span>Titik</span>
+                        <span class="item-tag tag-struct">struct</span>
+                    </a><a href="#struct-lingkaran" class="nav-item doc-entry" data-name="lingkaran">
+                        <span>Lingkaran</span>
+                        <span class="item-tag tag-struct">struct</span>
+                    </a><a href="#fn-buat_titik" class="nav-item doc-entry" data-name="buat_titik">
+                        <span>buat_titik</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-buat_lingkaran" class="nav-item doc-entry" data-name="buat_lingkaran">
+                        <span>buat_lingkaran</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-luas_lingkaran" class="nav-item doc-entry" data-name="luas_lingkaran">
+                        <span>luas_lingkaran</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-keliling_lingkaran" class="nav-item doc-entry" data-name="keliling_lingkaran">
+                        <span>keliling_lingkaran</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: matematika</div><a href="#fn-pangkat_tiga" class="nav-item doc-entry" data-name="pangkat_tiga">
+                        <span>pangkat_tiga</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-jumlah_deret" class="nav-item doc-entry" data-name="jumlah_deret">
+                        <span>jumlah_deret</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: utama</div><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: uji_stdlib</div><a href="#fn-demonstrasi_koleksi" class="nav-item doc-entry" data-name="demonstrasi_koleksi">
+                        <span>demonstrasi_koleksi</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demonstrasi_string_dan_matematika" class="nav-item doc-entry" data-name="demonstrasi_string_dan_matematika">
+                        <span>demonstrasi_string_dan_matematika</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demonstrasi_berkas_dan_waktu" class="nav-item doc-entry" data-name="demonstrasi_berkas_dan_waktu">
+                        <span>demonstrasi_berkas_dan_waktu</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#struct-akunpengguna" class="nav-item doc-entry" data-name="akunpengguna">
+                        <span>AkunPengguna</span>
+                        <span class="item-tag tag-struct">struct</span>
+                    </a><a href="#fn-demonstrasi_json" class="nav-item doc-entry" data-name="demonstrasi_json">
+                        <span>demonstrasi_json</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demonstrasi_jaringan" class="nav-item doc-entry" data-name="demonstrasi_jaringan">
+                        <span>demonstrasi_jaringan</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demonstrasi_lingkungan_dan_cli" class="nav-item doc-entry" data-name="demonstrasi_lingkungan_dan_cli">
+                        <span>demonstrasi_lingkungan_dan_cli</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a>        </nav>
+    </aside>
+
+    <main id="content">
+        <div class="hero">
+            <h1>Proyek DapCode</h1>
+            <p>Dokumentasi kode sumber DapCode</p>
+            <div class="stats-bar">
+                <div class="stat-badge"><span class="stat-num">6</span> Modul</div>
+                <div class="stat-badge"><span class="stat-num">18</span> Fungsi</div>
+                <div class="stat-badge"><span class="stat-num">4</span> Struktur Data</div>
+                <div class="stat-badge"><span class="stat-num">1</span> Sifat / Trait</div>
+            </div>
+        </div><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul demo</h2>
+                </div><div id="struct-produk" class="item-card doc-card" data-name="produk">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>Produk</span>
+                            </div>
+                            <span class="item-tag tag-struct">STRUCT</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>struktur Produk {
+    id: u64,
+    nama: Teks,
+    harga: f64
+}</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Bidang (Field)</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">id</td><td class="param-type">u64</td></tr><tr><td class="param-name">nama</td><td class="param-type">Teks</td></tr><tr><td class="param-name">harga</td><td class="param-type">f64</td></tr></tbody></table></div><div id="trait-bisadidiskon" class="item-card doc-card" data-name="bisadidiskon">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>BisaDidiskon</span>
+                            </div>
+                            <span class="item-tag tag-trait">TRAIT</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>sifat BisaDidiskon { ... }</code>
+                        </div></div><div id="impl-terapkan-produk" class="item-card doc-card" data-name="terapkan produk">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>terapkan Produk</span>
+                            </div>
+                            <span class="item-tag tag-impl">IMPL</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>terapkan BisaDidiskon untuk Produk</code>
+                        </div></div><div id="fn-cari_produk" class="item-card doc-card" data-name="cari_produk">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>cari_produk</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi cari_produk(id: u64) -&gt; Produk ! Teks</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">id</td><td class="param-type">u64</td></tr></tbody></table><div class="return-badge">↳ Kembalian: Produk ! Teks</div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama()</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul demo_uji</h2>
+                </div><div id="fn-kali" class="item-card doc-card" data-name="kali">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>kali</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi kali(a: bulat, b: bulat) -&gt; bulat</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">a</td><td class="param-type">bulat</td></tr><tr><td class="param-name">b</td><td class="param-type">bulat</td></tr></tbody></table><div class="return-badge">↳ Kembalian: bulat</div></div><div id="fn-bagi" class="item-card doc-card" data-name="bagi">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>bagi</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi bagi(a: bulat, b: bulat) -&gt; bulat ! teks</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">a</td><td class="param-type">bulat</td></tr><tr><td class="param-name">b</td><td class="param-type">bulat</td></tr></tbody></table><div class="return-badge">↳ Kembalian: bulat ! teks</div></div><div id="uji-perhitungan-perkalian-dasar" class="item-card doc-card" data-name="perhitungan perkalian dasar">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>perhitungan perkalian dasar</span>
+                            </div>
+                            <span class="item-tag tag-uji">UJI</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>uji &quot;perhitungan perkalian dasar&quot; { ... }</code>
+                        </div></div><div id="uji-pembagian-normal-dan-error-union" class="item-card doc-card" data-name="pembagian normal dan error union">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>pembagian normal dan error union</span>
+                            </div>
+                            <span class="item-tag tag-uji">UJI</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>uji &quot;pembagian normal dan error union&quot; { ... }</code>
+                        </div></div><div id="uji-validasi-string-dan-boolean" class="item-card doc-card" data-name="validasi string dan boolean">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>validasi string dan boolean</span>
+                            </div>
+                            <span class="item-tag tag-uji">UJI</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>uji &quot;validasi string dan boolean&quot; { ... }</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul geometri</h2>
+                </div><div id="struct-titik" class="item-card doc-card" data-name="titik">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>Titik</span>
+                            </div>
+                            <span class="item-tag tag-struct">STRUCT</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>struktur Titik {
+    x: desimal,
+    y: desimal
+}</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Bidang (Field)</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">x</td><td class="param-type">desimal</td></tr><tr><td class="param-name">y</td><td class="param-type">desimal</td></tr></tbody></table></div><div id="struct-lingkaran" class="item-card doc-card" data-name="lingkaran">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>Lingkaran</span>
+                            </div>
+                            <span class="item-tag tag-struct">STRUCT</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>struktur Lingkaran {
+    pusat: Titik,
+    radius: desimal
+}</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Bidang (Field)</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">pusat</td><td class="param-type">Titik</td></tr><tr><td class="param-name">radius</td><td class="param-type">desimal</td></tr></tbody></table></div><div id="fn-buat_titik" class="item-card doc-card" data-name="buat_titik">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>buat_titik</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi buat_titik(x: desimal, y: desimal) -&gt; Titik</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">x</td><td class="param-type">desimal</td></tr><tr><td class="param-name">y</td><td class="param-type">desimal</td></tr></tbody></table><div class="return-badge">↳ Kembalian: Titik</div></div><div id="fn-buat_lingkaran" class="item-card doc-card" data-name="buat_lingkaran">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>buat_lingkaran</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi buat_lingkaran(px: desimal, py: desimal, r: desimal) -&gt; Lingkaran</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">px</td><td class="param-type">desimal</td></tr><tr><td class="param-name">py</td><td class="param-type">desimal</td></tr><tr><td class="param-name">r</td><td class="param-type">desimal</td></tr></tbody></table><div class="return-badge">↳ Kembalian: Lingkaran</div></div><div id="fn-luas_lingkaran" class="item-card doc-card" data-name="luas_lingkaran">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>luas_lingkaran</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi luas_lingkaran(l: Lingkaran) -&gt; desimal</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">l</td><td class="param-type">Lingkaran</td></tr></tbody></table><div class="return-badge">↳ Kembalian: desimal</div></div><div id="fn-keliling_lingkaran" class="item-card doc-card" data-name="keliling_lingkaran">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>keliling_lingkaran</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi keliling_lingkaran(l: Lingkaran) -&gt; desimal</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">l</td><td class="param-type">Lingkaran</td></tr></tbody></table><div class="return-badge">↳ Kembalian: desimal</div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul matematika</h2>
+                </div><div id="fn-pangkat_tiga" class="item-card doc-card" data-name="pangkat_tiga">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>pangkat_tiga</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi pangkat_tiga(n: u64) -&gt; u64</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">n</td><td class="param-type">u64</td></tr></tbody></table><div class="return-badge">↳ Kembalian: u64</div></div><div id="fn-jumlah_deret" class="item-card doc-card" data-name="jumlah_deret">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>jumlah_deret</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi jumlah_deret() -&gt; u64</code>
+                        </div><div class="return-badge">↳ Kembalian: u64</div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul utama</h2>
+                </div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama()</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul uji_stdlib</h2>
+                </div><div id="fn-demonstrasi_koleksi" class="item-card doc-card" data-name="demonstrasi_koleksi">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demonstrasi_koleksi</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demonstrasi_koleksi()</code>
+                        </div></div><div id="fn-demonstrasi_string_dan_matematika" class="item-card doc-card" data-name="demonstrasi_string_dan_matematika">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demonstrasi_string_dan_matematika</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demonstrasi_string_dan_matematika()</code>
+                        </div></div><div id="fn-demonstrasi_berkas_dan_waktu" class="item-card doc-card" data-name="demonstrasi_berkas_dan_waktu">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demonstrasi_berkas_dan_waktu</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demonstrasi_berkas_dan_waktu()</code>
+                        </div></div><div id="struct-akunpengguna" class="item-card doc-card" data-name="akunpengguna">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>AkunPengguna</span>
+                            </div>
+                            <span class="item-tag tag-struct">STRUCT</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>struktur AkunPengguna {
+    id: u64,
+    nama: Teks,
+    saldo: f64,
+    aktif: Bool
+}</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Bidang (Field)</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">id</td><td class="param-type">u64</td></tr><tr><td class="param-name">nama</td><td class="param-type">Teks</td></tr><tr><td class="param-name">saldo</td><td class="param-type">f64</td></tr><tr><td class="param-name">aktif</td><td class="param-type">Bool</td></tr></tbody></table></div><div id="fn-demonstrasi_json" class="item-card doc-card" data-name="demonstrasi_json">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demonstrasi_json</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demonstrasi_json()</code>
+                        </div></div><div id="fn-demonstrasi_jaringan" class="item-card doc-card" data-name="demonstrasi_jaringan">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demonstrasi_jaringan</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demonstrasi_jaringan()</code>
+                        </div></div><div id="fn-demonstrasi_lingkungan_dan_cli" class="item-card doc-card" data-name="demonstrasi_lingkungan_dan_cli">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demonstrasi_lingkungan_dan_cli</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demonstrasi_lingkungan_dan_cli()</code>
+                        </div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama()</code>
+                        </div></div></section>        <footer>
+            Dokumentasi dihasilkan secara otomatis oleh <strong>dapcodec doc</strong> &bull; Kompilator Resmi DapCode
+        </footer>
+    </main>
+
+    <script>
+        function filterDocs() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const cards = document.querySelectorAll('.doc-card');
+            const navEntries = document.querySelectorAll('.doc-entry');
+
+            cards.forEach(card => {
+                const name = card.getAttribute('data-name');
+                if (!query || name.includes(query)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            navEntries.forEach(entry => {
+                const name = entry.getAttribute('data-name');
+                if (!query || name.includes(query)) {
+                    entry.style.display = 'flex';
+                } else {
+                    entry.style.display = 'none';
+                }
+            });
+        }
+
+        function copySignature(btn) {
+            const code = btn.nextElementSibling.innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const orig = btn.innerText;
+                btn.innerText = 'Disalin!';
+                btn.style.borderColor = 'var(--primary)';
+                setTimeout(() => {
+                    btn.innerText = orig;
+                    btn.style.borderColor = '';
+                }, 1800);
+            });
+        }
+    </script>
+</body>
+</html>

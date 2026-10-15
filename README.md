@@ -128,6 +128,36 @@ dapcode-lang/
 
 ---
 
+## ⚡ Instalasi Cepat (Tanpa Perlu Clone Git)
+
+DapCode dapat langsung dipasang ke sistem operasi Anda secara otomatis tanpa perlu meng-*clone* repositori Git:
+
+### 1. Di Windows (PowerShell)
+Jalankan perintah ini di PowerShell:
+```powershell
+irm https://raw.githubusercontent.com/dapcode/dapcode-lang/master/scripts/install.ps1 | iex
+```
+
+### 2. Di Linux & macOS (Terminal / Bash)
+Jalankan perintah ini di terminal:
+```bash
+curl -fsSL https://raw.githubusercontent.com/dapcode/dapcode-lang/master/scripts/install.sh | bash
+```
+
+### 3. Menggunakan Cargo Langsung (Bagi Pengguna Rust)
+```bash
+cargo install --git https://github.com/dapcode/dapcode-lang.git
+```
+
+### 4. Unduhan Biner Siap Pakai (GitHub Releases)
+Tersedia paket biner mandiri yang dapat langsung diunduh dan diekstrak dari halaman [GitHub Releases](https://github.com/dapcode/dapcode-lang/releases):
+- 🪟 **Windows x64:** `dapcodec-*-windows-x64.zip` (berisi `dapcodec.exe`)
+- 🐧 **Linux x64:** `dapcodec-*-linux-x64.tar.gz` (berisi `dapcodec`)
+- 🍏 **macOS (Apple Silicon & Intel):** `dapcodec-*-macos-arm64.tar.gz` & `dapcodec-*-macos-x64.tar.gz`
+- 🧩 **VS Code Extension:** `dapcode-lang-*.vsix`
+
+---
+
 ## 💻 Penggunaan CLI `dapcodec`
 
 ### 1. Menginisialisasi Proyek Baru (`init`)
