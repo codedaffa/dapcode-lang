@@ -1169,6 +1169,55 @@ impl Evaluator {
                             Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
                         };
                     }
+
+                    // Cryptography & Encoding Utilities
+                    if name == "sha256" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'sha256' membutuhkan 1 argumen (teks)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        let text = match val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return Ok(Value::String(crate::crypto::sha256(&text)));
+                    }
+                    if name == "md5" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'md5' membutuhkan 1 argumen (teks)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        let text = match val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return Ok(Value::String(crate::crypto::md5(&text)));
+                    }
+                    if name == "ke_base64" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'ke_base64' membutuhkan 1 argumen (teks)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        let text = match val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return Ok(Value::String(crate::crypto::ke_base64(&text)));
+                    }
+                    if name == "dari_base64" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'dari_base64' membutuhkan 1 argumen (teks)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        let text = match val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        return match crate::crypto::dari_base64(&text) {
+                            Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(res))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
                 }
 
                 // 5. Daftar Constructor: Daftar(...)

@@ -370,6 +370,10 @@ impl LspServer {
             "pastikan" => Some("### `fungsi pastikan(kondisi: Bool) -> Unit`\\n\\n**Asersi Pengujian DapCode**\\n\\nMemastikan kondisi bernilai `benar`. Melempar kegagalan pengujian jika kondisi bernilai `salah`.".to_string()),
             "pastikan_sama" => Some("### `fungsi pastikan_sama(sebenarnya: T, diharapkan: T) -> Unit`\\n\\n**Asersi Pengujian DapCode**\\n\\nMemastikan kedua nilai bernilai sama persis. Menampilkan rincian perbedaan jika asersi gagal.".to_string()),
             "pastikan_tidak_sama" => Some("### `fungsi pastikan_tidak_sama(a: T, b: T) -> Unit`\\n\\n**Asersi Pengujian DapCode**\\n\\nMemastikan kedua nilai tidak bernilai sama.".to_string()),
+            "sha256" => Some("### `fungsi sha256(teks: Teks) -> Teks`\\n\\n**Pustaka Standar DapCode - Kriptografi**\\n\\nMenghitung nilai cryptographic hash SHA-256 (FIPS 180-4) dalam format heksadesimal 64 karakter.".to_string()),
+            "md5" => Some("### `fungsi md5(teks: Teks) -> Teks`\\n\\n**Pustaka Standar DapCode - Kriptografi**\\n\\nMenghitung nilai hash MD5 (RFC 1321) dalam format heksadesimal 32 karakter.".to_string()),
+            "ke_base64" => Some("### `fungsi ke_base64(teks: Teks) -> Teks`\\n\\n**Pustaka Standar DapCode - Encoding**\\n\\nMengonversi teks menjadi format representasi Base64 (RFC 4648).".to_string()),
+            "dari_base64" => Some("### `fungsi dari_base64(teks: Teks) -> Teks ! Teks`\\n\\n**Pustaka Standar DapCode - Encoding**\\n\\nMendekode teks Base64 kembali ke teks asli. Mengembalikan error union jika format Base64 tidak valid.".to_string()),
             "struktur" => Some("### Kata Kunci `struktur`\\n\\nMendeklarasikan tipe data komposit baru dengan bidang-bidang bertipe.".to_string()),
             "sifat" => Some("### Kata Kunci `sifat`\\n\\nMendeklarasikan kontrak antarmuka (trait) perilaku bersama.".to_string()),
             "terapkan" => Some("### Kata Kunci `terapkan`\\n\\nMengimplementasikan sifat (trait) atau kumpulan metode untuk suatu struktur.".to_string()),
@@ -414,6 +418,10 @@ impl LspServer {
             ("ambil_http", "ambil_http(\"$1\")", 3, "HTTP GET request ke URL"),
             ("kirim_http_post", "kirim_http_post(\"$1\", $2)", 3, "HTTP POST JSON request ke URL"),
             ("ambil_status_http", "ambil_status_http(\"$1\")", 3, "Ambil status code HTTP dari URL"),
+            ("sha256", "sha256(\"$1\")", 3, "Kalkulasi cryptographic hash SHA-256 teks"),
+            ("md5", "md5(\"$1\")", 3, "Kalkulasi hash MD5 teks"),
+            ("ke_base64", "ke_base64(\"$1\")", 3, "Encode teks ke Base64"),
+            ("dari_base64", "dari_base64(\"$1\")", 3, "Decode teks dari Base64"),
         ];
 
         for (label, snippet, kind, doc) in builtins {

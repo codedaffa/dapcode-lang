@@ -39,6 +39,7 @@
   - [fungsi: `demonstrasi_json`](#fungsi-demonstrasi_json) 
   - [fungsi: `demonstrasi_jaringan`](#fungsi-demonstrasi_jaringan) 
   - [fungsi: `demonstrasi_lingkungan_dan_cli`](#fungsi-demonstrasi_lingkungan_dan_cli) 
+  - [fungsi: `demonstrasi_kriptografi_dan_enkoding`](#fungsi-demonstrasi_kriptografi_dan_enkoding) 
   - [fungsi: `utama`](#fungsi-utama) 
 
 ---
@@ -303,6 +304,12 @@ fungsi demonstrasi_jaringan()
 
 ```dap
 fungsi demonstrasi_lingkungan_dan_cli()
+```
+
+#### `fungsi demonstrasi_kriptografi_dan_enkoding`
+
+```dap
+fungsi demonstrasi_kriptografi_dan_enkoding()
 ```
 
 #### `fungsi utama`

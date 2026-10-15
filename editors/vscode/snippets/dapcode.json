@@ -248,5 +248,36 @@
             "}"
         ],
         "description": "Membaca variabel lingkungan sistem operasi"
+    },
+    "Hitung SHA-256": {
+        "prefix": "sha256",
+        "body": [
+            "${1:hash} := sha256(${2:teks_masukan})"
+        ],
+        "description": "Menghitung nilai hash SHA-256 (64 karakter heksadesimal)"
+    },
+    "Hitung MD5": {
+        "prefix": "md5",
+        "body": [
+            "${1:hash} := md5(${2:teks_masukan})"
+        ],
+        "description": "Menghitung nilai hash MD5 (32 karakter heksadesimal)"
+    },
+    "Enkoding Base64": {
+        "prefix": "ke_base64",
+        "body": [
+            "${1:b64} := ke_base64(${2:teks_masukan})"
+        ],
+        "description": "Mengenkode teks menjadi format Base64 RFC 4648"
+    },
+    "Dekoding Base64": {
+        "prefix": "dari_base64",
+        "body": [
+            "${1:teks} := dari_base64(${2:teks_base64}) ? tangkap ${3:err} {",
+            "\tcetak(\"Format Base64 tidak valid: {${3:err}}\")",
+            "\t$0",
+            "}"
+        ],
+        "description": "Mendekode teks berformat Base64 dengan penanganan galat"
     }
 }

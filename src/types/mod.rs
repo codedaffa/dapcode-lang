@@ -349,6 +349,27 @@ impl TypeChecker {
             "pastikan_tidak_sama".to_string(),
             (vec![pastikan_tdk1, pastikan_tdk2], Type::Unit),
         );
+
+        // Standard Library: Cryptography & Encoding
+        self.functions.insert(
+            "sha256".to_string(),
+            (vec![Type::String], Type::String),
+        );
+        self.functions.insert(
+            "md5".to_string(),
+            (vec![Type::String], Type::String),
+        );
+        self.functions.insert(
+            "ke_base64".to_string(),
+            (vec![Type::String], Type::String),
+        );
+        self.functions.insert(
+            "dari_base64".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
+            ),
+        );
     }
 
     pub fn check_program(&mut self, program: &Program) -> Result<()> {

@@ -45,6 +45,7 @@ Kompilator dan toolchain resminya, **`dapcodec`**, diimplementasikan sepenuhnya 
    - **Utilitas Matematika:** `akar_kuadrat(x) -> f64`, `pangkat(dasar, eksponen) -> f64`, `nilai_mutlak(x) -> f64`.
    - **Utilitas Waktu & Timer:** `waktu_sekarang_ms() -> u64`, `tidur(ms: u64) -> Unit`.
    - **Lingkungan OS & Argumen Baris Perintah (CLI & Environment):** `ambil_argumen_cli() -> Daftar<Teks>`, `ambil_lingkungan(nama) -> Teks ! Teks`, `atur_lingkungan(nama, nilai) -> Unit`.
+   - **Kriptografi & Enkoding (Cryptography & Encoding):** Utilitas hashing dan encoding RFC-compliant bawaan: `sha256(teks) -> Teks` (FIPS 180-4 SHA-256 64-karakter hex), `md5(teks) -> Teks` (RFC 1321 MD5 32-karakter hex), `ke_base64(teks) -> Teks` (RFC 4648 Base64 encoder), `dari_base64(teks) -> Teks ! Teks` (RFC 4648 Base64 decoder dengan validasi format).
 
 8. **Sistem Modul & Multi-Berkas (`impor` & `DapCode.toml`):**
    - Kata kunci `impor "nama_berkas.dap"` untuk memecah kode menjadi modul-modul independen.
@@ -86,6 +87,8 @@ dapcode-lang/
 │   │   └── mod.rs                # ModuleLoader rekursif & Parser Manifes DapCode.toml
 │   ├── json/
 │   │   └── mod.rs                # Engine Parser & Serializer JSON Zero-Dependency
+│   ├── crypto/
+│   │   └── mod.rs                # Engine Kriptografi SHA-256, MD5 & Enkoding RFC 4648 Base64
 │   ├── net/
 │   │   └── mod.rs                # Client Jaringan & HTTP Socket / TLS Native
 │   ├── types/
@@ -123,6 +126,7 @@ dapcode-lang/
     ├── test_runner_test.rs       # Uji Test Runner Terbawa (uji, pastikan, pastikan_sama)
     ├── repl_test.rs              # Uji REPL Interaktif (Multi-Baris, Delimiter Delta, Meta-Perintah)
     ├── doc_test.rs               # Uji Generator Dokumentasi Otomatis (Markdown & Web HTML)
+    ├── crypto_test.rs            # Uji Kriptografi & Enkoding (SHA-256, MD5, Base64, Native C)
     └── demo_test.rs
 ```
 
@@ -345,5 +349,5 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 17 modul test (47 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 18 modul test (50 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 

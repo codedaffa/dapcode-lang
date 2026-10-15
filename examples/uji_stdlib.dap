@@ -166,6 +166,31 @@ fungsi demonstrasi_lingkungan_dan_cli() {
     cetak("Pengecekan variabel tidak terdaftar: {rahasia}")
 }
 
+fungsi demonstrasi_kriptografi_dan_enkoding() {
+    cetak("\n=== 7. Uji Kriptografi & Enkoding (SHA-256, MD5, Base64) ===")
+    
+    pesan := "Halo DapCode 2026!"
+    cetak("Pesan asli: {pesan}")
+    
+    // 1. Hash SHA-256
+    hash_sha := sha256(pesan)
+    cetak("Hash SHA-256: {hash_sha}")
+    
+    // 2. Hash MD5
+    hash_md5 := md5(pesan)
+    cetak("Hash MD5: {hash_md5}")
+    
+    // 3. Enkoding Base64
+    b64 := ke_base64(pesan)
+    cetak("Hasil Enkoding Base64: {b64}")
+    
+    // 4. Dekoding Base64
+    hasil_dekode := dari_base64(b64) ? tangkap err {
+        "Gagal dekoding Base64: {err}"
+    }
+    cetak("Hasil Dekoding Base64: {hasil_dekode}")
+}
+
 fungsi utama() {
     cetak("===========================================")
     cetak("      DEMONSTRASI PUSTAKA STANDAR DAPCODE   ")
@@ -176,6 +201,7 @@ fungsi utama() {
     demonstrasi_json()
     demonstrasi_jaringan()
     demonstrasi_lingkungan_dan_cli()
+    demonstrasi_kriptografi_dan_enkoding()
     cetak("
 Semua demonstrasi Pustaka Standar selesai dengan sukses!")
 }

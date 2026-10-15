@@ -830,6 +830,175 @@ static inline DapResult_u64 dap_ambil_status_http(const char* url) {
     return res;
 }
 
+// Base64 Encoding & Decoding
+static inline char* dap_ke_base64(const char* s) {
+    if (!s) return "";
+    static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    size_t len = strlen(s);
+    size_t out_len = 4 * ((len + 2) / 3);
+    char* out = (char*)malloc(out_len + 1);
+    if (!out) return "";
+    size_t i = 0, j = 0;
+    while (i < len) {
+        size_t rem = len - i;
+        uint32_t a = (unsigned char)s[i++];
+        uint32_t b = rem > 1 ? (unsigned char)s[i++] : 0;
+        uint32_t c = rem > 2 ? (unsigned char)s[i++] : 0;
+        uint32_t triple = (a << 16) | (b << 8) | c;
+        out[j++] = b64[(triple >> 18) & 0x3F];
+        out[j++] = b64[(triple >> 12) & 0x3F];
+        out[j++] = rem > 1 ? b64[(triple >> 6) & 0x3F] : '=';
+        out[j++] = rem > 2 ? b64[triple & 0x3F] : '=';
+    }
+    out[out_len] = '\0';
+    return out;
+}
+
+static inline DapResult_Teks dap_dari_base64(const char* s) {
+    DapResult_Teks res;
+    if (!s) { res.is_err = true; res.err_msg = "String null"; res.ok = ""; return res; }
+    size_t len = strlen(s);
+    if (len % 4 != 0) { res.is_err = true; res.err_msg = "Panjang Base64 harus kelipatan 4"; res.ok = ""; return res; }
+    char* out = (char*)malloc(len + 1);
+    size_t out_len = 0;
+    for (size_t i = 0; i < len; i += 4) {
+        int vals[4];
+        for (int k = 0; k < 4; k++) {
+            char c = s[i+k];
+            if (c >= 'A' && c <= 'Z') vals[k] = c - 'A';
+            else if (c >= 'a' && c <= 'z') vals[k] = c - 'a' + 26;
+            else if (c >= '0' && c <= '9') vals[k] = c - '0' + 52;
+            else if (c == '+') vals[k] = 62;
+            else if (c == '/') vals[k] = 63;
+            else if (c == '=') vals[k] = 0;
+            else { free(out); res.is_err = true; res.err_msg = "Karakter Base64 tidak valid"; res.ok = ""; return res; }
+        }
+        uint32_t triple = (vals[0] << 18) | (vals[1] << 12) | (vals[2] << 6) | vals[3];
+        out[out_len++] = (triple >> 16) & 0xFF;
+        if (s[i+2] != '=') out[out_len++] = (triple >> 8) & 0xFF;
+        if (s[i+3] != '=') out[out_len++] = triple & 0xFF;
+    }
+    out[out_len] = '\0';
+    res.is_err = false; res.err_msg = NULL; res.ok = out;
+    return res;
+}
+
+// SHA-256 (FIPS 180-4)
+static inline char* dap_sha256(const char* input) {
+    if (!input) input = "";
+    size_t len = strlen(input);
+    uint64_t bit_len = (uint64_t)len * 8;
+    size_t new_len = len + 1;
+    while ((new_len % 64) != 56) new_len++;
+    size_t total_len = new_len + 8;
+    uint8_t* p = (uint8_t*)calloc(total_len, 1);
+    memcpy(p, input, len);
+    p[len] = 0x80;
+    for (int i = 0; i < 8; i++) {
+        p[total_len - 1 - i] = (uint8_t)(bit_len >> (i * 8));
+    }
+    static const uint32_t K[64] = {
+        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    };
+    uint32_t h[8] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+    for (size_t chunk = 0; chunk < total_len; chunk += 64) {
+        uint32_t w[64];
+        for (int i = 0; i < 16; i++) {
+            w[i] = ((uint32_t)p[chunk + i*4] << 24) | ((uint32_t)p[chunk + i*4 + 1] << 16) | ((uint32_t)p[chunk + i*4 + 2] << 8) | (uint32_t)p[chunk + i*4 + 3];
+        }
+        for (int i = 16; i < 64; i++) {
+            uint32_t s0 = (w[i-15] >> 7 | w[i-15] << 25) ^ (w[i-15] >> 18 | w[i-15] << 14) ^ (w[i-15] >> 3);
+            uint32_t s1 = (w[i-2] >> 17 | w[i-2] << 15) ^ (w[i-2] >> 19 | w[i-2] << 13) ^ (w[i-2] >> 10);
+            w[i] = w[i-16] + s0 + w[i-7] + s1;
+        }
+        uint32_t a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], h_val = h[7];
+        for (int i = 0; i < 64; i++) {
+            uint32_t s1 = (e >> 6 | e << 26) ^ (e >> 11 | e << 21) ^ (e >> 25 | e << 7);
+            uint32_t ch = (e & f) ^ ((~e) & g);
+            uint32_t temp1 = h_val + s1 + ch + K[i] + w[i];
+            uint32_t s0 = (a >> 2 | a << 30) ^ (a >> 13 | a << 19) ^ (a >> 22 | a << 10);
+            uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
+            uint32_t temp2 = s0 + maj;
+            h_val = g; g = f; f = e; e = d + temp1; d = c; c = b; b = a; a = temp1 + temp2;
+        }
+        h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e; h[5] += f; h[6] += g; h[7] += h_val;
+    }
+    free(p);
+    char* res = (char*)malloc(65);
+    snprintf(res, 65, "%08x%08x%08x%08x%08x%08x%08x%08x", h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]);
+    return res;
+}
+
+// MD5 (RFC 1321)
+static inline char* dap_md5(const char* input) {
+    if (!input) input = "";
+    size_t len = strlen(input);
+    uint64_t bit_len = (uint64_t)len * 8;
+    size_t new_len = len + 1;
+    while ((new_len % 64) != 56) new_len++;
+    size_t total_len = new_len + 8;
+    uint8_t* p = (uint8_t*)calloc(total_len, 1);
+    memcpy(p, input, len);
+    p[len] = 0x80;
+    for (int i = 0; i < 8; i++) {
+        p[total_len - 8 + i] = (uint8_t)(bit_len >> (i * 8));
+    }
+    uint32_t a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+    static const uint32_t S[64] = {
+        7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,
+        5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,
+        4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,
+        6, 10, 15, 21,  6, 10, 15, 21,  6, 10, 15, 21,  6, 10, 15, 21
+    };
+    uint32_t K[64];
+    for (int i = 0; i < 64; i++) {
+        K[i] = (uint32_t)(fabs(sin(i + 1.0)) * 4294967296.0);
+    }
+    for (size_t chunk = 0; chunk < total_len; chunk += 64) {
+        uint32_t m[16];
+        for (int i = 0; i < 16; i++) {
+            m[i] = ((uint32_t)p[chunk + i*4]) | ((uint32_t)p[chunk + i*4 + 1] << 8) | ((uint32_t)p[chunk + i*4 + 2] << 16) | ((uint32_t)p[chunk + i*4 + 3] << 24);
+        }
+        uint32_t a = a0, b = b0, c = c0, d = d0;
+        for (int i = 0; i < 64; i++) {
+            uint32_t f, g;
+            if (i < 16) { f = (b & c) | ((~b) & d); g = i; }
+            else if (i < 32) { f = (d & b) | ((~d) & c); g = (5*i + 1) % 16; }
+            else if (i < 48) { f = b ^ c ^ d; g = (3*i + 5) % 16; }
+            else { f = c ^ (b | (~d)); g = (7*i) % 16; }
+            uint32_t temp = d;
+            d = c;
+            c = b;
+            uint32_t sum = a + f + K[i] + m[g];
+            uint32_t rot = (sum << S[i]) | (sum >> (32 - S[i]));
+            b += rot;
+            a = temp;
+        }
+        a0 += a; b0 += b; c0 += c; d0 += d;
+    }
+    free(p);
+    char* res = (char*)malloc(33);
+    uint8_t out_bytes[16];
+    for (int i = 0; i < 4; i++) {
+        out_bytes[i] = (a0 >> (i*8)) & 0xFF;
+        out_bytes[4+i] = (b0 >> (i*8)) & 0xFF;
+        out_bytes[8+i] = (c0 >> (i*8)) & 0xFF;
+        out_bytes[12+i] = (d0 >> (i*8)) & 0xFF;
+    }
+    for (int i = 0; i < 16; i++) {
+        snprintf(res + i*2, 3, "%02x", out_bytes[i]);
+    }
+    res[32] = '\0';
+    return res;
+}
+
 "#,
         );
     }
