@@ -745,6 +745,15 @@ impl TypeChecker {
             "kanvas_tinggi".to_string(),
             (vec![], Type::F64),
         );
+
+        // Compiler Service: In-Memory WebAssembly Compilation
+        self.functions.insert(
+            "kompilasi_ke_wasm".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
+            ),
+        );
     }
 
     pub fn check_program(&mut self, program: &Program) -> Result<()> {

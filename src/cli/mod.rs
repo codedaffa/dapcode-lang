@@ -143,6 +143,15 @@ pub enum Commands {
         #[arg(long)]
         open: bool,
     },
+    /// Menjalankan server Web Playground DapCode interaktif dengan live-compile WebAssembly & Canvas 2D
+    Playground {
+        /// Port HTTP server (default: 8080)
+        #[arg(short, long, default_value_t = 8080)]
+        port: u16,
+        /// Buka langsung di peramban web
+        #[arg(long, default_value_t = false)]
+        open: bool,
+    },
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -219,6 +228,7 @@ pub fn run_cli() -> io::Result<()> {
             format,
             open,
         } => cmd_doc(path.as_deref(), output.as_deref(), &format, open),
+        Commands::Playground { port, open } => cmd_playground(port, open),
     }
 }
 
@@ -1705,6 +1715,162 @@ pub fn cmd_doc(
             }
         }
     }
+
+    Ok(())
+}
+
+/// Menjalankan server Web Playground interaktif DapCode lokal
+pub fn cmd_playground(port: u16, open: bool) -> io::Result<()> {
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║       🚀 DAPCODE INTERACTIVE WEB PLAYGROUND & COMPILER       ║");
+    println!("╠══════════════════════════════════════════════════════════════╣");
+    println!("║  🌐 Server URL      : http://localhost:{:<22} ║", port);
+    println!("║  ⚡ Live Kompilasi  : http://localhost:{:<9}/api/kompilasi ║", port);
+    println!("║  📂 Folder Statis   : examples/publik/                       ║");
+    println!("║  🎨 Canvas 2D       : WebAssembly Hardware Accelerated       ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!("\nTekan Ctrl+C untuk menghentikan server playground.\n");
+
+    if open {
+        let url = format!("http://localhost:{}", port);
+        #[cfg(target_os = "windows")]
+        {
+            let _ = std::process::Command::new("cmd")
+                .args(["/c", "start", "", &url])
+                .spawn();
+        }
+        #[cfg(target_os = "macos")]
+        {
+            let _ = std::process::Command::new("open").arg(&url).spawn();
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
+        }
+    }
+
+    let handler = move |req: crate::net::HttpServerRequest| -> Result<crate::net::HttpServerResponse, String> {
+        let mut resp = crate::net::HttpServerResponse {
+            status: 200,
+            content_type: "text/plain; charset=utf-8".to_string(),
+            body: String::new(),
+            raw_body: None,
+            headers: std::collections::HashMap::new(),
+        };
+        resp.headers.insert("Access-Control-Allow-Origin".to_string(), "*".to_string());
+        resp.headers.insert("Access-Control-Allow-Methods".to_string(), "GET, POST, OPTIONS".to_string());
+        resp.headers.insert("Access-Control-Allow-Headers".to_string(), "Content-Type".to_string());
+
+        if req.method == "OPTIONS" {
+            resp.status = 204;
+            return Ok(resp);
+        }
+
+        if req.path == "/api/status" {
+            resp.content_type = "application/json".to_string();
+            resp.body = r#"{"status": "online", "versi": "0.5.0", "playground": true}"#.to_string();
+            return Ok(resp);
+        }
+
+        if req.path == "/api/kompilasi" && req.method == "POST" {
+            resp.content_type = "application/json".to_string();
+            let json_parsed = match crate::json::parse_json(&req.body) {
+                Ok(j) => j,
+                Err(_) => {
+                    resp.body = r#"{"sukses": false, "galat": "Format JSON tidak valid"}"#.to_string();
+                    return Ok(resp);
+                }
+            };
+            let kode = match json_parsed.get("kode").and_then(|v| v.as_str()) {
+                Some(k) => k,
+                None => {
+                    resp.body = r#"{"sukses": false, "galat": "Properti 'kode' tidak ditemukan pada body JSON"}"#.to_string();
+                    return Ok(resp);
+                }
+            };
+
+            let mut lexer = crate::lexer::Lexer::new(&kode, 0);
+            let tokens = match lexer.tokenize() {
+                Ok(t) => t,
+                Err(d) => {
+                    let err_json = format!(r#"{{"sukses": false, "galat": "{}"}}"#, d.message.replace('"', "\\\"").replace('\n', "\\n"));
+                    resp.body = err_json;
+                    return Ok(resp);
+                }
+            };
+
+            let mut parser = crate::parser::Parser::new(tokens, 0);
+            let program = match parser.parse_program() {
+                Ok(p) => p,
+                Err(d) => {
+                    let err_json = format!(r#"{{"sukses": false, "galat": "{}"}}"#, d.message.replace('"', "\\\"").replace('\n', "\\n"));
+                    resp.body = err_json;
+                    return Ok(resp);
+                }
+            };
+
+            let mut tc = crate::types::TypeChecker::new(0);
+            if let Err(d) = tc.check_program(&program) {
+                let err_json = format!(r#"{{"sukses": false, "galat": "{}"}}"#, d.message.replace('"', "\\\"").replace('\n', "\\n"));
+                resp.body = err_json;
+                return Ok(resp);
+            }
+
+            let mut emitter = crate::wasm::WasmEmitter::new();
+            let wasm_bytes = match emitter.compile_program(&program) {
+                Ok(b) => b,
+                Err(d) => {
+                    let err_json = format!(r#"{{"sukses": false, "galat": "{}"}}"#, d.message.replace('"', "\\\"").replace('\n', "\\n"));
+                    resp.body = err_json;
+                    return Ok(resp);
+                }
+            };
+
+            let b64 = crate::crypto::ke_base64_bytes(&wasm_bytes);
+            resp.body = format!(
+                r#"{{"sukses": true, "wasm_base64": "{}", "ukuran_byte": {}}}"#,
+                b64,
+                wasm_bytes.len()
+            );
+            return Ok(resp);
+        }
+
+        // Static files from examples/publik
+        let raw_path = if req.path == "/" { "/index.html" } else { &req.path };
+        let rel_path = raw_path.trim_start_matches('/');
+        let file_path = std::path::Path::new("examples").join("publik").join(rel_path);
+
+        if file_path.exists() && file_path.is_file() {
+            if let Ok(content_bytes) = std::fs::read(&file_path) {
+                let ext = file_path.extension().and_then(|e| e.to_str()).unwrap_or("");
+                let mime = match ext {
+                    "html" => "text/html; charset=utf-8",
+                    "css" => "text/css; charset=utf-8",
+                    "js" => "application/javascript; charset=utf-8",
+                    "wasm" => "application/wasm",
+                    "json" => "application/json",
+                    "png" => "image/png",
+                    "svg" => "image/svg+xml",
+                    _ => "application/octet-stream",
+                };
+                resp.content_type = mime.to_string();
+                resp.raw_body = Some(content_bytes);
+                return Ok(resp);
+            }
+        }
+
+        resp.status = 404;
+        resp.content_type = "text/html; charset=utf-8".to_string();
+        resp.body = "<h1>404 Halaman Tidak Ditemukan</h1><p>DapCode Playground</p>".to_string();
+        Ok(resp)
+    };
+
+    let ws_handler = |_fn_name: &str, _incoming_text: &str| -> Option<String> {
+        None
+    };
+
+    crate::net::run_http_server(port, 0, handler, ws_handler)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
     Ok(())
 }

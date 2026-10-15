@@ -85,38 +85,87 @@
         <section class="api-demo canvas-section">
             <div class="ws-header-row">
                 <div>
-                    <h2>🎨 Grafis Interaktif HTML5 Canvas 2D via WebAssembly</h2>
-                    <p class="section-desc">Binding grafis native DapCode dikompilasi langsung ke instruksi WebAssembly MVP dan dieksekusi secara real-time di HTML5 Canvas.</p>
+                    <h2>🎨 Web Playground &amp; Canvas 2D Interaktif</h2>
+                    <p class="section-desc">Tulis atau edit kode DapCode langsung di peramban web, kompilasi ke biner WebAssembly (.wasm) secara live, dan visualisasikan hasilnya secara real-time pada Canvas 2D.</p>
                 </div>
                 <div class="ws-status-badge connected" id="canvas-badge">
                     <span class="status-pulse" id="canvas-pulse"></span>
-                    <span id="canvas-status-text">Canvas 2D Siap</span>
+                    <span id="canvas-status-text">Playground Siap</span>
                 </div>
             </div>
 
-            <div class="canvas-wrapper">
-                <canvas id="dap-canvas" width="800" height="480"></canvas>
+            <!-- Playground Controls & Toolbar -->
+            <div class="playground-toolbar">
+                <div class="toolbar-left">
+                    <label for="preset-selector" class="toolbar-label">Pilih Contoh Kode:</label>
+                    <select id="preset-selector" class="preset-select">
+                        <option value="tata_surya">🌌 1. Tata Surya Orbit 2D (Standar)</option>
+                        <option value="spiral_archimedes">🌀 2. Pola Spiral Geometri Archimedes</option>
+                        <option value="partikel_pantul">⚡ 3. Simulasi Partikel Pantul (Fisika 2D)</option>
+                        <option value="grafik_batang">📊 4. Diagram Batang Statistik Interaktif</option>
+                    </select>
+                </div>
+                <div class="toolbar-right">
+                    <button id="btn-compile-run" class="btn primary highlight">
+                        <span class="btn-icon">⚡</span> Kompilasi &amp; Jalankan (Ctrl+Enter)
+                    </button>
+                    <button id="btn-reset-code" class="btn outline">↺ Reset</button>
+                </div>
             </div>
 
-            <div class="canvas-meta-bar">
-                <div class="stat-item">
-                    <span class="stat-label">Resolusi Render</span>
-                    <span class="stat-val font-mono" id="canvas-dimensi">800 &times; 480 px</span>
+            <!-- Editor & Canvas Grid -->
+            <div class="playground-grid">
+                <!-- Editor Column -->
+                <div class="editor-column">
+                    <div class="editor-header">
+                        <span class="editor-tab active">
+                            <span class="tab-icon">📄</span> <span id="current-filename">demo_kanvas.dap</span>
+                        </span>
+                        <div class="editor-tools">
+                            <span id="editor-line-col">Baris: 1, Kol: 1</span>
+                        </div>
+                    </div>
+                    <div class="editor-container" id="editor-container">
+                        <div class="line-numbers" id="line-numbers"></div>
+                        <textarea id="code-editor" class="code-textarea" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+                    </div>
+                    <div class="editor-status-bar" id="editor-status-bar">
+                        <span class="status-indicator ready" id="compile-status-dot"></span>
+                        <span id="compile-status-msg">Siap untuk kompilasi</span>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">Waktu Eksekusi WASM</span>
-                    <span class="stat-val font-mono" id="canvas-render-time">0.00 ms</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Perintah Grafis</span>
-                    <span class="stat-val font-mono" id="canvas-cmd-count">0 panggilan</span>
-                </div>
-            </div>
 
-            <div class="actions">
-                <button id="btn-render-kanvas" class="btn primary">Render Tata Surya (WASM)</button>
-                <button id="btn-animasi-kanvas" class="btn secondary">Mulai Animasi Orbit</button>
-                <button id="btn-bersihkan-kanvas" class="btn outline">Bersihkan Kanvas</button>
+                <!-- Canvas Column -->
+                <div class="canvas-column">
+                    <div class="canvas-wrapper">
+                        <canvas id="dap-canvas" width="800" height="480"></canvas>
+                        <div class="canvas-coords-overlay" id="coords-overlay">X: 0, Y: 0</div>
+                    </div>
+
+                    <div class="canvas-meta-bar">
+                        <div class="stat-item">
+                            <span class="stat-label">Waktu Kompilasi</span>
+                            <span class="stat-val font-mono" id="canvas-compile-time">0.00 ms</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Ukuran Bytecode</span>
+                            <span class="stat-val font-mono" id="canvas-wasm-size">0 byte</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Waktu Render</span>
+                            <span class="stat-val font-mono" id="canvas-render-time">0.00 ms</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Perintah Grafis</span>
+                            <span class="stat-val font-mono" id="canvas-cmd-count">0 panggilan</span>
+                        </div>
+                    </div>
+
+                    <div class="canvas-actions">
+                        <button id="btn-animasi-kanvas" class="btn secondary">▶ Mulai Animasi Orbit</button>
+                        <button id="btn-bersihkan-kanvas" class="btn outline">Bersihkan Kanvas</button>
+                    </div>
+                </div>
             </div>
         </section>
 

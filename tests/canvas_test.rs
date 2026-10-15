@@ -184,3 +184,33 @@ WebAssembly.instantiate(buf, imports).then(({{ instance }}) => {{
 
     let _ = fs::remove_file(temp_wasm);
 }
+
+#[test]
+fn test_kompilasi_ke_wasm_builtin() {
+    let code = r#"
+fungsi uji_compiler() -> Teks {
+    kode_sumber := "fungsi kuadrat(x: u64) -> u64 \{ kembali x * x \}\nfungsi utama() -> u64 \{ kembali kuadrat(7) \}"
+    b64 := kompilasi_ke_wasm(kode_sumber) ? tangkap err {
+        kembali "GALAT: " + err
+    }
+    kembali b64
+}
+
+fungsi utama() -> Teks {
+    kembali uji_compiler()
+}
+"#;
+    let program = parse_code(code);
+    let mut tc = TypeChecker::new(0);
+    tc.check_program(&program).expect("TypeChecker kompilasi_ke_wasm gagal");
+
+    let mut eval = Evaluator::new();
+    let val = eval.run_program(&program).expect("Evaluasi kompilasi_ke_wasm gagal");
+    if let Value::String(b64) = val {
+        assert!(!b64.is_empty(), "Base64 WASM hasil kompilasi tidak boleh kosong");
+        assert!(!b64.starts_with("GALAT:"), "Kompilasi menghasilkan galat: {}", b64);
+        assert!(b64.starts_with("AGFzbQE"), "Header WASM Base64 harus diawali 'AGFzbQE'");
+    } else {
+        panic!("Hasil bukan string: {:?}", val);
+    }
+}

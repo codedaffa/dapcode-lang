@@ -1814,6 +1814,43 @@ impl Evaluator {
                         }
                         return Ok(Value::Unit);
                     }
+
+                    // Compiler Service: In-Memory WebAssembly Compilation
+                    if name == "kompilasi_ke_wasm" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'kompilasi_ke_wasm' membutuhkan 1 argumen: (kode)").with_span(*span));
+                        }
+                        let kode_val = self.eval_expr(&args[0].value, env)?;
+                        let kode = match kode_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+
+                        let mut lexer = crate::lexer::Lexer::new(&kode, 0);
+                        let tokens = match lexer.tokenize() {
+                            Ok(t) => t,
+                            Err(diag) => return Ok(Value::ErrorUnion(Err(Box::new(Value::String(diag.message))))),
+                        };
+                        let mut parser = crate::parser::Parser::new(tokens, 0);
+                        let program = match parser.parse_program() {
+                            Ok(p) => p,
+                            Err(diag) => return Ok(Value::ErrorUnion(Err(Box::new(Value::String(diag.message))))),
+                        };
+
+                        let mut tc = crate::types::TypeChecker::new(0);
+                        if let Err(diag) = tc.check_program(&program) {
+                            return Ok(Value::ErrorUnion(Err(Box::new(Value::String(diag.message)))));
+                        }
+
+                        let mut emitter = crate::wasm::WasmEmitter::new();
+                        let wasm_bytes = match emitter.compile_program(&program) {
+                            Ok(b) => b,
+                            Err(diag) => return Ok(Value::ErrorUnion(Err(Box::new(Value::String(diag.message))))),
+                        };
+
+                        let b64 = crate::crypto::ke_base64_bytes(&wasm_bytes);
+                        return Ok(Value::ErrorUnion(Ok(Box::new(Value::String(b64)))));
+                    }
                     if name == "buat_server_http" {
                         if args.len() < 2 || args.len() > 3 {
                             return Err(Diagnostic::error("'buat_server_http' membutuhkan 2 atau 3 argumen: (port, nama_penangan, maks_permintaan: opsional)").with_span(*span));

@@ -148,18 +148,28 @@ document.addEventListener("DOMContentLoaded", () => {
     initWebAssembly();
 
     // ==========================================
-    // 🎨 WebAssembly HTML5 Canvas 2D Integration
+    // 🎨 Web Playground & Interactive Canvas 2D
     // ==========================================
     const canvas = document.getElementById("dap-canvas");
     const ctx = canvas ? canvas.getContext("2d") : null;
     const canvasBadge = document.getElementById("canvas-badge");
     const canvasStatusText = document.getElementById("canvas-status-text");
-    const canvasDimensi = document.getElementById("canvas-dimensi");
+    const canvasCompileTime = document.getElementById("canvas-compile-time");
+    const canvasWasmSize = document.getElementById("canvas-wasm-size");
     const canvasRenderTime = document.getElementById("canvas-render-time");
     const canvasCmdCount = document.getElementById("canvas-cmd-count");
-    const btnRenderKanvas = document.getElementById("btn-render-kanvas");
+    const coordsOverlay = document.getElementById("coords-overlay");
+    const btnCompileRun = document.getElementById("btn-compile-run");
+    const btnResetCode = document.getElementById("btn-reset-code");
     const btnAnimasiKanvas = document.getElementById("btn-animasi-kanvas");
     const btnBersihkanKanvas = document.getElementById("btn-bersihkan-kanvas");
+    const presetSelector = document.getElementById("preset-selector");
+    const codeEditor = document.getElementById("code-editor");
+    const lineNumbers = document.getElementById("line-numbers");
+    const editorLineCol = document.getElementById("editor-line-col");
+    const compileStatusDot = document.getElementById("compile-status-dot");
+    const compileStatusMsg = document.getElementById("compile-status-msg");
+    const currentFilename = document.getElementById("current-filename");
 
     let canvasWasmInstance = null;
     let canvasWasmMemory = null;
@@ -167,6 +177,328 @@ document.addEventListener("DOMContentLoaded", () => {
     let isAnimating = false;
     let animationReqId = null;
 
+    // Koleksi Preset Kode Contoh Interaktif
+    const KODE_PRESET = {
+        tata_surya: `// ========================================================
+// 🌌 Demo: Tata Surya Orbit 2D via WebAssembly
+// ========================================================
+
+fungsi gambar_tata_surya() -> Unit {
+    w := kanvas_lebar()
+    h := kanvas_tinggi()
+    cx := w / 2.0
+    cy := h / 2.0
+
+    // 1. Bersihkan kanvas dengan warna latar kosmik
+    kanvas_bersihkan(0.04, 0.06, 0.12, 1.0)
+
+    // 2. Bintang acak / titik konstelasi
+    kanvas_warna_isi(0.8, 0.9, 1.0, 0.7)
+    kanvas_titik(cx - 200.0, cy - 120.0, 3.0)
+    kanvas_titik(cx + 180.0, cy - 100.0, 2.5)
+    kanvas_titik(cx - 150.0, cy + 130.0, 3.5)
+    kanvas_titik(cx + 220.0, cy + 90.0, 2.0)
+    kanvas_titik(cx - 80.0, cy - 160.0, 2.0)
+    kanvas_titik(cx + 100.0, cy + 150.0, 3.0)
+
+    // 3. Garis radar sumbu kartesius tipis
+    kanvas_warna_garis(0.2, 0.35, 0.55, 0.3)
+    kanvas_tebal_garis(1.0)
+    kanvas_garis(cx - 260.0, cy, cx + 260.0, cy)
+    kanvas_garis(cx, cy - 180.0, cx, cy + 180.0)
+
+    // 4. Orbit sirkular konsentris
+    kanvas_warna_garis(0.25, 0.5, 0.8, 0.4)
+    kanvas_tebal_garis(1.5)
+    kanvas_bingkai_lingkaran(cx, cy, 60.0)
+    kanvas_bingkai_lingkaran(cx, cy, 110.0)
+    kanvas_bingkai_lingkaran(cx, cy, 170.0)
+
+    // 5. Bintang pusat (Matahari Inti)
+    kanvas_warna_isi(1.0, 0.8, 0.2, 0.3)
+    kanvas_lingkaran(cx, cy, 32.0)
+    kanvas_warna_isi(1.0, 0.5, 0.0, 0.9)
+    kanvas_lingkaran(cx, cy, 22.0)
+    kanvas_warna_isi(1.0, 0.95, 0.4, 1.0)
+    kanvas_lingkaran(cx, cy, 12.0)
+
+    // 6. Planet 1 (Biru Cyan)
+    p1_x := cx + 60.0 * cos(0.8)
+    p1_y := cy + 60.0 * sin(0.8)
+    kanvas_warna_isi(0.2, 0.85, 0.95, 1.0)
+    kanvas_lingkaran(p1_x, p1_y, 7.0)
+
+    // 7. Planet 2 (Hijau Emerald & Cincin)
+    p2_x := cx + 110.0 * cos(2.3)
+    p2_y := cy + 110.0 * sin(2.3)
+    kanvas_warna_isi(0.2, 0.9, 0.5, 1.0)
+    kanvas_lingkaran(p2_x, p2_y, 11.0)
+    kanvas_warna_garis(0.4, 1.0, 0.7, 0.6)
+    kanvas_tebal_garis(2.0)
+    kanvas_bingkai_lingkaran(p2_x, p2_y, 17.0)
+
+    // 8. Planet 3 (Ungu Violet)
+    p3_x := cx + 170.0 * cos(4.2)
+    p3_y := cy + 170.0 * sin(4.2)
+    kanvas_warna_isi(0.7, 0.3, 0.95, 1.0)
+    kanvas_lingkaran(p3_x, p3_y, 16.0)
+
+    // 9. Kartu Status HUD
+    kanvas_warna_isi(0.08, 0.12, 0.22, 0.85)
+    kanvas_persegi(20.0, 20.0, 220.0, 70.0)
+    kanvas_warna_garis(0.22, 0.65, 0.95, 0.75)
+    kanvas_tebal_garis(1.5)
+    kanvas_bingkai_persegi(20.0, 20.0, 220.0, 70.0)
+
+    // 10. Teks HUD Informasi
+    kanvas_warna_isi(0.95, 0.98, 1.0, 1.0)
+    kanvas_teks("DapCode 2D Canvas Engine", 32.0, 44.0, 14.0)
+    kanvas_warna_isi(0.4, 0.85, 1.0, 0.9)
+    kanvas_teks("Target: WebAssembly Native", 32.0, 68.0, 12.0)
+
+    cetak("Grafis HTML5 Canvas 2D berhasil dirender dari WebAssembly!")
+}
+
+fungsi utama() -> u64 {
+    gambar_tata_surya()
+    kembali 0
+}`,
+        spiral_archimedes: `// ========================================================
+// 🌀 Demo: Pola Spiral Geometri Archimedes
+// ========================================================
+
+fungsi gambar_spiral() -> Unit {
+    w := kanvas_lebar()
+    h := kanvas_tinggi()
+    cx := w / 2.0
+    cy := h / 2.0
+
+    // 1. Bersihkan kanvas
+    kanvas_bersihkan(0.02, 0.04, 0.08, 1.0)
+    kanvas_tebal_garis(2.0)
+
+    // 2. Gambar deret titik spiral trigonometrik
+    theta := 0.0
+    a := 2.5
+    b := 1.8
+
+    selama theta < 25.0 {
+        r := a + b * theta
+        x := cx + r * cos(theta)
+        y := cy + r * sin(theta)
+
+        // Variasi warna gradasi berbasis sudut rotasi
+        red := 0.5 + 0.5 * sin(theta * 0.5)
+        green := 0.5 + 0.5 * cos(theta * 0.3)
+        blue := 0.95
+
+        kanvas_warna_isi(red, green, blue, 0.8)
+        kanvas_lingkaran(x, y, 4.0 + (theta * 0.15))
+
+        theta = theta + 0.15
+    }
+
+    // 3. Label HUD
+    kanvas_warna_isi(1.0, 1.0, 1.0, 0.95)
+    kanvas_teks("Pola Spiral Archimedes", 25.0, 40.0, 15.0)
+    kanvas_warna_isi(0.4, 0.8, 1.0, 0.8)
+    kanvas_teks("r = a + b * theta via WebAssembly", 25.0, 65.0, 12.0)
+
+    cetak("Pola Spiral Archimedes berhasil dirender!")
+}
+
+fungsi utama() -> u64 {
+    gambar_spiral()
+    kembali 0
+}`,
+        partikel_pantul: `// ========================================================
+// ⚡ Demo: Simulasi Partikel Pantul & Medan Energi 2D
+// ========================================================
+
+fungsi render_partikel() -> Unit {
+    w := kanvas_lebar()
+    h := kanvas_tinggi()
+
+    kanvas_bersihkan(0.05, 0.08, 0.14, 1.0)
+
+    // 1. Bingkai pembatas arena fisika
+    kanvas_warna_garis(0.2, 0.4, 0.7, 0.5)
+    kanvas_tebal_garis(3.0)
+    kanvas_bingkai_persegi(20.0, 20.0, w - 40.0, h - 40.0)
+
+    // 2. Partikel 1: Inti Plasma Biru
+    kanvas_warna_isi(0.1, 0.7, 1.0, 0.85)
+    kanvas_lingkaran(180.0, 140.0, 28.0)
+    kanvas_warna_garis(0.4, 0.9, 1.0, 0.9)
+    kanvas_tebal_garis(2.0)
+    kanvas_bingkai_lingkaran(180.0, 140.0, 34.0)
+
+    // 3. Partikel 2: Bola Energi Neon Jingga
+    kanvas_warna_isi(1.0, 0.4, 0.1, 0.9)
+    kanvas_lingkaran(520.0, 280.0, 36.0)
+    kanvas_warna_garis(1.0, 0.7, 0.2, 0.8)
+    kanvas_bingkai_lingkaran(520.0, 280.0, 44.0)
+
+    // 4. Partikel 3: Satelit Hijau Lime
+    kanvas_warna_isi(0.2, 0.9, 0.4, 0.85)
+    kanvas_lingkaran(340.0, 360.0, 20.0)
+
+    // 5. Garis gaya medan vektor energi
+    kanvas_warna_garis(1.0, 0.9, 0.2, 0.6)
+    kanvas_tebal_garis(1.5)
+    kanvas_garis(180.0, 140.0, 520.0, 280.0)
+    kanvas_garis(520.0, 280.0, 340.0, 360.0)
+
+    // 6. Teks judul
+    kanvas_warna_isi(0.9, 0.95, 1.0, 1.0)
+    kanvas_teks("Simulasi Fisika Partikel 2D", 35.0, 50.0, 15.0)
+    kanvas_warna_isi(0.5, 0.7, 0.9, 0.8)
+    kanvas_teks("Vektor Tumbukan & Medan Gaya", 35.0, 75.0, 12.0)
+
+    cetak("Partikel 2D berhasil disimulasikan!")
+}
+
+fungsi utama() -> u64 {
+    render_partikel()
+    kembali 0
+}`,
+        grafik_batang: `// ========================================================
+// 📊 Demo: Diagram Batang Statistik Interaktif
+// ========================================================
+
+fungsi gambar_grafik() -> Unit {
+    w := kanvas_lebar()
+    h := kanvas_tinggi()
+
+    kanvas_bersihkan(0.04, 0.07, 0.12, 1.0)
+
+    // 1. Sumbu X dan Y
+    kanvas_warna_garis(0.3, 0.45, 0.65, 0.6)
+    kanvas_tebal_garis(2.0)
+    kanvas_garis(80.0, 380.0, 740.0, 380.0)
+    kanvas_garis(80.0, 80.0, 80.0, 380.0)
+
+    // 2. Batang 1: DapCode Native (92%)
+    kanvas_warna_isi(0.2, 0.75, 1.0, 0.9)
+    kanvas_persegi(120.0, 380.0 - 276.0, 80.0, 276.0)
+    kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
+    kanvas_teks("92%", 140.0, 380.0 - 286.0, 13.0)
+    kanvas_teks("DapCode", 125.0, 405.0, 12.0)
+
+    // 3. Batang 2: WebAssembly MVP (85%)
+    kanvas_warna_isi(0.6, 0.3, 0.95, 0.9)
+    kanvas_persegi(240.0, 380.0 - 255.0, 80.0, 255.0)
+    kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
+    kanvas_teks("85%", 260.0, 380.0 - 265.0, 13.0)
+    kanvas_teks("WASM MVP", 240.0, 405.0, 12.0)
+
+    // 4. Batang 3: C11 Native (96%)
+    kanvas_warna_isi(0.1, 0.85, 0.5, 0.9)
+    kanvas_persegi(360.0, 380.0 - 288.0, 80.0, 288.0)
+    kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
+    kanvas_teks("96%", 380.0, 380.0 - 298.0, 13.0)
+    kanvas_teks("C11 Native", 365.0, 405.0, 12.0)
+
+    // 5. Batang 4: JIT Engine (74%)
+    kanvas_warna_isi(1.0, 0.65, 0.1, 0.9)
+    kanvas_persegi(480.0, 380.0 - 222.0, 80.0, 222.0)
+    kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
+    kanvas_teks("74%", 500.0, 380.0 - 232.0, 13.0)
+    kanvas_teks("JIT Engine", 485.0, 405.0, 12.0)
+
+    // 6. Judul Grafik
+    kanvas_warna_isi(0.95, 0.98, 1.0, 1.0)
+    kanvas_teks("Performa Komputasi & Efisiensi Memori (%)", 90.0, 55.0, 16.0)
+
+    cetak("Grafik Batang Statistik berhasil digambar!")
+}
+
+fungsi utama() -> u64 {
+    gambar_grafik()
+    kembali 0
+}`
+    };
+
+    function updateLineNumbers() {
+        if (!codeEditor || !lineNumbers) return;
+        const lineCount = codeEditor.value.split("\n").length;
+        let nums = "";
+        for (let i = 1; i <= lineCount; i++) {
+            nums += `${i}\n`;
+        }
+        lineNumbers.textContent = nums;
+    }
+
+    function updateCursorPos() {
+        if (!codeEditor || !editorLineCol) return;
+        const text = codeEditor.value.substr(0, codeEditor.selectionStart);
+        const lines = text.split("\n");
+        const line = lines.length;
+        const col = lines[lines.length - 1].length + 1;
+        editorLineCol.textContent = `Baris: ${line}, Kol: ${col}`;
+    }
+
+    if (codeEditor) {
+        codeEditor.value = KODE_PRESET.tata_surya;
+        updateLineNumbers();
+
+        codeEditor.addEventListener("input", () => {
+            updateLineNumbers();
+            updateCursorPos();
+        });
+
+        codeEditor.addEventListener("scroll", () => {
+            if (lineNumbers) lineNumbers.scrollTop = codeEditor.scrollTop;
+        });
+
+        codeEditor.addEventListener("click", updateCursorPos);
+        codeEditor.addEventListener("keyup", updateCursorPos);
+
+        // Tab key handling (4 spasi)
+        codeEditor.addEventListener("keydown", (e) => {
+            if (e.key === "Tab") {
+                e.preventDefault();
+                const start = codeEditor.selectionStart;
+                const end = codeEditor.selectionEnd;
+                codeEditor.value = codeEditor.value.substring(0, start) + "    " + codeEditor.value.substring(end);
+                codeEditor.selectionStart = codeEditor.selectionEnd = start + 4;
+                updateLineNumbers();
+                updateCursorPos();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                e.preventDefault();
+                compileAndRun();
+            }
+        });
+    }
+
+    if (presetSelector) {
+        presetSelector.addEventListener("change", (e) => {
+            const key = e.target.value;
+            if (KODE_PRESET[key] && codeEditor) {
+                codeEditor.value = KODE_PRESET[key];
+                if (currentFilename) {
+                    currentFilename.textContent = `${key}.dap`;
+                }
+                updateLineNumbers();
+                updateCursorPos();
+                compileAndRun();
+            }
+        });
+    }
+
+    if (btnResetCode) {
+        btnResetCode.addEventListener("click", () => {
+            const key = presetSelector ? presetSelector.value : "tata_surya";
+            if (KODE_PRESET[key] && codeEditor) {
+                codeEditor.value = KODE_PRESET[key];
+                updateLineNumbers();
+                updateCursorPos();
+                compileAndRun();
+            }
+        });
+    }
+
+    // Host Functions untuk WebAssembly Canvas 2D
     function createCanvasImports(getMemory) {
         return {
             kanvas_bersihkan: (r, g, b, a) => {
@@ -242,12 +574,110 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
 
-    async function initCanvasWebAssembly() {
-        if (!canvas) return;
+    // Melacak posisi mouse di atas Canvas
+    if (canvas && coordsOverlay) {
+        canvas.addEventListener("mousemove", (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = Math.round((e.clientX - rect.left) * scaleX);
+            const y = Math.round((e.clientY - rect.top) * scaleY);
+            coordsOverlay.textContent = `X: ${x}, Y: ${y}`;
+        });
+    }
+
+    // Kompilasi dan Jalankan Kode dari Editor
+    async function compileAndRun() {
+        if (!codeEditor) return;
+        const code = codeEditor.value;
+
+        if (compileStatusDot) {
+            compileStatusDot.className = "status-indicator compiling";
+        }
+        if (compileStatusMsg) {
+            compileStatusMsg.textContent = "Mengompilasi kode sumber ke WebAssembly...";
+        }
+
+        const startCompile = performance.now();
+        try {
+            const resp = await fetch("/api/kompilasi", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ kode: code }),
+            });
+
+            const data = await resp.json();
+            const durationCompile = (performance.now() - startCompile).toFixed(2);
+            if (canvasCompileTime) canvasCompileTime.textContent = `${durationCompile} ms`;
+
+            if (!data.sukses) {
+                if (compileStatusDot) compileStatusDot.className = "status-indicator error";
+                if (compileStatusMsg) compileStatusMsg.textContent = `Galat: ${data.galat}`;
+                appendWasmLog(`[Galat Kompilasi] ${data.galat}`);
+                return;
+            }
+
+            // Sukses kompilasi: decode Base64
+            const raw = atob(data.wasm_base64);
+            const bytes = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) {
+                bytes[i] = raw.charCodeAt(i);
+            }
+
+            if (canvasWasmSize) {
+                canvasWasmSize.textContent = `${bytes.length} byte`;
+            }
+
+            const canvasImports = {
+                env: {
+                    cetak_u64: (val) => appendWasmLog(`[WASM cetak] ${val}`),
+                    cetak_f64: (val) => appendWasmLog(`[WASM cetak] ${val}`),
+                    cetak_teks: (ptr, len) => {
+                        const arr = new Uint8Array(canvasWasmMemory.buffer, ptr, len);
+                        appendWasmLog(`[Kanvas WASM] ${new TextDecoder().decode(arr)}`);
+                    },
+                    sin: Math.sin,
+                    cos: Math.cos,
+                    tan: Math.tan,
+                    asin: Math.asin,
+                    acos: Math.acos,
+                    atan: Math.atan,
+                    atan2: Math.atan2,
+                    akar_kubik: Math.cbrt,
+                    pangkat: Math.pow,
+                    log: Math.log,
+                    log10: Math.log10,
+                    log2: Math.log2,
+                    exp: Math.exp,
+                    tanda: Math.sign,
+                    ...createCanvasImports(() => canvasWasmMemory),
+                },
+            };
+
+            const { instance } = await WebAssembly.instantiate(bytes, canvasImports);
+            canvasWasmInstance = instance;
+            canvasWasmMemory = instance.exports.memory;
+
+            if (compileStatusDot) compileStatusDot.className = "status-indicator ready";
+            if (compileStatusMsg) compileStatusMsg.textContent = `Kompilasi sukses (${bytes.length} byte)`;
+            if (canvasStatusText) canvasStatusText.textContent = "Playground Aktif";
+
+            // Jalankan fungsi
+            renderCanvasWasm();
+        } catch (err) {
+            // Jika /api/kompilasi offline, gunakan fallback demo_kanvas.wasm lokal
+            console.warn("API kompilasi offline, memuat /demo_kanvas.wasm fallback:", err);
+            initFallbackWasm();
+        }
+    }
+
+    async function initFallbackWasm() {
         try {
             const resp = await fetch("/demo_kanvas.wasm");
             if (!resp.ok) return;
             const bytes = await resp.arrayBuffer();
+            if (canvasWasmSize) canvasWasmSize.textContent = `${bytes.byteLength} byte`;
+
             const canvasImports = {
                 env: {
                     cetak_u64: () => {},
@@ -264,14 +694,11 @@ document.addEventListener("DOMContentLoaded", () => {
             const { instance } = await WebAssembly.instantiate(bytes, canvasImports);
             canvasWasmInstance = instance;
             canvasWasmMemory = instance.exports.memory;
-            if (canvasStatusText) canvasStatusText.textContent = "Canvas 2D Siap";
-            if (canvasDimensi) canvasDimensi.textContent = `${canvas.width} \u00D7 ${canvas.height} px`;
-
-            // Auto-render frame awal
+            if (compileStatusDot) compileStatusDot.className = "status-indicator ready";
+            if (compileStatusMsg) compileStatusMsg.textContent = "Modul statis siap dieksekusi";
             renderCanvasWasm();
-        } catch (err) {
-            console.warn("Modul demo_kanvas.wasm belum termuat:", err);
-            if (canvasStatusText) canvasStatusText.textContent = "Menunggu Modul";
+        } catch (e) {
+            console.error("Gagal fallback WASM:", e);
         }
     }
 
@@ -281,6 +708,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const start = performance.now();
         if (canvasWasmInstance.exports.gambar_tata_surya) {
             canvasWasmInstance.exports.gambar_tata_surya();
+        } else if (canvasWasmInstance.exports.gambar_spiral) {
+            canvasWasmInstance.exports.gambar_spiral();
+        } else if (canvasWasmInstance.exports.render_partikel) {
+            canvasWasmInstance.exports.render_partikel();
+        } else if (canvasWasmInstance.exports.gambar_grafik) {
+            canvasWasmInstance.exports.gambar_grafik();
         } else if (canvasWasmInstance.exports.utama) {
             canvasWasmInstance.exports.utama();
         }
@@ -289,8 +722,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (canvasCmdCount) canvasCmdCount.textContent = `${totalCanvasCommands} panggilan`;
     }
 
-    if (btnRenderKanvas) {
-        btnRenderKanvas.addEventListener("click", () => renderCanvasWasm());
+    if (btnCompileRun) {
+        btnCompileRun.addEventListener("click", compileAndRun);
     }
 
     if (btnAnimasiKanvas) {
@@ -303,12 +736,12 @@ document.addEventListener("DOMContentLoaded", () => {
         btnAnimasiKanvas.addEventListener("click", () => {
             isAnimating = !isAnimating;
             if (isAnimating) {
-                btnAnimasiKanvas.textContent = "Hentikan Animasi";
+                btnAnimasiKanvas.textContent = "⏹ Hentikan Animasi";
                 btnAnimasiKanvas.classList.remove("secondary");
                 btnAnimasiKanvas.classList.add("danger");
                 animateLoop();
             } else {
-                btnAnimasiKanvas.textContent = "Mulai Animasi Orbit";
+                btnAnimasiKanvas.textContent = "▶ Mulai Animasi Orbit";
                 btnAnimasiKanvas.classList.remove("danger");
                 btnAnimasiKanvas.classList.add("secondary");
                 if (animationReqId) cancelAnimationFrame(animationReqId);
@@ -327,7 +760,8 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    initCanvasWebAssembly();
+    // Inisialisasi awal: coba kompilasi kode awal atau muat wasm lokal
+    compileAndRun();
 
     // ==========================================
     // 🔌 WebSocket Real-Time Client Implementation

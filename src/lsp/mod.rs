@@ -527,6 +527,7 @@ impl LspServer {
             "kanvas_teks" => Some("### `fungsi kanvas_teks(teks: Teks, x: f64, y: f64, ukuran: f64) -> Unit`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMenuliskan teks string pada koordinat kanvas (x, y) dengan ukuran font dalam piksel.".to_string()),
             "kanvas_lebar" => Some("### `fungsi kanvas_lebar() -> f64`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMengembalikan lebar elemen kanvas aktif dalam satuan piksel.".to_string()),
             "kanvas_tinggi" => Some("### `fungsi kanvas_tinggi() -> f64`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMengembalikan tinggi elemen kanvas aktif dalam satuan piksel.".to_string()),
+            "kompilasi_ke_wasm" => Some("### `fungsi kompilasi_ke_wasm(kode: Teks) -> Teks ! Teks`\\n\\n**Layanan Kompilasi DapCode - WebAssembly Engine**\\n\\nMengompilasi kode sumber teks DapCode menjadi biner WebAssembly (.wasm) secara dinamis dalam memori dan mengembalikannya sebagai string terenkode Base64. Mengembalikan `! Teks` jika terdapat galat sintaksis atau tipe data.".to_string()),
             "struktur" => Some("### Kata Kunci `struktur`\\n\\nMendeklarasikan tipe data komposit baru dengan bidang-bidang bertipe.".to_string()),
             "sifat" => Some("### Kata Kunci `sifat`\\n\\nMendeklarasikan kontrak antarmuka (trait) perilaku bersama.".to_string()),
             "terapkan" => Some("### Kata Kunci `terapkan`\\n\\nMengimplementasikan sifat (trait) atau kumpulan metode untuk suatu struktur.".to_string()),
@@ -640,6 +641,7 @@ impl LspServer {
             ("kanvas_teks", "kanvas_teks(\"${1:teks}\", ${2:x}, ${3:y}, ${4:16.0})", 3, "Tulis teks pada kanvas dengan ukuran piksel"),
             ("kanvas_lebar", "kanvas_lebar()", 3, "Ambil dimensi lebar kanvas piksel"),
             ("kanvas_tinggi", "kanvas_tinggi()", 3, "Ambil dimensi tinggi kanvas piksel"),
+            ("kompilasi_ke_wasm", "kompilasi_ke_wasm(${1:kode})", 3, "Kompilasi kode sumber DapCode ke WebAssembly Base64 in-memory"),
         ];
 
         for (label, snippet, kind, doc) in builtins {

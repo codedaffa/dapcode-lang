@@ -666,6 +666,15 @@ static inline void dap_kanvas_teks(const char* teks, f64 x, f64 y, f64 ukuran) {
 static inline f64 dap_kanvas_lebar(void) { return 800.0; }
 static inline f64 dap_kanvas_tinggi(void) { return 600.0; }
 
+static inline DapResult_Teks dap_kompilasi_ke_wasm(const char* kode) {
+    (void)kode;
+    DapResult_Teks res;
+    res.is_err = true;
+    res.err_msg = "Kompilasi WebAssembly runtime dinamis hanya didukung di runtime interpreter";
+    res.ok = "";
+    return res;
+}
+
 // Standard Library: Environment & CLI Arguments
 static int _dap_cli_argc = 0;
 static char** _dap_cli_argv = NULL;
