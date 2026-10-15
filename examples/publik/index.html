@@ -82,6 +82,44 @@
             </div>
         </section>
 
+        <section class="api-demo canvas-section">
+            <div class="ws-header-row">
+                <div>
+                    <h2>🎨 Grafis Interaktif HTML5 Canvas 2D via WebAssembly</h2>
+                    <p class="section-desc">Binding grafis native DapCode dikompilasi langsung ke instruksi WebAssembly MVP dan dieksekusi secara real-time di HTML5 Canvas.</p>
+                </div>
+                <div class="ws-status-badge connected" id="canvas-badge">
+                    <span class="status-pulse" id="canvas-pulse"></span>
+                    <span id="canvas-status-text">Canvas 2D Siap</span>
+                </div>
+            </div>
+
+            <div class="canvas-wrapper">
+                <canvas id="dap-canvas" width="800" height="480"></canvas>
+            </div>
+
+            <div class="canvas-meta-bar">
+                <div class="stat-item">
+                    <span class="stat-label">Resolusi Render</span>
+                    <span class="stat-val font-mono" id="canvas-dimensi">800 &times; 480 px</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Waktu Eksekusi WASM</span>
+                    <span class="stat-val font-mono" id="canvas-render-time">0.00 ms</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Perintah Grafis</span>
+                    <span class="stat-val font-mono" id="canvas-cmd-count">0 panggilan</span>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button id="btn-render-kanvas" class="btn primary">Render Tata Surya (WASM)</button>
+                <button id="btn-animasi-kanvas" class="btn secondary">Mulai Animasi Orbit</button>
+                <button id="btn-bersihkan-kanvas" class="btn outline">Bersihkan Kanvas</button>
+            </div>
+        </section>
+
         <section class="api-demo ws-section">
             <div class="ws-header-row">
                 <div>

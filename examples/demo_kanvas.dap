@@ -1,0 +1,91 @@
+// ========================================================
+// 🎨 Demo Grafis Interaktif HTML5 Canvas 2D via WebAssembly
+// DapCode Pure-Rust WebAssembly Compiler
+// ========================================================
+
+fungsi gambar_tata_surya() -> Unit {
+    w := kanvas_lebar()
+    h := kanvas_tinggi()
+    cx := w / 2.0
+    cy := h / 2.0
+
+    // 1. Bersihkan kanvas dengan warna latar belakang kosmik gelap
+    kanvas_bersihkan(0.04, 0.06, 0.12, 1.0)
+
+    // 2. Gambar kisi-kisi bintang acak / titik konstelasi
+    kanvas_warna_isi(0.8, 0.9, 1.0, 0.7)
+    kanvas_titik(cx - 200.0, cy - 120.0, 3.0)
+    kanvas_titik(cx + 180.0, cy - 100.0, 2.5)
+    kanvas_titik(cx - 150.0, cy + 130.0, 3.5)
+    kanvas_titik(cx + 220.0, cy + 90.0, 2.0)
+    kanvas_titik(cx - 80.0, cy - 160.0, 2.0)
+    kanvas_titik(cx + 100.0, cy + 150.0, 3.0)
+
+    // 3. Garis radar / sumbu silang kartesius tipis
+    kanvas_warna_garis(0.2, 0.35, 0.55, 0.3)
+    kanvas_tebal_garis(1.0)
+    kanvas_garis(cx - 260.0, cy, cx + 260.0, cy)
+    kanvas_garis(cx, cy - 180.0, cx, cy + 180.0)
+
+    // 4. Orbit sirkular konsentris
+    kanvas_warna_garis(0.25, 0.5, 0.8, 0.4)
+    kanvas_tebal_garis(1.5)
+    kanvas_bingkai_lingkaran(cx, cy, 60.0)
+    kanvas_bingkai_lingkaran(cx, cy, 110.0)
+    kanvas_bingkai_lingkaran(cx, cy, 170.0)
+
+    // 5. Bintang pusat (Matahari / Inti Reaktor)
+    // Lapisan aura luar
+    kanvas_warna_isi(1.0, 0.8, 0.2, 0.3)
+    kanvas_lingkaran(cx, cy, 32.0)
+    // Inti utama
+    kanvas_warna_isi(1.0, 0.5, 0.0, 0.9)
+    kanvas_lingkaran(cx, cy, 22.0)
+    kanvas_warna_isi(1.0, 0.95, 0.4, 1.0)
+    kanvas_lingkaran(cx, cy, 12.0)
+
+    // 6. Planet 1 (Merkurius / Dalam - Biru Cyan)
+    p1_x := cx + 60.0 * cos(0.8)
+    p1_y := cy + 60.0 * sin(0.8)
+    kanvas_warna_isi(0.2, 0.85, 0.95, 1.0)
+    kanvas_lingkaran(p1_x, p1_y, 7.0)
+
+    // 7. Planet 2 (Bumi / Sedang - Hijau Emerald dengan Cincin Garis)
+    p2_x := cx + 110.0 * cos(2.3)
+    p2_y := cy + 110.0 * sin(2.3)
+    kanvas_warna_isi(0.2, 0.9, 0.5, 1.0)
+    kanvas_lingkaran(p2_x, p2_y, 11.0)
+    kanvas_warna_garis(0.4, 1.0, 0.7, 0.6)
+    kanvas_tebal_garis(2.0)
+    kanvas_bingkai_lingkaran(p2_x, p2_y, 17.0)
+
+    // 8. Planet 3 (Raksasa Gas / Luar - Ungu Violet)
+    p3_x := cx + 170.0 * cos(4.2)
+    p3_y := cy + 170.0 * sin(4.2)
+    kanvas_warna_isi(0.7, 0.3, 0.95, 1.0)
+    kanvas_lingkaran(p3_x, p3_y, 16.0)
+
+    // 9. Kartu Status HUD di pojok kiri atas
+    kanvas_warna_isi(0.08, 0.12, 0.22, 0.85)
+    kanvas_persegi(20.0, 20.0, 220.0, 70.0)
+    kanvas_warna_garis(0.22, 0.65, 0.95, 0.75)
+    kanvas_tebal_garis(1.5)
+    kanvas_bingkai_persegi(20.0, 20.0, 220.0, 70.0)
+
+    // 10. Teks HUD Informasi
+    kanvas_warna_isi(0.95, 0.98, 1.0, 1.0)
+    kanvas_teks("DapCode 2D Canvas Engine", 32.0, 44.0, 14.0)
+    kanvas_warna_isi(0.4, 0.85, 1.0, 0.9)
+    kanvas_teks("Target: WebAssembly Native", 32.0, 68.0, 12.0)
+
+    // Label watermark di sudut kanan bawah
+    kanvas_warna_isi(0.5, 0.6, 0.8, 0.6)
+    kanvas_teks("DapCode v0.5.0", w - 120.0, h - 20.0, 11.0)
+
+    cetak("Grafis HTML5 Canvas 2D berhasil dirender dari DapCode WebAssembly!")
+}
+
+fungsi utama() -> u64 {
+    gambar_tata_surya()
+    kembali 0
+}

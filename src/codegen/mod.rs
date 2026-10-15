@@ -651,6 +651,21 @@ static inline u64 dap_waktu_sekarang_ms(void) {
     return (u64)time(NULL) * 1000;
 }
 
+// Standard Library: HTML5 Canvas 2D Stubs (untuk kompilasi C native)
+static inline void dap_kanvas_bersihkan(f64 r, f64 g, f64 b, f64 a) { (void)r; (void)g; (void)b; (void)a; }
+static inline void dap_kanvas_warna_isi(f64 r, f64 g, f64 b, f64 a) { (void)r; (void)g; (void)b; (void)a; }
+static inline void dap_kanvas_warna_garis(f64 r, f64 g, f64 b, f64 a) { (void)r; (void)g; (void)b; (void)a; }
+static inline void dap_kanvas_tebal_garis(f64 tebal) { (void)tebal; }
+static inline void dap_kanvas_persegi(f64 x, f64 y, f64 lebar, f64 tinggi) { (void)x; (void)y; (void)lebar; (void)tinggi; }
+static inline void dap_kanvas_bingkai_persegi(f64 x, f64 y, f64 lebar, f64 tinggi) { (void)x; (void)y; (void)lebar; (void)tinggi; }
+static inline void dap_kanvas_lingkaran(f64 x, f64 y, f64 radius) { (void)x; (void)y; (void)radius; }
+static inline void dap_kanvas_bingkai_lingkaran(f64 x, f64 y, f64 radius) { (void)x; (void)y; (void)radius; }
+static inline void dap_kanvas_garis(f64 x1, f64 y1, f64 x2, f64 y2) { (void)x1; (void)y1; (void)x2; (void)y2; }
+static inline void dap_kanvas_titik(f64 x, f64 y, f64 ukuran) { (void)x; (void)y; (void)ukuran; }
+static inline void dap_kanvas_teks(const char* teks, f64 x, f64 y, f64 ukuran) { (void)teks; (void)x; (void)y; (void)ukuran; }
+static inline f64 dap_kanvas_lebar(void) { return 800.0; }
+static inline f64 dap_kanvas_tinggi(void) { return 600.0; }
+
 // Standard Library: Environment & CLI Arguments
 static int _dap_cli_argc = 0;
 static char** _dap_cli_argv = NULL;

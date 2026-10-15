@@ -332,9 +332,47 @@ h1 {
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.text-input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+/* ==========================================
+   🎨 Canvas 2D Interactive Styles
+   ========================================== */
+.canvas-section {
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    background: rgba(14, 21, 37, 0.85);
+    position: relative;
+    overflow: hidden;
+}
+
+.canvas-wrapper {
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #060913;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), inset 0 0 40px rgba(56, 189, 248, 0.05);
+    margin-bottom: 1.25rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#dap-canvas {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 800 / 480;
+    display: block;
+    cursor: crosshair;
+}
+
+.canvas-meta-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 0.85rem 1.25rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 1.25rem;
 }
 
 footer {

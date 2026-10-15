@@ -197,6 +197,113 @@ impl WasmEmitter {
             }
         }
 
+        let canvas_0_fns = ["kanvas_lebar", "kanvas_tinggi"];
+        let sig_canvas_0 = self.get_or_add_sig(vec![], vec![WasmType::F64]);
+        for name in &canvas_0_fns {
+            if called.contains(*name) {
+                let func_idx = self.imports.len() as u32;
+                self.imports.push(("env".to_string(), name.to_string(), sig_canvas_0));
+                self.func_table.insert(
+                    name.to_string(),
+                    (
+                        func_idx,
+                        sig_canvas_0,
+                        FuncSignature {
+                            params: vec![],
+                            results: vec![WasmType::F64],
+                        },
+                    ),
+                );
+            }
+        }
+
+        let canvas_1_fns = ["kanvas_tebal_garis"];
+        let sig_canvas_1 = self.get_or_add_sig(vec![WasmType::F64], vec![]);
+        for name in &canvas_1_fns {
+            if called.contains(*name) {
+                let func_idx = self.imports.len() as u32;
+                self.imports.push(("env".to_string(), name.to_string(), sig_canvas_1));
+                self.func_table.insert(
+                    name.to_string(),
+                    (
+                        func_idx,
+                        sig_canvas_1,
+                        FuncSignature {
+                            params: vec![WasmType::F64],
+                            results: vec![],
+                        },
+                    ),
+                );
+            }
+        }
+
+        let canvas_3_fns = ["kanvas_lingkaran", "kanvas_bingkai_lingkaran", "kanvas_titik"];
+        let sig_canvas_3 = self.get_or_add_sig(vec![WasmType::F64, WasmType::F64, WasmType::F64], vec![]);
+        for name in &canvas_3_fns {
+            if called.contains(*name) {
+                let func_idx = self.imports.len() as u32;
+                self.imports.push(("env".to_string(), name.to_string(), sig_canvas_3));
+                self.func_table.insert(
+                    name.to_string(),
+                    (
+                        func_idx,
+                        sig_canvas_3,
+                        FuncSignature {
+                            params: vec![WasmType::F64, WasmType::F64, WasmType::F64],
+                            results: vec![],
+                        },
+                    ),
+                );
+            }
+        }
+
+        let canvas_4_fns = [
+            "kanvas_bersihkan",
+            "kanvas_warna_isi",
+            "kanvas_warna_garis",
+            "kanvas_persegi",
+            "kanvas_bingkai_persegi",
+            "kanvas_garis",
+        ];
+        let sig_canvas_4 = self.get_or_add_sig(vec![WasmType::F64, WasmType::F64, WasmType::F64, WasmType::F64], vec![]);
+        for name in &canvas_4_fns {
+            if called.contains(*name) {
+                let func_idx = self.imports.len() as u32;
+                self.imports.push(("env".to_string(), name.to_string(), sig_canvas_4));
+                self.func_table.insert(
+                    name.to_string(),
+                    (
+                        func_idx,
+                        sig_canvas_4,
+                        FuncSignature {
+                            params: vec![WasmType::F64, WasmType::F64, WasmType::F64, WasmType::F64],
+                            results: vec![],
+                        },
+                    ),
+                );
+            }
+        }
+
+        if called.contains("kanvas_teks") {
+            let sig_canvas_teks = self.get_or_add_sig(
+                vec![WasmType::I32, WasmType::I32, WasmType::F64, WasmType::F64, WasmType::F64],
+                vec![],
+            );
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "kanvas_teks".to_string(), sig_canvas_teks));
+            self.func_table.insert(
+                "kanvas_teks".to_string(),
+                (
+                    func_idx,
+                    sig_canvas_teks,
+                    FuncSignature {
+                        params: vec![WasmType::I32, WasmType::I32, WasmType::F64, WasmType::F64, WasmType::F64],
+                        results: vec![],
+                    },
+                ),
+            );
+        }
+
         self.num_imports = self.imports.len() as u32;
 
         // 1. Daftarkan tanda tangan setiap fungsi user
@@ -836,6 +943,46 @@ impl WasmEmitter {
                         return Ok(WasmType::I32);
                     }
 
+                    if name == "kanvas_teks" && args.len() == 4 {
+                        let arg0 = &args[0].value;
+                        if let Expr::Lit(Literal::String(s), _) = arg0 {
+                            let (off, len) = self.intern_string(s);
+                            out.push(0x41); // i32.const
+                            encode_i64_leb128(off as i64, out);
+                            out.push(0x41); // i32.const
+                            encode_i64_leb128(len as i64, out);
+                        } else if let Expr::InterpolatedString(parts, _) = arg0 {
+                            let mut static_str = String::new();
+                            for p in parts {
+                                if let InterpolatedExprPart::Lit(s) = p {
+                                    static_str.push_str(s);
+                                }
+                            }
+                            let (off, len) = self.intern_string(&static_str);
+                            out.push(0x41);
+                            encode_i64_leb128(off as i64, out);
+                            out.push(0x41);
+                            encode_i64_leb128(len as i64, out);
+                        } else {
+                            let _ = self.compile_expr(arg0, locals_map, out)?;
+                            out.push(0x41);
+                            encode_i64_leb128(0, out);
+                        }
+
+                        for arg in &args[1..4] {
+                            let ty = self.compile_expr(&arg.value, locals_map, out)?;
+                            if ty == WasmType::I64 {
+                                out.push(0xB9); // f64.convert_i64_s
+                            }
+                        }
+
+                        if let Some((func_idx, _, _)) = self.func_table.get("kanvas_teks").cloned() {
+                            out.push(0x10); // call
+                            encode_u32_leb128(func_idx, out);
+                        }
+                        return Ok(WasmType::I32);
+                    }
+
                     // Operasi matematika perangkat keras bawaan WebAssembly MVP (Hardware Native)
                     if name == "akar_kuadrat" && args.len() == 1 {
                         let ty = self.compile_expr(&args[0].value, locals_map, out)?;
@@ -1173,6 +1320,22 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
                         log2: Math.log2,
                         exp: Math.exp,
                         tanda: Math.sign,
+                        kanvas_bersihkan: (r, g, b, a) => log('[Kanvas] Bersihkan (' + r + ', ' + g + ', ' + b + ', ' + a + ')'),
+                        kanvas_warna_isi: () => undefined,
+                        kanvas_warna_garis: () => undefined,
+                        kanvas_tebal_garis: () => undefined,
+                        kanvas_persegi: (x, y, w, h) => log('[Kanvas] Persegi (' + x + ', ' + y + ', ' + w + ', ' + h + ')'),
+                        kanvas_bingkai_persegi: () => undefined,
+                        kanvas_lingkaran: (x, y, rad) => log('[Kanvas] Lingkaran (' + x + ', ' + y + ', r=' + rad + ')'),
+                        kanvas_bingkai_lingkaran: () => undefined,
+                        kanvas_garis: () => undefined,
+                        kanvas_titik: () => undefined,
+                        kanvas_teks: (ptr, len, x, y) => {{
+                            const arr = new Uint8Array(memory.buffer, ptr, len);
+                            log('[Kanvas Teks] "' + new TextDecoder().decode(arr) + '" pada (' + x + ', ' + y + ')');
+                        }},
+                        kanvas_lebar: () => 800.0,
+                        kanvas_tinggi: () => 600.0,
                     }}
                 }};
 

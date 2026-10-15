@@ -691,6 +691,60 @@ impl TypeChecker {
                 Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
             ),
         );
+
+        // Standard Library: WebAssembly HTML5 Canvas 2D
+        self.functions.insert(
+            "kanvas_bersihkan".to_string(),
+            (vec![Type::F64, Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_warna_isi".to_string(),
+            (vec![Type::F64, Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_warna_garis".to_string(),
+            (vec![Type::F64, Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_tebal_garis".to_string(),
+            (vec![Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_persegi".to_string(),
+            (vec![Type::F64, Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_bingkai_persegi".to_string(),
+            (vec![Type::F64, Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_lingkaran".to_string(),
+            (vec![Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_bingkai_lingkaran".to_string(),
+            (vec![Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_garis".to_string(),
+            (vec![Type::F64, Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_titik".to_string(),
+            (vec![Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_teks".to_string(),
+            (vec![Type::String, Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_lebar".to_string(),
+            (vec![], Type::F64),
+        );
+        self.functions.insert(
+            "kanvas_tinggi".to_string(),
+            (vec![], Type::F64),
+        );
     }
 
     pub fn check_program(&mut self, program: &Program) -> Result<()> {
@@ -1741,6 +1795,7 @@ impl TypeChecker {
         }
 
         match (&t1, &t2) {
+            (Type::U64, Type::F64) => Ok(()),
             (Type::Var(id), other) | (other, Type::Var(id)) => {
                 self.bind_var(*id, other, span)?;
                 Ok(())

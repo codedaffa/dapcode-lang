@@ -148,6 +148,188 @@ document.addEventListener("DOMContentLoaded", () => {
     initWebAssembly();
 
     // ==========================================
+    // 🎨 WebAssembly HTML5 Canvas 2D Integration
+    // ==========================================
+    const canvas = document.getElementById("dap-canvas");
+    const ctx = canvas ? canvas.getContext("2d") : null;
+    const canvasBadge = document.getElementById("canvas-badge");
+    const canvasStatusText = document.getElementById("canvas-status-text");
+    const canvasDimensi = document.getElementById("canvas-dimensi");
+    const canvasRenderTime = document.getElementById("canvas-render-time");
+    const canvasCmdCount = document.getElementById("canvas-cmd-count");
+    const btnRenderKanvas = document.getElementById("btn-render-kanvas");
+    const btnAnimasiKanvas = document.getElementById("btn-animasi-kanvas");
+    const btnBersihkanKanvas = document.getElementById("btn-bersihkan-kanvas");
+
+    let canvasWasmInstance = null;
+    let canvasWasmMemory = null;
+    let totalCanvasCommands = 0;
+    let isAnimating = false;
+    let animationReqId = null;
+
+    function createCanvasImports(getMemory) {
+        return {
+            kanvas_bersihkan: (r, g, b, a) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                ctx.fillStyle = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            },
+            kanvas_warna_isi: (r, g, b, a) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                ctx.fillStyle = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`;
+            },
+            kanvas_warna_garis: (r, g, b, a) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                ctx.strokeStyle = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`;
+            },
+            kanvas_tebal_garis: (tebal) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                ctx.lineWidth = tebal;
+            },
+            kanvas_persegi: (x, y, w, h) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                ctx.fillRect(x, y, w, h);
+            },
+            kanvas_bingkai_persegi: (x, y, w, h) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                ctx.strokeRect(x, y, w, h);
+            },
+            kanvas_lingkaran: (x, y, radius) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            },
+            kanvas_bingkai_lingkaran: (x, y, radius) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            },
+            kanvas_garis: (x1, y1, x2, y2) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            },
+            kanvas_titik: (x, y, ukuran) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                ctx.beginPath();
+                ctx.arc(x, y, ukuran / 2, 0, Math.PI * 2);
+                ctx.fill();
+            },
+            kanvas_teks: (ptr, len, x, y, ukuran) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                const mem = getMemory();
+                const text = mem ? new TextDecoder().decode(new Uint8Array(mem.buffer, ptr, len)) : "";
+                ctx.font = `${Math.round(ukuran)}px sans-serif`;
+                ctx.fillText(text, x, y);
+            },
+            kanvas_lebar: () => (canvas ? canvas.width : 800.0),
+            kanvas_tinggi: () => (canvas ? canvas.height : 480.0),
+        };
+    }
+
+    async function initCanvasWebAssembly() {
+        if (!canvas) return;
+        try {
+            const resp = await fetch("/demo_kanvas.wasm");
+            if (!resp.ok) return;
+            const bytes = await resp.arrayBuffer();
+            const canvasImports = {
+                env: {
+                    cetak_u64: () => {},
+                    cetak_f64: () => {},
+                    cetak_teks: (ptr, len) => {
+                        const arr = new Uint8Array(canvasWasmMemory.buffer, ptr, len);
+                        appendWasmLog(`[Kanvas WASM] ${new TextDecoder().decode(arr)}`);
+                    },
+                    sin: Math.sin,
+                    cos: Math.cos,
+                    ...createCanvasImports(() => canvasWasmMemory),
+                },
+            };
+            const { instance } = await WebAssembly.instantiate(bytes, canvasImports);
+            canvasWasmInstance = instance;
+            canvasWasmMemory = instance.exports.memory;
+            if (canvasStatusText) canvasStatusText.textContent = "Canvas 2D Siap";
+            if (canvasDimensi) canvasDimensi.textContent = `${canvas.width} \u00D7 ${canvas.height} px`;
+
+            // Auto-render frame awal
+            renderCanvasWasm();
+        } catch (err) {
+            console.warn("Modul demo_kanvas.wasm belum termuat:", err);
+            if (canvasStatusText) canvasStatusText.textContent = "Menunggu Modul";
+        }
+    }
+
+    function renderCanvasWasm() {
+        if (!canvasWasmInstance) return;
+        totalCanvasCommands = 0;
+        const start = performance.now();
+        if (canvasWasmInstance.exports.gambar_tata_surya) {
+            canvasWasmInstance.exports.gambar_tata_surya();
+        } else if (canvasWasmInstance.exports.utama) {
+            canvasWasmInstance.exports.utama();
+        }
+        const duration = (performance.now() - start).toFixed(2);
+        if (canvasRenderTime) canvasRenderTime.textContent = `${duration} ms`;
+        if (canvasCmdCount) canvasCmdCount.textContent = `${totalCanvasCommands} panggilan`;
+    }
+
+    if (btnRenderKanvas) {
+        btnRenderKanvas.addEventListener("click", () => renderCanvasWasm());
+    }
+
+    if (btnAnimasiKanvas) {
+        function animateLoop() {
+            if (!isAnimating) return;
+            renderCanvasWasm();
+            animationReqId = requestAnimationFrame(animateLoop);
+        }
+
+        btnAnimasiKanvas.addEventListener("click", () => {
+            isAnimating = !isAnimating;
+            if (isAnimating) {
+                btnAnimasiKanvas.textContent = "Hentikan Animasi";
+                btnAnimasiKanvas.classList.remove("secondary");
+                btnAnimasiKanvas.classList.add("danger");
+                animateLoop();
+            } else {
+                btnAnimasiKanvas.textContent = "Mulai Animasi Orbit";
+                btnAnimasiKanvas.classList.remove("danger");
+                btnAnimasiKanvas.classList.add("secondary");
+                if (animationReqId) cancelAnimationFrame(animationReqId);
+            }
+        });
+    }
+
+    if (btnBersihkanKanvas) {
+        btnBersihkanKanvas.addEventListener("click", () => {
+            if (ctx && canvas) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                totalCanvasCommands = 0;
+                if (canvasCmdCount) canvasCmdCount.textContent = "0 panggilan";
+                if (canvasRenderTime) canvasRenderTime.textContent = "0.00 ms";
+            }
+        });
+    }
+
+    initCanvasWebAssembly();
+
+    // ==========================================
     // 🔌 WebSocket Real-Time Client Implementation
     // ==========================================
     const wsBadge = document.getElementById("ws-badge");

@@ -1789,6 +1789,31 @@ impl Evaluator {
                             Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
                         };
                     }
+
+                    // Standard Library: WebAssembly HTML5 Canvas 2D (Headless Mock Runtime)
+                    if name == "kanvas_lebar" {
+                        return Ok(Value::Float(800.0));
+                    }
+                    if name == "kanvas_tinggi" {
+                        return Ok(Value::Float(600.0));
+                    }
+                    if name == "kanvas_bersihkan"
+                        || name == "kanvas_warna_isi"
+                        || name == "kanvas_warna_garis"
+                        || name == "kanvas_tebal_garis"
+                        || name == "kanvas_persegi"
+                        || name == "kanvas_bingkai_persegi"
+                        || name == "kanvas_lingkaran"
+                        || name == "kanvas_bingkai_lingkaran"
+                        || name == "kanvas_garis"
+                        || name == "kanvas_titik"
+                        || name == "kanvas_teks"
+                    {
+                        for arg in args {
+                            let _ = self.eval_expr(&arg.value, env)?;
+                        }
+                        return Ok(Value::Unit);
+                    }
                     if name == "buat_server_http" {
                         if args.len() < 2 || args.len() > 3 {
                             return Err(Diagnostic::error("'buat_server_http' membutuhkan 2 atau 3 argumen: (port, nama_penangan, maks_permintaan: opsional)").with_span(*span));
