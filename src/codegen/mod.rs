@@ -173,6 +173,23 @@ typedef struct { bool is_err; const char* err_msg; f64 ok; } DapResult_f64;
 typedef struct { bool is_err; const char* err_msg; bool ok; } DapResult_bool;
 typedef struct { bool is_err; const char* err_msg; Teks ok; } DapResult_Teks;
 
+// HTTP Web Server Model Types
+typedef struct {
+    Teks metode;
+    Teks jalur;
+    Teks kueri;
+    Teks isi;
+} PermintaanHttp;
+
+typedef struct {
+    u64 status;
+    Teks tipe_konten;
+    Teks konten;
+} ResponsHttp;
+
+typedef struct { bool is_err; const char* err_msg; ResponsHttp ok; } DapResult_ResponsHttp;
+typedef struct { bool is_err; const char* err_msg; PermintaanHttp ok; } DapResult_PermintaanHttp;
+
 // Runtime Dynamic Collection: DapList
 typedef struct DapList {
     size_t len;
@@ -828,6 +845,23 @@ static inline DapResult_u64 dap_ambil_status_http(const char* url) {
     res.err_msg = NULL;
     res.ok = (u64)atoi(buf);
     return res;
+}
+
+// HTTP Server Response Helpers
+static inline ResponsHttp dap_kirim_respons_http(u64 status, const char* tipe_konten, const char* konten) {
+    ResponsHttp r;
+    r.status = status;
+    r.tipe_konten = tipe_konten ? (Teks)tipe_konten : "text/plain";
+    r.konten = konten ? (Teks)konten : "";
+    return r;
+}
+
+static inline ResponsHttp dap_respons_json(const char* data_json) {
+    return dap_kirim_respons_http(200, "application/json", data_json);
+}
+
+static inline ResponsHttp dap_respons_teks(const char* teks) {
+    return dap_kirim_respons_http(200, "text/plain; charset=utf-8", teks);
 }
 
 // Base64 Encoding & Decoding

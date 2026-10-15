@@ -1,0 +1,42 @@
+/// Contoh Server Web HTTP & Backend REST API Bawaan DapCode
+/// Menjalankan server web mikroservis tanpa dependensi pustaka luar.
+
+fungsi tangani_permintaan(req: PermintaanHttp) -> ResponsHttp {
+    cetak("[HTTP] {req.metode} {req.jalur}")
+
+    // Rute 1: API Status Layanan
+    jika req.jalur == "/api/status" {
+        kembali respons_json("{\"layanan\":\"DapCode Microservice\",\"status\":\"aktif\",\"versi\":\"1.0.0\"}")
+    }
+
+    // Rute 2: API Data Produk (REST JSON)
+    jika req.jalur == "/api/produk" {
+        kembali respons_json("{\"id\":101,\"nama\":\"Kopi Robusta DapCode\",\"harga\":25000,\"stok\":50}")
+    }
+
+    // Rute 3: Endpoint Teks Sederhana
+    jika req.jalur == "/halo" {
+        kembali respons_teks("Halo dari Server Web Bawaan DapCode!")
+    }
+
+    // Rute default: 404 Tidak Ditemukan
+    kembali kirim_respons_http(404, "text/plain; charset=utf-8", "404 Rute Tidak Ditemukan")
+}
+
+fungsi utama() {
+    cetak("==================================================")
+    cetak("🚀 Memulai HTTP Web Server Bawaan DapCode di Port 8080...")
+    cetak("Akses:")
+    cetak("  - http://127.0.0.1:8080/api/status")
+    cetak("  - http://127.0.0.1:8080/api/produk")
+    cetak("  - http://127.0.0.1:8080/halo")
+    cetak("==================================================")
+
+    // Jalankan server HTTP (melayani hingga dihentikan)
+    hasil := buat_server_http(8080, "tangani_permintaan") ? tangkap err {
+        cetak("Gagal menjalankan server HTTP: {err}")
+        kembali
+    }
+
+    cetak("Server selesai melayani {hasil} permintaan.")
+}

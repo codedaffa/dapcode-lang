@@ -1170,6 +1170,56 @@ impl Evaluator {
                         };
                     }
 
+                    // HTTP Web Server Response Primitives
+                    if name == "kirim_respons_http" {
+                        if args.len() != 3 {
+                            return Err(Diagnostic::error("'kirim_respons_http' membutuhkan 3 argumen (status, tipe_konten, konten)").with_span(*span));
+                        }
+                        let s_val = self.eval_expr(&args[0].value, env)?;
+                        let t_val = self.eval_expr(&args[1].value, env)?;
+                        let k_val = self.eval_expr(&args[2].value, env)?;
+                        let status = match s_val {
+                            Value::Int(n) => n,
+                            other => other.to_string().parse().unwrap_or(200),
+                        };
+                        let mut fields = HashMap::new();
+                        fields.insert("status".to_string(), Value::Int(status));
+                        fields.insert("tipe_konten".to_string(), Value::String(t_val.to_string()));
+                        fields.insert("konten".to_string(), Value::String(k_val.to_string()));
+                        return Ok(Value::Struct {
+                            name: "ResponsHttp".to_string(),
+                            fields,
+                        });
+                    }
+                    if name == "respons_json" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'respons_json' membutuhkan 1 argumen (data_json)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        let mut fields = HashMap::new();
+                        fields.insert("status".to_string(), Value::Int(200));
+                        fields.insert("tipe_konten".to_string(), Value::String("application/json".to_string()));
+                        fields.insert("konten".to_string(), Value::String(val.to_string()));
+                        return Ok(Value::Struct {
+                            name: "ResponsHttp".to_string(),
+                            fields,
+                        });
+                    }
+                    if name == "respons_teks" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'respons_teks' membutuhkan 1 argumen (teks)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        let mut fields = HashMap::new();
+                        fields.insert("status".to_string(), Value::Int(200));
+                        fields.insert("tipe_konten".to_string(), Value::String("text/plain; charset=utf-8".to_string()));
+                        fields.insert("konten".to_string(), Value::String(val.to_string()));
+                        return Ok(Value::Struct {
+                            name: "ResponsHttp".to_string(),
+                            fields,
+                        });
+                    }
+
                     // Cryptography & Encoding Utilities
                     if name == "sha256" {
                         if args.len() != 1 {
@@ -1215,6 +1265,228 @@ impl Evaluator {
                         };
                         return match crate::crypto::dari_base64(&text) {
                             Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(res))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
+
+                    // HTTP Web Server Builtins
+                    if name == "kirim_respons_http" {
+                        if args.len() != 3 {
+                            return Err(Diagnostic::error("'kirim_respons_http' membutuhkan 3 argumen (status, tipe_konten, konten)").with_span(*span));
+                        }
+                        let s_val = self.eval_expr(&args[0].value, env)?;
+                        let t_val = self.eval_expr(&args[1].value, env)?;
+                        let k_val = self.eval_expr(&args[2].value, env)?;
+                        let status = match s_val {
+                            Value::Int(n) => n,
+                            Value::Float(f) => f as u64,
+                            _ => 200,
+                        };
+                        let tipe_konten = match t_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        let konten = match k_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        let mut fields = HashMap::new();
+                        fields.insert("status".to_string(), Value::Int(status));
+                        fields.insert("tipe_konten".to_string(), Value::String(tipe_konten));
+                        fields.insert("konten".to_string(), Value::String(konten));
+                        return Ok(Value::Struct {
+                            name: "ResponsHttp".to_string(),
+                            fields,
+                        });
+                    }
+                    if name == "respons_json" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'respons_json' membutuhkan 2 argumen (status, data_json)").with_span(*span));
+                        }
+                        let s_val = self.eval_expr(&args[0].value, env)?;
+                        let d_val = self.eval_expr(&args[1].value, env)?;
+                        let status = match s_val {
+                            Value::Int(n) => n,
+                            Value::Float(f) => f as u64,
+                            _ => 200,
+                        };
+                        let data_json = match d_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        let mut fields = HashMap::new();
+                        fields.insert("status".to_string(), Value::Int(status));
+                        fields.insert("tipe_konten".to_string(), Value::String("application/json; charset=utf-8".to_string()));
+                        fields.insert("konten".to_string(), Value::String(data_json));
+                        return Ok(Value::Struct {
+                            name: "ResponsHttp".to_string(),
+                            fields,
+                        });
+                    }
+                    if name == "respons_teks" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'respons_teks' membutuhkan 2 argumen (status, teks)").with_span(*span));
+                        }
+                        let s_val = self.eval_expr(&args[0].value, env)?;
+                        let t_val = self.eval_expr(&args[1].value, env)?;
+                        let status = match s_val {
+                            Value::Int(n) => n,
+                            Value::Float(f) => f as u64,
+                            _ => 200,
+                        };
+                        let teks = match t_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        let mut fields = HashMap::new();
+                        fields.insert("status".to_string(), Value::Int(status));
+                        fields.insert("tipe_konten".to_string(), Value::String("text/plain; charset=utf-8".to_string()));
+                        fields.insert("konten".to_string(), Value::String(teks));
+                        return Ok(Value::Struct {
+                            name: "ResponsHttp".to_string(),
+                            fields,
+                        });
+                    }
+                    if name == "buat_server_http" {
+                        if args.len() < 2 || args.len() > 3 {
+                            return Err(Diagnostic::error("'buat_server_http' membutuhkan 2 atau 3 argumen: (port, nama_penangan, maks_permintaan: opsional)").with_span(*span));
+                        }
+                        let port_val = self.eval_expr(&args[0].value, env)?;
+                        let port = match port_val {
+                            Value::Int(n) => n as u16,
+                            Value::Float(f) => f as u16,
+                            _ => return Err(Diagnostic::error("Port harus berupa angka bulat").with_span(*span)),
+                        };
+                        let handler_val = self.eval_expr(&args[1].value, env)?;
+                        let handler_name = match handler_val {
+                            Value::String(s) => s,
+                            other => other.to_string(),
+                        };
+                        let max_requests = if args.len() == 3 {
+                            let m_val = self.eval_expr(&args[2].value, env)?;
+                            match m_val {
+                                Value::Int(n) => n,
+                                Value::Float(f) => f as u64,
+                                _ => 0,
+                            }
+                        } else {
+                            0
+                        };
+
+                        let target_fn = match self.functions.get(&handler_name).cloned() {
+                            Some(f) => f,
+                            None => {
+                                return Err(Diagnostic::error(format!(
+                                    "Fungsi penangan HTTP '{}' tidak ditemukan pada kode sumber",
+                                    handler_name
+                                )).with_span(*span));
+                            }
+                        };
+
+                        let output_arc = self.output.clone();
+                        let functions_clone = self.functions.clone();
+                        let methods_clone = self.methods.clone();
+                        let cli_args_clone = self.cli_args.clone();
+
+                        let server_res = crate::net::run_http_server(port, max_requests, move |req| {
+                            let mut eval = Evaluator {
+                                output: output_arc.clone(),
+                                functions: functions_clone.clone(),
+                                methods: methods_clone.clone(),
+                                cli_args: cli_args_clone.clone(),
+                            };
+                            let mut inner_env = Environment::new();
+
+                            let fn_args = if target_fn.params.len() == 1 {
+                                let mut req_fields = HashMap::new();
+                                req_fields.insert("metode".to_string(), Value::String(req.method.clone()));
+                                req_fields.insert("jalur".to_string(), Value::String(req.path.clone()));
+                                req_fields.insert("kueri".to_string(), Value::String(req.query.clone()));
+                                req_fields.insert("isi".to_string(), Value::String(req.body.clone()));
+                                vec![Value::Struct {
+                                    name: "PermintaanHttp".to_string(),
+                                    fields: req_fields,
+                                }]
+                            } else if target_fn.params.len() == 2 {
+                                vec![Value::String(req.method.clone()), Value::String(req.path.clone())]
+                            } else if target_fn.params.len() == 3 {
+                                vec![
+                                    Value::String(req.method.clone()),
+                                    Value::String(req.path.clone()),
+                                    Value::String(req.body.clone()),
+                                ]
+                            } else {
+                                vec![
+                                    Value::String(req.method.clone()),
+                                    Value::String(req.path.clone()),
+                                    Value::String(req.query.clone()),
+                                    Value::String(req.body.clone()),
+                                ]
+                            };
+
+                            let result_val = match eval.eval_fn(&target_fn, fn_args, &mut inner_env) {
+                                Ok(ControlFlow::Next(v) | ControlFlow::Return(v)) => v,
+                                Ok(ControlFlow::Fail(e)) => Value::ErrorUnion(Err(Box::new(e))),
+                                Err(d) => Value::ErrorUnion(Err(Box::new(Value::String(d.to_string())))),
+                            };
+
+                            match result_val {
+                                Value::Struct { name, fields } if name == "ResponsHttp" => {
+                                    let status = fields.get("status").and_then(|v| match v {
+                                        Value::Int(n) => Some(*n),
+                                        Value::Float(f) => Some(*f as u64),
+                                        _ => None,
+                                    }).unwrap_or(200);
+                                    let content_type = fields.get("tipe_konten").map(|v| v.to_string()).unwrap_or_else(|| "text/plain; charset=utf-8".to_string());
+                                    let body = fields.get("konten").map(|v| v.to_string()).unwrap_or_default();
+                                    Ok(crate::net::HttpServerResponse {
+                                        status,
+                                        content_type,
+                                        body,
+                                    })
+                                }
+                                Value::String(s) => {
+                                    let trimmed = s.trim();
+                                    let is_json = (trimmed.starts_with('{') && trimmed.ends_with('}'))
+                                        || (trimmed.starts_with('[') && trimmed.ends_with(']'));
+                                    let content_type = if is_json {
+                                        "application/json; charset=utf-8".to_string()
+                                    } else {
+                                        "text/plain; charset=utf-8".to_string()
+                                    };
+                                    Ok(crate::net::HttpServerResponse {
+                                        status: 200,
+                                        content_type,
+                                        body: s,
+                                    })
+                                }
+                                Value::ErrorUnion(Err(e)) => {
+                                    Ok(crate::net::HttpServerResponse {
+                                        status: 500,
+                                        content_type: "text/plain; charset=utf-8".to_string(),
+                                        body: format!("500 Internal Server Error: {}", e),
+                                    })
+                                }
+                                Value::ErrorUnion(Ok(ok_v)) => {
+                                    let s = ok_v.to_string();
+                                    Ok(crate::net::HttpServerResponse {
+                                        status: 200,
+                                        content_type: "text/plain; charset=utf-8".to_string(),
+                                        body: s,
+                                    })
+                                }
+                                other => {
+                                    Ok(crate::net::HttpServerResponse {
+                                        status: 200,
+                                        content_type: "application/json; charset=utf-8".to_string(),
+                                        body: value_to_json(&other),
+                                    })
+                                }
+                            }
+                        });
+
+                        return match server_res {
+                            Ok(count) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Int(count))))),
                             Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
                         };
                     }

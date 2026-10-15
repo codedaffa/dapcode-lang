@@ -370,6 +370,58 @@ impl TypeChecker {
                 Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
             ),
         );
+
+        // Standard Library: HTTP Web Server
+        let mut req_fields = HashMap::new();
+        req_fields.insert("metode".to_string(), (0, Type::String));
+        req_fields.insert("jalur".to_string(), (1, Type::String));
+        req_fields.insert("kueri".to_string(), (2, Type::String));
+        req_fields.insert("isi".to_string(), (3, Type::String));
+        self.structs.insert(
+            "PermintaanHttp".to_string(),
+            StructInfo {
+                name: "PermintaanHttp".to_string(),
+                fields: req_fields,
+                field_order: vec!["metode".to_string(), "jalur".to_string(), "kueri".to_string(), "isi".to_string()],
+                span: Span::DUMMY,
+            },
+        );
+
+        let mut resp_fields = HashMap::new();
+        resp_fields.insert("status".to_string(), (0, Type::U64));
+        resp_fields.insert("tipe_konten".to_string(), (1, Type::String));
+        resp_fields.insert("konten".to_string(), (2, Type::String));
+        self.structs.insert(
+            "ResponsHttp".to_string(),
+            StructInfo {
+                name: "ResponsHttp".to_string(),
+                fields: resp_fields,
+                field_order: vec!["status".to_string(), "tipe_konten".to_string(), "konten".to_string()],
+                span: Span::DUMMY,
+            },
+        );
+
+        self.functions.insert(
+            "kirim_respons_http".to_string(),
+            (
+                vec![Type::U64, Type::String, Type::String],
+                Type::Struct("ResponsHttp".to_string()),
+            ),
+        );
+        self.functions.insert(
+            "respons_json".to_string(),
+            (
+                vec![Type::String],
+                Type::Struct("ResponsHttp".to_string()),
+            ),
+        );
+        self.functions.insert(
+            "respons_teks".to_string(),
+            (
+                vec![Type::String],
+                Type::Struct("ResponsHttp".to_string()),
+            ),
+        );
     }
 
     pub fn check_program(&mut self, program: &Program) -> Result<()> {
@@ -937,6 +989,23 @@ impl TypeChecker {
                         let b_ty = self.check_expr(&args[1].value)?;
                         self.unify(&a_ty, &b_ty, *span)?;
                         return Ok(Type::Unit);
+                    }
+                    if name == "buat_server_http" {
+                        if args.len() < 2 || args.len() > 3 {
+                            return Err(Diagnostic::error(
+                                "'buat_server_http' membutuhkan 2 atau 3 argumen: (port, nama_penangan, maks_permintaan: opsional)",
+                            )
+                            .with_span(*span));
+                        }
+                        let port_ty = self.check_expr(&args[0].value)?;
+                        self.unify(&port_ty, &Type::U64, args[0].span)?;
+                        let handler_ty = self.check_expr(&args[1].value)?;
+                        self.unify(&handler_ty, &Type::String, args[1].span)?;
+                        if args.len() == 3 {
+                            let max_ty = self.check_expr(&args[2].value)?;
+                            self.unify(&max_ty, &Type::U64, args[2].span)?;
+                        }
+                        return Ok(Type::ErrorUnion(Box::new(Type::U64), Box::new(Type::String)));
                     }
                 }
 

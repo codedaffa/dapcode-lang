@@ -252,6 +252,177 @@ fn parse_curl_output(output: &str) -> (String, u64) {
     }
 }
 
+// ==========================================
+// --- HTTP Web Server Core Engine ---
+// ==========================================
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HttpServerRequest {
+    pub method: String,
+    pub path: String,
+    pub query: String,
+    pub headers: std::collections::HashMap<String, String>,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HttpServerResponse {
+    pub status: u64,
+    pub content_type: String,
+    pub body: String,
+}
+
+impl Default for HttpServerResponse {
+    fn default() -> Self {
+        HttpServerResponse {
+            status: 200,
+            content_type: "text/plain; charset=utf-8".to_string(),
+            body: String::new(),
+        }
+    }
+}
+
+pub fn parse_http_request(raw: &[u8]) -> Result<HttpServerRequest, String> {
+    let text = String::from_utf8_lossy(raw);
+    let mut lines = text.split("\r\n");
+    let req_line = lines.next().ok_or("Permintaan HTTP kosong")?;
+    let parts: Vec<&str> = req_line.split_whitespace().collect();
+    if parts.len() < 2 {
+        return Err(format!("Baris permintaan HTTP tidak valid: {}", req_line));
+    }
+
+    let method = parts[0].to_uppercase();
+    let full_uri = parts[1];
+    let (path, query) = if let Some((p, q)) = full_uri.split_once('?') {
+        (p.to_string(), q.to_string())
+    } else {
+        (full_uri.to_string(), String::new())
+    };
+
+    let mut headers = std::collections::HashMap::new();
+    for line in lines.by_ref() {
+        if line.is_empty() {
+            break;
+        }
+        if let Some((k, v)) = line.split_once(':') {
+            headers.insert(k.trim().to_lowercase(), v.trim().to_string());
+        }
+    }
+
+    let body = if let Some(sep) = text.find("\r\n\r\n") {
+        text[sep + 4..].to_string()
+    } else {
+        String::new()
+    };
+
+    Ok(HttpServerRequest {
+        method,
+        path,
+        query,
+        headers,
+        body,
+    })
+}
+
+pub fn format_http_response(resp: &HttpServerResponse) -> Vec<u8> {
+    let status_text = match resp.status {
+        200 => "OK",
+        201 => "Created",
+        202 => "Accepted",
+        204 => "No Content",
+        301 => "Moved Permanently",
+        302 => "Found",
+        400 => "Bad Request",
+        401 => "Unauthorized",
+        403 => "Forbidden",
+        404 => "Not Found",
+        405 => "Method Not Allowed",
+        500 => "Internal Server Error",
+        502 => "Bad Gateway",
+        503 => "Service Unavailable",
+        _ => "OK",
+    };
+
+    let body_bytes = resp.body.as_bytes();
+    let header = format!(
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nServer: DapCode-HTTP/1.0\r\nConnection: close\r\n\r\n",
+        resp.status, status_text, resp.content_type, body_bytes.len()
+    );
+
+    let mut out = header.into_bytes();
+    out.extend_from_slice(body_bytes);
+    out
+}
+
+pub fn run_http_server<F>(
+    port: u16,
+    max_requests: u64,
+    mut handler: F,
+) -> Result<u64, String>
+where
+    F: FnMut(HttpServerRequest) -> Result<HttpServerResponse, String>,
+{
+    use std::net::TcpListener;
+
+    let addr = format!("127.0.0.1:{}", port);
+    let listener = TcpListener::bind(&addr)
+        .map_err(|e| format!("Gagal mengikat server HTTP ke {}: {}", addr, e))?;
+
+    let mut served_count: u64 = 0;
+
+    for stream in listener.incoming() {
+        let mut stream = match stream {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("Peringatan koneksi HTTP: {}", e);
+                continue;
+            }
+        };
+
+        let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+        let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
+
+        let mut buf = [0u8; 8192];
+        let n = match stream.read(&mut buf) {
+            Ok(n) if n > 0 => n,
+            _ => continue,
+        };
+
+        let req = match parse_http_request(&buf[..n]) {
+            Ok(r) => r,
+            Err(err) => {
+                let err_resp = HttpServerResponse {
+                    status: 400,
+                    content_type: "text/plain; charset=utf-8".to_string(),
+                    body: format!("400 Bad Request: {}", err),
+                };
+                let _ = stream.write_all(&format_http_response(&err_resp));
+                continue;
+            }
+        };
+
+        let resp = match handler(req) {
+            Ok(r) => r,
+            Err(err_msg) => HttpServerResponse {
+                status: 500,
+                content_type: "text/plain; charset=utf-8".to_string(),
+                body: format!("500 Internal Server Error: {}", err_msg),
+            },
+        };
+
+        let resp_bytes = format_http_response(&resp);
+        let _ = stream.write_all(&resp_bytes);
+        let _ = stream.flush();
+
+        served_count += 1;
+        if max_requests > 0 && served_count >= max_requests {
+            break;
+        }
+    }
+
+    Ok(served_count)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,4 +439,28 @@ mod tests {
         assert_eq!(port2, 8080);
         assert_eq!(path2, "/data");
     }
+
+    #[test]
+    fn test_parse_and_format_http_server() {
+        let raw_req = b"GET /api/pengguna?aktif=benar&limit=10 HTTP/1.1\r\nHost: localhost:8080\r\nContent-Type: application/json\r\n\r\n{\"auth\": true}";
+        let req = parse_http_request(raw_req).expect("Failed to parse request");
+
+        assert_eq!(req.method, "GET");
+        assert_eq!(req.path, "/api/pengguna");
+        assert_eq!(req.query, "aktif=benar&limit=10");
+        assert_eq!(req.headers.get("content-type").unwrap(), "application/json");
+        assert_eq!(req.body, "{\"auth\": true}");
+
+        let resp = HttpServerResponse {
+            status: 200,
+            content_type: "application/json".to_string(),
+            body: "{\"status\": \"sukses\"}".to_string(),
+        };
+        let formatted = format_http_response(&resp);
+        let resp_str = String::from_utf8_lossy(&formatted);
+        assert!(resp_str.starts_with("HTTP/1.1 200 OK\r\n"));
+        assert!(resp_str.contains("Content-Type: application/json\r\n"));
+        assert!(resp_str.ends_with("{\"status\": \"sukses\"}"));
+    }
 }
+

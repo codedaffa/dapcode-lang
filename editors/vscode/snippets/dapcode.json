@@ -279,5 +279,35 @@
             "}"
         ],
         "description": "Mendekode teks berformat Base64 dengan penanganan galat"
+    },
+    "Buat Server Web HTTP": {
+        "prefix": "server_http",
+        "body": [
+            "fungsi ${1:tangani_permintaan}(permintaan: PermintaanHttp) -> ResponsHttp {",
+            "\tjika permintaan.jalur == \"${2:/api/halo}\" {",
+            "\t\tkembali respons_json(\"{\\\"pesan\\\": \\\"Halo dari DapCode!\\\"}\")",
+            "\t}",
+            "\tkembali kirim_respons_http(404, \"text/plain\", \"Rute tidak ditemukan\")",
+            "}",
+            "",
+            "buat_server_http(${3:8080}, \"${1:tangani_permintaan}\") ? tangkap err {",
+            "\tcetak(\"Gagal menjalankan server: {err}\")",
+            "}"
+        ],
+        "description": "Menjalankan HTTP Web Server REST API bawaan DapCode"
+    },
+    "Respons JSON HTTP": {
+        "prefix": "respons_json",
+        "body": [
+            "respons_json(\"${1:{\\\"status\\\": \\\"sukses\\\"}}\")"
+        ],
+        "description": "Membuat ResponsHttp 200 OK dengan format JSON"
+    },
+    "Respons Teks HTTP": {
+        "prefix": "respons_teks",
+        "body": [
+            "respons_teks(\"${1:Halo Dunia}\")"
+        ],
+        "description": "Membuat ResponsHttp 200 OK dengan format teks polos"
     }
 }
