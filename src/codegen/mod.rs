@@ -185,6 +185,7 @@ typedef struct {
     u64 status;
     Teks tipe_konten;
     Teks konten;
+    Teks header;
 } ResponsHttp;
 
 typedef struct { bool is_err; const char* err_msg; ResponsHttp ok; } DapResult_ResponsHttp;
@@ -860,6 +861,7 @@ static inline ResponsHttp dap_kirim_respons_http(u64 status, const char* tipe_ko
     r.status = status;
     r.tipe_konten = tipe_konten ? (Teks)tipe_konten : "text/plain";
     r.konten = konten ? (Teks)konten : "";
+    r.header = "";
     return r;
 }
 
@@ -869,6 +871,196 @@ static inline ResponsHttp dap_respons_json(const char* data_json) {
 
 static inline ResponsHttp dap_respons_teks(const char* teks) {
     return dap_kirim_respons_http(200, "text/plain; charset=utf-8", teks);
+}
+
+static inline ResponsHttp dap_tambah_header(ResponsHttp r, const char* kunci, const char* nilai) {
+    if (!kunci || !nilai) return r;
+    size_t cur_len = r.header ? strlen(r.header) : 0;
+    size_t k_len = strlen(kunci);
+    size_t v_len = strlen(nilai);
+    size_t needed = cur_len + k_len + v_len + 5;
+    char* buf = (char*)malloc(needed);
+    if (!buf) return r;
+    buf[0] = '\0';
+    if (cur_len > 0) {
+        strcpy(buf, r.header);
+    }
+    strcat(buf, kunci);
+    strcat(buf, ": ");
+    strcat(buf, nilai);
+    strcat(buf, "\r\n");
+    r.header = buf;
+    return r;
+}
+
+static inline ResponsHttp dap_respons_cors(ResponsHttp r) {
+    r = dap_tambah_header(r, "Access-Control-Allow-Origin", "*");
+    r = dap_tambah_header(r, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    r = dap_tambah_header(r, "Access-Control-Allow-Headers", "Content-Type, Authorization");
+    return r;
+}
+
+// Router Pattern Matching & Query Parser C11 implementation
+static inline bool dap_cocok_rute(const char* pola, const char* jalur) {
+    if (!pola || !jalur) return false;
+    char p_copy[512];
+    char j_copy[512];
+    strncpy(p_copy, pola, sizeof(p_copy) - 1);
+    strncpy(j_copy, jalur, sizeof(j_copy) - 1);
+    p_copy[sizeof(p_copy) - 1] = '\0';
+    j_copy[sizeof(j_copy) - 1] = '\0';
+
+    char* p_ctx = NULL;
+    char* j_ctx = NULL;
+#ifdef _WIN32
+    char* p_tok = strtok_s(p_copy, "/", &p_ctx);
+    char* j_tok = strtok_s(j_copy, "/", &j_ctx);
+#else
+    char* p_tok = strtok_r(p_copy, "/", &p_ctx);
+    char* j_tok = strtok_r(j_copy, "/", &j_ctx);
+#endif
+
+    while (p_tok && j_tok) {
+        if (p_tok[0] != ':' && strcmp(p_tok, "*") != 0) {
+            if (strcmp(p_tok, j_tok) != 0) return false;
+        }
+#ifdef _WIN32
+        p_tok = strtok_s(NULL, "/", &p_ctx);
+        j_tok = strtok_s(NULL, "/", &j_ctx);
+#else
+        p_tok = strtok_r(NULL, "/", &p_ctx);
+        j_tok = strtok_r(NULL, "/", &j_ctx);
+#endif
+    }
+    return (p_tok == NULL && j_tok == NULL);
+}
+
+static inline DapResult_Teks dap_ambil_param_rute(const char* pola, const char* jalur, const char* nama_param) {
+    DapResult_Teks res;
+    if (!pola || !jalur || !nama_param) {
+        res.is_err = true;
+        res.err_msg = "Argumen parameter rute tidak boleh kosong";
+        res.ok = "";
+        return res;
+    }
+    const char* clean_param = (nama_param[0] == ':') ? nama_param + 1 : nama_param;
+
+    char p_copy[512];
+    char j_copy[512];
+    strncpy(p_copy, pola, sizeof(p_copy) - 1);
+    strncpy(j_copy, jalur, sizeof(j_copy) - 1);
+    p_copy[sizeof(p_copy) - 1] = '\0';
+    j_copy[sizeof(j_copy) - 1] = '\0';
+
+    char* p_ctx = NULL;
+    char* j_ctx = NULL;
+#ifdef _WIN32
+    char* p_tok = strtok_s(p_copy, "/", &p_ctx);
+    char* j_tok = strtok_s(j_copy, "/", &j_ctx);
+#else
+    char* p_tok = strtok_r(p_copy, "/", &p_ctx);
+    char* j_tok = strtok_r(j_copy, "/", &j_ctx);
+#endif
+
+    while (p_tok && j_tok) {
+        if (p_tok[0] == ':') {
+            if (strcmp(p_tok + 1, clean_param) == 0) {
+                res.is_err = false;
+                res.err_msg = NULL;
+                char* match_val = (char*)malloc(strlen(j_tok) + 1);
+                if (!match_val) {
+                    res.is_err = true;
+                    res.err_msg = "Alokasi memori gagal";
+                    res.ok = "";
+                    return res;
+                }
+                strcpy(match_val, j_tok);
+                res.ok = match_val;
+                return res;
+            }
+        } else if (strcmp(p_tok, "*") != 0 && strcmp(p_tok, j_tok) != 0) {
+            res.is_err = true;
+            res.err_msg = "Jalur tidak cocok dengan pola rute";
+            res.ok = "";
+            return res;
+        }
+#ifdef _WIN32
+        p_tok = strtok_s(NULL, "/", &p_ctx);
+        j_tok = strtok_s(NULL, "/", &j_ctx);
+#else
+        p_tok = strtok_r(NULL, "/", &p_ctx);
+        j_tok = strtok_r(NULL, "/", &j_ctx);
+#endif
+    }
+
+    res.is_err = true;
+    res.err_msg = "Parameter rute tidak ditemukan";
+    res.ok = "";
+    return res;
+}
+
+static inline DapResult_Teks dap_ambil_kueri_param(const char* kueri, const char* kunci) {
+    DapResult_Teks res;
+    if (!kueri || !kunci) {
+        res.is_err = true;
+        res.err_msg = "Parameter kueri tidak ditemukan";
+        res.ok = "";
+        return res;
+    }
+    const char* q = (kueri[0] == '?') ? kueri + 1 : kueri;
+    char q_copy[1024];
+    strncpy(q_copy, q, sizeof(q_copy) - 1);
+    q_copy[sizeof(q_copy) - 1] = '\0';
+
+    char* ctx = NULL;
+#ifdef _WIN32
+    char* pair = strtok_s(q_copy, "&", &ctx);
+#else
+    char* pair = strtok_r(q_copy, "&", &ctx);
+#endif
+    while (pair) {
+        char* eq = strchr(pair, '=');
+        if (eq) {
+            *eq = '\0';
+            if (strcmp(pair, kunci) == 0) {
+                char* val = eq + 1;
+                for (char* p = val; *p; p++) {
+                    if (*p == '+') *p = ' ';
+                }
+                char* ret = (char*)malloc(strlen(val) + 1);
+                if (!ret) {
+                    res.is_err = true;
+                    res.err_msg = "Alokasi memori gagal";
+                    res.ok = "";
+                    return res;
+                }
+                strcpy(ret, val);
+                res.is_err = false;
+                res.err_msg = NULL;
+                res.ok = ret;
+                return res;
+            }
+        } else if (strcmp(pair, kunci) == 0) {
+            res.is_err = false;
+            res.err_msg = NULL;
+            res.ok = "";
+            return res;
+        }
+#ifdef _WIN32
+        pair = strtok_s(NULL, "&", &ctx);
+#else
+        pair = strtok_r(NULL, "&", &ctx);
+#endif
+    }
+    res.is_err = true;
+    res.err_msg = "Parameter kueri tidak ditemukan";
+    res.ok = "";
+    return res;
+}
+
+static inline bool dap_ada_kueri_param(const char* kueri, const char* kunci) {
+    DapResult_Teks r = dap_ambil_kueri_param(kueri, kunci);
+    return !r.is_err;
 }
 
 // Embedded BasisData C11 Runtime Functions
@@ -1312,10 +1504,18 @@ static inline char* dap_md5(const char* input) {
                 for s in &then_branch.stmts {
                     self.emit_stmt(s, fn_ret_ty);
                 }
+                if let Some(e) = &then_branch.expr {
+                    let es = self.emit_expr(e);
+                    self.out.push_str(&format!("        {};\n", es));
+                }
                 if let Some(eb) = else_branch {
                     self.out.push_str("    } else {\n");
                     for s in &eb.stmts {
                         self.emit_stmt(s, fn_ret_ty);
+                    }
+                    if let Some(e) = &eb.expr {
+                        let es = self.emit_expr(e);
+                        self.out.push_str(&format!("        {};\n", es));
                     }
                 }
                 self.out.push_str("    }\n");
@@ -1325,6 +1525,10 @@ static inline char* dap_md5(const char* input) {
                 self.out.push_str(&format!("    while ({}) {{\n", c_str));
                 for s in &body.stmts {
                     self.emit_stmt(s, fn_ret_ty);
+                }
+                if let Some(e) = &body.expr {
+                    let es = self.emit_expr(e);
+                    self.out.push_str(&format!("        {};\n", es));
                 }
                 self.out.push_str("    }\n");
             }
@@ -1344,6 +1548,10 @@ static inline char* dap_md5(const char* input) {
                 ));
                 for s in &body.stmts {
                     self.emit_stmt(s, fn_ret_ty);
+                }
+                if let Some(e) = &body.expr {
+                    let es = self.emit_expr(e);
+                    self.out.push_str(&format!("        {};\n", es));
                 }
                 self.out.push_str("    }\n");
             }
@@ -1513,6 +1721,31 @@ static inline char* dap_md5(const char* input) {
                 }
                 if method == "padatkan" {
                     return format!("dap_db_padatkan({}.jalur)", rec_str);
+                }
+                if method == "cocok" && args.len() == 1 {
+                    let p = self.emit_expr(&args[0].value);
+                    return format!("dap_cocok_rute({}, {}.jalur)", p, rec_str);
+                }
+                if method == "param" && args.len() == 2 {
+                    let p = self.emit_expr(&args[0].value);
+                    let n = self.emit_expr(&args[1].value);
+                    return format!("dap_ambil_param_rute({}, {}.jalur, {})", p, rec_str, n);
+                }
+                if method == "kueri_param" && args.len() == 1 {
+                    let k = self.emit_expr(&args[0].value);
+                    return format!("dap_ambil_kueri_param({}.kueri, {})", rec_str, k);
+                }
+                if method == "ada_kueri" && args.len() == 1 {
+                    let k = self.emit_expr(&args[0].value);
+                    return format!("dap_ada_kueri_param({}.kueri, {})", rec_str, k);
+                }
+                if method == "tambah_header" && args.len() == 2 {
+                    let k = self.emit_expr(&args[0].value);
+                    let v = self.emit_expr(&args[1].value);
+                    return format!("dap_tambah_header({}, {}, {})", rec_str, k, v);
+                }
+                if method == "cors" && args.is_empty() {
+                    return format!("dap_respons_cors({})", rec_str);
                 }
                 if method == "ambil" {
                     let arg_str = if !args.is_empty() { self.emit_expr(&args[0].value) } else { "0".to_string() };

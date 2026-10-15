@@ -391,12 +391,18 @@ impl TypeChecker {
         resp_fields.insert("status".to_string(), (0, Type::U64));
         resp_fields.insert("tipe_konten".to_string(), (1, Type::String));
         resp_fields.insert("konten".to_string(), (2, Type::String));
+        resp_fields.insert("header".to_string(), (3, Type::String));
         self.structs.insert(
             "ResponsHttp".to_string(),
             StructInfo {
                 name: "ResponsHttp".to_string(),
                 fields: resp_fields,
-                field_order: vec!["status".to_string(), "tipe_konten".to_string(), "konten".to_string()],
+                field_order: vec![
+                    "status".to_string(),
+                    "tipe_konten".to_string(),
+                    "konten".to_string(),
+                    "header".to_string(),
+                ],
                 span: Span::DUMMY,
             },
         );
@@ -421,6 +427,48 @@ impl TypeChecker {
                 vec![Type::String],
                 Type::Struct("ResponsHttp".to_string()),
             ),
+        );
+        self.functions.insert(
+            "tambah_header".to_string(),
+            (
+                vec![
+                    Type::Struct("ResponsHttp".to_string()),
+                    Type::String,
+                    Type::String,
+                ],
+                Type::Struct("ResponsHttp".to_string()),
+            ),
+        );
+        self.functions.insert(
+            "respons_cors".to_string(),
+            (
+                vec![Type::Struct("ResponsHttp".to_string())],
+                Type::Struct("ResponsHttp".to_string()),
+            ),
+        );
+
+        // Standard Library: Web Router & URL Query Primitives
+        self.functions.insert(
+            "cocok_rute".to_string(),
+            (vec![Type::String, Type::String], Type::Bool),
+        );
+        self.functions.insert(
+            "ambil_param_rute".to_string(),
+            (
+                vec![Type::String, Type::String, Type::String],
+                Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "ambil_kueri_param".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "ada_kueri_param".to_string(),
+            (vec![Type::String, Type::String], Type::Bool),
         );
 
         // Standard Library: Embedded Database (BasisData)
@@ -1192,6 +1240,66 @@ impl TypeChecker {
                                 Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
                             }
                             other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada BasisData", other)).with_span(*span)),
+                        }
+                    }
+                    Type::Struct(s_name) if s_name == "PermintaanHttp" => {
+                        match method.as_str() {
+                            "cocok" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'cocok' membutuhkan 1 argumen (pola: Teks)").with_span(*span));
+                                }
+                                let p_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&p_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "param" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'param' membutuhkan 2 argumen (pola: Teks, nama_param: Teks)").with_span(*span));
+                                }
+                                let p_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&p_ty, &Type::String, args[0].span)?;
+                                let n_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&n_ty, &Type::String, args[1].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "kueri_param" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'kueri_param' membutuhkan 1 argumen (kunci: Teks)").with_span(*span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "ada_kueri" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ada_kueri' membutuhkan 1 argumen (kunci: Teks)").with_span(*span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada PermintaanHttp", other)).with_span(*span)),
+                        }
+                    }
+                    Type::Struct(s_name) if s_name == "ResponsHttp" => {
+                        match method.as_str() {
+                            "tambah_header" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'tambah_header' membutuhkan 2 argumen (kunci: Teks, nilai: Teks)").with_span(*span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                let v_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&v_ty, &Type::String, args[1].span)?;
+                                Ok(Type::Struct("ResponsHttp".to_string()))
+                            }
+                            "cors" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'cors' tidak menerima argumen").with_span(*span));
+                                }
+                                Ok(Type::Struct("ResponsHttp".to_string()))
+                            }
+                            other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada ResponsHttp", other)).with_span(*span)),
                         }
                     }
                     Type::Struct(s_name) => {

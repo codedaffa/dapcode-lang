@@ -1186,6 +1186,7 @@ impl Evaluator {
                         fields.insert("status".to_string(), Value::Int(status));
                         fields.insert("tipe_konten".to_string(), Value::String(t_val.to_string()));
                         fields.insert("konten".to_string(), Value::String(k_val.to_string()));
+                        fields.insert("header".to_string(), Value::String(String::new()));
                         return Ok(Value::Struct {
                             name: "ResponsHttp".to_string(),
                             fields,
@@ -1200,6 +1201,7 @@ impl Evaluator {
                         fields.insert("status".to_string(), Value::Int(200));
                         fields.insert("tipe_konten".to_string(), Value::String("application/json".to_string()));
                         fields.insert("konten".to_string(), Value::String(val.to_string()));
+                        fields.insert("header".to_string(), Value::String(String::new()));
                         return Ok(Value::Struct {
                             name: "ResponsHttp".to_string(),
                             fields,
@@ -1214,10 +1216,84 @@ impl Evaluator {
                         fields.insert("status".to_string(), Value::Int(200));
                         fields.insert("tipe_konten".to_string(), Value::String("text/plain; charset=utf-8".to_string()));
                         fields.insert("konten".to_string(), Value::String(val.to_string()));
+                        fields.insert("header".to_string(), Value::String(String::new()));
                         return Ok(Value::Struct {
                             name: "ResponsHttp".to_string(),
                             fields,
                         });
+                    }
+                    if name == "tambah_header" {
+                        if args.len() != 3 {
+                            return Err(Diagnostic::error("'tambah_header' membutuhkan 3 argumen: (resp, kunci, nilai)").with_span(*span));
+                        }
+                        let resp_val = self.eval_expr(&args[0].value, env)?;
+                        let k_val = self.eval_expr(&args[1].value, env)?.to_string();
+                        let v_val = self.eval_expr(&args[2].value, env)?.to_string();
+                        if let Value::Struct { name: s_name, mut fields } = resp_val {
+                            if s_name == "ResponsHttp" {
+                                let mut current_h = fields.get("header").map(|v| v.to_string()).unwrap_or_default();
+                                current_h.push_str(&format!("{}: {}\r\n", k_val, v_val));
+                                fields.insert("header".to_string(), Value::String(current_h));
+                                return Ok(Value::Struct { name: s_name, fields });
+                            }
+                        }
+                        return Err(Diagnostic::error("Argumen pertama 'tambah_header' harus berupa ResponsHttp").with_span(*span));
+                    }
+                    if name == "respons_cors" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'respons_cors' membutuhkan 1 argumen (resp)").with_span(*span));
+                        }
+                        let resp_val = self.eval_expr(&args[0].value, env)?;
+                        if let Value::Struct { name: s_name, mut fields } = resp_val {
+                            if s_name == "ResponsHttp" {
+                                let mut current_h = fields.get("header").map(|v| v.to_string()).unwrap_or_default();
+                                current_h.push_str("Access-Control-Allow-Origin: *\r\n");
+                                current_h.push_str("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n");
+                                current_h.push_str("Access-Control-Allow-Headers: Content-Type, Authorization\r\n");
+                                fields.insert("header".to_string(), Value::String(current_h));
+                                return Ok(Value::Struct { name: s_name, fields });
+                            }
+                        }
+                        return Err(Diagnostic::error("Argumen 'respons_cors' harus berupa ResponsHttp").with_span(*span));
+                    }
+                    if name == "cocok_rute" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'cocok_rute' membutuhkan 2 argumen: (pola, jalur)").with_span(*span));
+                        }
+                        let pola = self.eval_expr(&args[0].value, env)?.to_string();
+                        let jalur = self.eval_expr(&args[1].value, env)?.to_string();
+                        return Ok(Value::Bool(crate::net::cocok_rute(&pola, &jalur)));
+                    }
+                    if name == "ambil_param_rute" {
+                        if args.len() != 3 {
+                            return Err(Diagnostic::error("'ambil_param_rute' membutuhkan 3 argumen: (pola, jalur, nama_param)").with_span(*span));
+                        }
+                        let pola = self.eval_expr(&args[0].value, env)?.to_string();
+                        let jalur = self.eval_expr(&args[1].value, env)?.to_string();
+                        let nama = self.eval_expr(&args[2].value, env)?.to_string();
+                        return match crate::net::ambil_param_rute(&pola, &jalur, &nama) {
+                            Ok(val) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(val))))),
+                            Err(err) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(err))))),
+                        };
+                    }
+                    if name == "ambil_kueri_param" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'ambil_kueri_param' membutuhkan 2 argumen: (kueri, kunci)").with_span(*span));
+                        }
+                        let kueri = self.eval_expr(&args[0].value, env)?.to_string();
+                        let kunci = self.eval_expr(&args[1].value, env)?.to_string();
+                        return match crate::net::ambil_kueri_param(&kueri, &kunci) {
+                            Ok(val) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(val))))),
+                            Err(err) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(err))))),
+                        };
+                    }
+                    if name == "ada_kueri_param" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'ada_kueri_param' membutuhkan 2 argumen: (kueri, kunci)").with_span(*span));
+                        }
+                        let kueri = self.eval_expr(&args[0].value, env)?.to_string();
+                        let kunci = self.eval_expr(&args[1].value, env)?.to_string();
+                        return Ok(Value::Bool(crate::net::ada_kueri_param(&kueri, &kunci)));
                     }
 
                     // Cryptography & Encoding Utilities
@@ -1448,10 +1524,21 @@ impl Evaluator {
                                     }).unwrap_or(200);
                                     let content_type = fields.get("tipe_konten").map(|v| v.to_string()).unwrap_or_else(|| "text/plain; charset=utf-8".to_string());
                                     let body = fields.get("konten").map(|v| v.to_string()).unwrap_or_default();
+                                    let mut headers = HashMap::new();
+                                    if let Some(h_val) = fields.get("header") {
+                                        let h_str = h_val.to_string();
+                                        for line in h_str.lines() {
+                                            let line = line.trim();
+                                            if let Some((k, v)) = line.split_once(':') {
+                                                headers.insert(k.trim().to_string(), v.trim().to_string());
+                                            }
+                                        }
+                                    }
                                     Ok(crate::net::HttpServerResponse {
                                         status,
                                         content_type,
                                         body,
+                                        headers,
                                     })
                                 }
                                 Value::String(s) => {
@@ -1467,6 +1554,7 @@ impl Evaluator {
                                         status: 200,
                                         content_type,
                                         body: s,
+                                        headers: HashMap::new(),
                                     })
                                 }
                                 Value::ErrorUnion(Err(e)) => {
@@ -1474,6 +1562,7 @@ impl Evaluator {
                                         status: 500,
                                         content_type: "text/plain; charset=utf-8".to_string(),
                                         body: format!("500 Internal Server Error: {}", e),
+                                        headers: HashMap::new(),
                                     })
                                 }
                                 Value::ErrorUnion(Ok(ok_v)) => {
@@ -1482,6 +1571,7 @@ impl Evaluator {
                                         status: 200,
                                         content_type: "text/plain; charset=utf-8".to_string(),
                                         body: s,
+                                        headers: HashMap::new(),
                                     })
                                 }
                                 other => {
@@ -1489,6 +1579,7 @@ impl Evaluator {
                                         status: 200,
                                         content_type: "application/json; charset=utf-8".to_string(),
                                         body: value_to_json(&other),
+                                        headers: HashMap::new(),
                                     })
                                 }
                             }
@@ -1649,6 +1740,65 @@ impl Evaluator {
                                 };
                             }
                             other => return Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada BasisData", other)).with_span(*span)),
+                        }
+                    }
+                    if struct_name == "PermintaanHttp" {
+                        let jalur = fields.get("jalur").map(|v| v.to_string()).unwrap_or_default();
+                        let kueri = fields.get("kueri").map(|v| v.to_string()).unwrap_or_default();
+                        match method.as_str() {
+                            "cocok" => {
+                                let pola = self.eval_expr(&args[0].value, env)?.to_string();
+                                return Ok(Value::Bool(crate::net::cocok_rute(&pola, &jalur)));
+                            }
+                            "param" => {
+                                let pola = self.eval_expr(&args[0].value, env)?.to_string();
+                                let nama = self.eval_expr(&args[1].value, env)?.to_string();
+                                return match crate::net::ambil_param_rute(&pola, &jalur, &nama) {
+                                    Ok(val) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(val))))),
+                                    Err(err) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(err))))),
+                                };
+                            }
+                            "kueri_param" => {
+                                let kunci = self.eval_expr(&args[0].value, env)?.to_string();
+                                return match crate::net::ambil_kueri_param(&kueri, &kunci) {
+                                    Ok(val) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(val))))),
+                                    Err(err) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(err))))),
+                                };
+                            }
+                            "ada_kueri" => {
+                                let kunci = self.eval_expr(&args[0].value, env)?.to_string();
+                                return Ok(Value::Bool(crate::net::ada_kueri_param(&kueri, &kunci)));
+                            }
+                            other => return Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada PermintaanHttp", other)).with_span(*span)),
+                        }
+                    }
+                    if struct_name == "ResponsHttp" {
+                        match method.as_str() {
+                            "tambah_header" => {
+                                let k = self.eval_expr(&args[0].value, env)?.to_string();
+                                let v = self.eval_expr(&args[1].value, env)?.to_string();
+                                let mut new_fields = fields.clone();
+                                let mut current_h = new_fields.get("header").map(|val| val.to_string()).unwrap_or_default();
+                                current_h.push_str(&format!("{}: {}\r\n", k, v));
+                                new_fields.insert("header".to_string(), Value::String(current_h));
+                                return Ok(Value::Struct {
+                                    name: "ResponsHttp".to_string(),
+                                    fields: new_fields,
+                                });
+                            }
+                            "cors" => {
+                                let mut new_fields = fields.clone();
+                                let mut current_h = new_fields.get("header").map(|val| val.to_string()).unwrap_or_default();
+                                current_h.push_str("Access-Control-Allow-Origin: *\r\n");
+                                current_h.push_str("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n");
+                                current_h.push_str("Access-Control-Allow-Headers: Content-Type, Authorization\r\n");
+                                new_fields.insert("header".to_string(), Value::String(current_h));
+                                return Ok(Value::Struct {
+                                    name: "ResponsHttp".to_string(),
+                                    fields: new_fields,
+                                });
+                            }
+                            other => return Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada ResponsHttp", other)).with_span(*span)),
                         }
                     }
                     if let Some(struct_methods) = self.methods.get(struct_name) {

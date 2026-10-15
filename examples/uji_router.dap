@@ -1,0 +1,68 @@
+// ===================================================================
+// Contoh Aplikasi Web Framework DapCode (DapRouter & REST API)
+// ===================================================================
+// Menunjukkan:
+// 1. Pencocokan Rute Dinamis dengan Segmen Parameter (:id)
+// 2. Penguraian URL Query String mentah (?kategori=kopi&halaman=2)
+// 3. Middleware CORS & Injeksi Header Kustom HTTP
+// ===================================================================
+
+fungsi tangani_web(req: PermintaanHttp) -> ResponsHttp {
+    cetak("[HTTP] {req.metode} {req.jalur}")
+
+    // 1. Rute Beranda
+    jika req.jalur == "/" {
+        kembali respons_teks("Selamat datang di Web Framework DapCode!").cors()
+    }
+
+    // 2. Rute Dinamis: /api/produk/:id
+    jika req.cocok("/api/produk/:id") {
+        id := req.param("/api/produk/:id", "id") ? tangkap err {
+            kembali kirim_respons_http(400, "text/plain", "ID tidak valid: {err}")
+        }
+
+        data_json := "\{\"id\":\"{id}\",\"nama\":\"Kopi Arabika Gayo\",\"harga\":35000\}"
+        kembali respons_json(data_json).tambah_header("X-DapCode-Router", "Aktif").cors()
+    }
+
+    // 3. Rute Pencarian dengan Query String: /api/cari?kata=kopi&halaman=1
+    jika req.jalur == "/api/cari" {
+        kata := req.kueri_param("kata") ? tangkap err {
+            kembali kirim_respons_http(400, "text/plain", "Parameter query 'kata' diperlukan")
+        }
+        halaman := req.kueri_param("halaman") ? tangkap err {
+            "1"
+        }
+
+        hasil := "\{\"kueri\":\"{kata}\",\"halaman\":{halaman},\"total\":12\}"
+        kembali respons_json(hasil).cors()
+    }
+
+    // 4. Preflight CORS untuk request lintas domain (OPTIONS)
+    jika req.metode == "OPTIONS" {
+        kembali respons_teks("OK").cors()
+    }
+
+    // 5. Fallback 404 Tidak Ditemukan
+    kembali kirim_respons_http(404, "text/plain", "404 Rute Tidak Ditemukan: {req.jalur}").cors()
+}
+
+fungsi utama() {
+    cetak("==================================================")
+    cetak("   DapCode Web Framework & DapRouter v0.1.0       ")
+    cetak("==================================================")
+    cetak("Mendengarkan pada port 8080...")
+    cetak("Uji rute berikut:")
+    cetak("1. GET http://localhost:8080/")
+    cetak("2. GET http://localhost:8080/api/produk/42")
+    cetak("3. GET http://localhost:8080/api/cari?kata=dapcode&halaman=2")
+    cetak("==================================================")
+
+    // Menjalankan server web untuk melayani hingga 5 permintaan contoh
+    total_permintaan := buat_server_http(8080, "tangani_web", 5) ? tangkap err {
+        cetak("Server berhenti karena kesalahan: {err}")
+        kembali
+    }
+
+    cetak("Server sukses memproses {total_permintaan} permintaan.")
+}

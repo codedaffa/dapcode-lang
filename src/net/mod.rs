@@ -270,6 +270,7 @@ pub struct HttpServerResponse {
     pub status: u64,
     pub content_type: String,
     pub body: String,
+    pub headers: std::collections::HashMap<String, String>,
 }
 
 impl Default for HttpServerResponse {
@@ -278,6 +279,7 @@ impl Default for HttpServerResponse {
             status: 200,
             content_type: "text/plain; charset=utf-8".to_string(),
             body: String::new(),
+            headers: std::collections::HashMap::new(),
         }
     }
 }
@@ -344,14 +346,131 @@ pub fn format_http_response(resp: &HttpServerResponse) -> Vec<u8> {
     };
 
     let body_bytes = resp.body.as_bytes();
-    let header = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nServer: DapCode-HTTP/1.0\r\nConnection: close\r\n\r\n",
+    let mut header = format!(
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nServer: DapCode-HTTP/1.0\r\n",
         resp.status, status_text, resp.content_type, body_bytes.len()
     );
+    for (k, v) in &resp.headers {
+        header.push_str(&format!("{}: {}\r\n", k, v));
+    }
+    header.push_str("Connection: close\r\n\r\n");
 
     let mut out = header.into_bytes();
     out.extend_from_slice(body_bytes);
     out
+}
+
+// ==========================================
+// --- Router Pattern Matching & Query Parser ---
+// ==========================================
+
+/// Memeriksa apakah jalur HTTP cocok dengan pola rute (mendukung parameter segmen :nama_param dan *)
+pub fn cocok_rute(pola: &str, jalur: &str) -> bool {
+    let p_segments: Vec<&str> = pola.split('/').filter(|s| !s.is_empty()).collect();
+    let j_segments: Vec<&str> = jalur.split('/').filter(|s| !s.is_empty()).collect();
+
+    if p_segments.len() != j_segments.len() {
+        return false;
+    }
+
+    for (p, j) in p_segments.iter().zip(j_segments.iter()) {
+        if p.starts_with(':') || *p == "*" {
+            continue;
+        }
+        if p != j {
+            return false;
+        }
+    }
+
+    true
+}
+
+/// Mengambil nilai parameter rute dari pola dan jalur tertentu (misal :id -> "42")
+pub fn ambil_param_rute(pola: &str, jalur: &str, nama_param: &str) -> Result<String, String> {
+    let p_segments: Vec<&str> = pola.split('/').filter(|s| !s.is_empty()).collect();
+    let j_segments: Vec<&str> = jalur.split('/').filter(|s| !s.is_empty()).collect();
+
+    if p_segments.len() != j_segments.len() {
+        return Err(format!("Jalur '{}' tidak cocok dengan pola rute '{}'", jalur, pola));
+    }
+
+    let clean_param = nama_param.strip_prefix(':').unwrap_or(nama_param);
+
+    for (p, j) in p_segments.iter().zip(j_segments.iter()) {
+        if let Some(param_key) = p.strip_prefix(':') {
+            if param_key == clean_param {
+                return Ok(j.to_string());
+            }
+        } else if *p != *j && *p != "*" {
+            return Err(format!("Jalur '{}' tidak cocok dengan pola rute '{}'", jalur, pola));
+        }
+    }
+
+    Err(format!("Parameter rute ':{}' tidak ditemukan dalam pola '{}'", clean_param, pola))
+}
+
+/// Mengambil nilai parameter dari query string HTTP (misal: "halaman=2&kategori=kopi", "kategori" -> "kopi")
+pub fn ambil_kueri_param(kueri: &str, kunci: &str) -> Result<String, String> {
+    let clean_query = kueri.strip_prefix('?').unwrap_or(kueri);
+    for pair in clean_query.split('&') {
+        if pair.is_empty() {
+            continue;
+        }
+        if let Some((k, v)) = pair.split_once('=') {
+            if k == kunci {
+                return Ok(url_decode(v));
+            }
+        } else if pair == kunci {
+            return Ok(String::new());
+        }
+    }
+    Err(format!("Parameter kueri '{}' tidak ditemukan", kunci))
+}
+
+/// Memeriksa apakah parameter tertentu ada dalam query string
+pub fn ada_kueri_param(kueri: &str, kunci: &str) -> bool {
+    let clean_query = kueri.strip_prefix('?').unwrap_or(kueri);
+    for pair in clean_query.split('&') {
+        if pair.is_empty() {
+            continue;
+        }
+        if let Some((k, _)) = pair.split_once('=') {
+            if k == kunci {
+                return true;
+            }
+        } else if pair == kunci {
+            return true;
+        }
+    }
+    false
+}
+
+/// URL decoder sederhana untuk menangani '+' sebagai spasi dan %XX hex encoding
+pub fn url_decode(s: &str) -> String {
+    let mut res = Vec::new();
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'+' {
+            res.push(b' ');
+            i += 1;
+        } else if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(byte_val) = u8::from_str_radix(
+                std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""),
+                16,
+            ) {
+                res.push(byte_val);
+                i += 3;
+            } else {
+                res.push(bytes[i]);
+                i += 1;
+            }
+        } else {
+            res.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8_lossy(&res).to_string()
 }
 
 pub fn run_http_server<F>(
@@ -395,6 +514,7 @@ where
                     status: 400,
                     content_type: "text/plain; charset=utf-8".to_string(),
                     body: format!("400 Bad Request: {}", err),
+                    headers: std::collections::HashMap::new(),
                 };
                 let _ = stream.write_all(&format_http_response(&err_resp));
                 continue;
@@ -407,6 +527,7 @@ where
                 status: 500,
                 content_type: "text/plain; charset=utf-8".to_string(),
                 body: format!("500 Internal Server Error: {}", err_msg),
+                headers: std::collections::HashMap::new(),
             },
         };
 
@@ -451,16 +572,51 @@ mod tests {
         assert_eq!(req.headers.get("content-type").unwrap(), "application/json");
         assert_eq!(req.body, "{\"auth\": true}");
 
+        let mut headers = std::collections::HashMap::new();
+        headers.insert("Access-Control-Allow-Origin".to_string(), "*".to_string());
         let resp = HttpServerResponse {
             status: 200,
             content_type: "application/json".to_string(),
             body: "{\"status\": \"sukses\"}".to_string(),
+            headers,
         };
         let formatted = format_http_response(&resp);
         let resp_str = String::from_utf8_lossy(&formatted);
         assert!(resp_str.starts_with("HTTP/1.1 200 OK\r\n"));
         assert!(resp_str.contains("Content-Type: application/json\r\n"));
+        assert!(resp_str.contains("Access-Control-Allow-Origin: *\r\n"));
         assert!(resp_str.ends_with("{\"status\": \"sukses\"}"));
+    }
+
+    #[test]
+    fn test_route_pattern_matching_and_params() {
+        assert!(cocok_rute("/api/item/:id", "/api/item/42"));
+        assert!(cocok_rute("/api/users/:user_id/posts/:post_id", "/api/users/10/posts/99"));
+        assert!(!cocok_rute("/api/item/:id", "/api/item/42/detail"));
+        assert!(!cocok_rute("/api/item/:id", "/api/user/42"));
+
+        let p1 = ambil_param_rute("/api/item/:id", "/api/item/42", "id").unwrap();
+        assert_eq!(p1, "42");
+
+        let p2 = ambil_param_rute("/api/users/:uid/orders/:oid", "/api/users/alice/orders/order-123", ":oid").unwrap();
+        assert_eq!(p2, "order-123");
+
+        let err = ambil_param_rute("/api/item/:id", "/api/item/42", "name");
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn test_query_param_parsing() {
+        let q = "kategori=kopi%20tubruk&halaman=2&urut=desc&aktif";
+        assert_eq!(ambil_kueri_param(q, "kategori").unwrap(), "kopi tubruk");
+        assert_eq!(ambil_kueri_param(q, "halaman").unwrap(), "2");
+        assert_eq!(ambil_kueri_param(q, "urut").unwrap(), "desc");
+        assert_eq!(ambil_kueri_param(q, "aktif").unwrap(), "");
+        assert!(ambil_kueri_param(q, "hilang").is_err());
+
+        assert!(ada_kueri_param(q, "halaman"));
+        assert!(ada_kueri_param(q, "aktif"));
+        assert!(!ada_kueri_param(q, "tidak_ada"));
     }
 }
 

@@ -338,5 +338,33 @@
             "}"
         ],
         "description": "Ambil nilai dari basis data berdasarkan kunci"
+    },
+    "Pencocokan Rute Dinamis": {
+        "prefix": "cocok_rute",
+        "body": [
+            "jika ${1:req}.cocok(\"${2:/api/item/:id}\") {",
+            "\t${3:id} := ${1:req}.param(\"${2:/api/item/:id}\", \"${4:id}\") ? tangkap err {",
+            "\t\tkembali respons_teks(err)",
+            "\t}",
+            "\t$0",
+            "}"
+        ],
+        "description": "Pola pencocokan rute dinamis dengan parameter"
+    },
+    "Ambil Kueri Param": {
+        "prefix": "ambil_kueri_param",
+        "body": [
+            "${1:nilai} := ${2:req}.kueri_param(\"${3:kunci}\") ? tangkap err {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Ekstrak nilai parameter kueri dari permintaan HTTP"
+    },
+    "Respons CORS": {
+        "prefix": "respons_cors",
+        "body": [
+            "respons_cors(${1:respons_json(\"${2:{\\\"status\\\": \\\"sukses\\\"}}\")})"
+        ],
+        "description": "Menambahkan header CORS ke respons HTTP"
     }
 }
