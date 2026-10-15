@@ -1144,8 +1144,10 @@ static inline DapResult_u64 dap_ambil_status_http(const char* url) {
         fs::write(&c_file, c_code)
             .map_err(|e| Diagnostic::error(format!("Gagal menulis file C: {}", e)))?;
 
-        let gcc_cmd = if Command::new("gcc").arg("--version").output().is_ok() {
+        let c_compiler = if Command::new("gcc").arg("--version").output().is_ok() {
             "gcc".to_string()
+        } else if Command::new("clang").arg("--version").output().is_ok() {
+            "clang".to_string()
         } else if Path::new(r"D:\mingw64\bin\gcc.exe").exists() {
             r"D:\mingw64\bin\gcc.exe".to_string()
         } else if Path::new(r"C:\mingw64\bin\gcc.exe").exists() {
@@ -1154,8 +1156,8 @@ static inline DapResult_u64 dap_ambil_status_http(const char* url) {
             "gcc".to_string()
         };
 
-        // Call GCC with C11 standard and math library
-        let output = Command::new(&gcc_cmd)
+        // Call GCC / Clang with C11 standard and math library
+        let output = Command::new(&c_compiler)
             .arg("-std=c11")
             .arg("-O2")
             .arg(&c_file)
@@ -1168,9 +1170,12 @@ static inline DapResult_u64 dap_ambil_status_http(const char* url) {
             Ok(res) if res.status.success() => Ok(()),
             Ok(res) => {
                 let err = String::from_utf8_lossy(&res.stderr);
-                Err(Diagnostic::error(format!("Kompilasi GCC gagal: {}", err)))
+                Err(Diagnostic::error(format!("Kompilasi native C gagal ({}): {}", c_compiler, err)))
             }
-            Err(e) => Err(Diagnostic::error(format!("Gagal memanggil GCC: {}", e))),
+            Err(e) => Err(Diagnostic::error(format!(
+                "Gagal memanggil kompilator C ({}): {}. Pastikan GCC atau Clang terpasang di sistem.",
+                c_compiler, e
+            ))),
         }
     }
 }
