@@ -14,7 +14,7 @@ Ekstensi resmi untuk bahasa pemrograman **DapCode (`.dap`)** yang menyediakan pe
   - **Hover Tooltips:** Dokumentasi penjelasan dan *signature* fungsi pustaka standar bawaan (`ke_json`, `cetak`, `baca_berkas`, `buat_direktori`, `ambil_argumen_cli`, `pastikan_sama`, dll) maupun deklarasi fungsi dan struktur lokal.
   - **Auto-Completion Cerdas:** Rekomendasi kata kunci, tipe data, fungsi pustaka standar, serta simbol kode lokal saat mengetik.
   - **Document Formatting:** Format kode sumber otomatis sesuai standar estetika DapCode.
-- 📝 **Koleksi Snippets Lengkap:** Cuplikan kode cepat untuk membuat fungsi utama (`utama`), fungsi (`fungsi`), struktur (`struktur`), implementasi sifat (`terapkan`), unit test (`uji`), asersi (`pastikan`, `pastikan_sama`), komentar dokumen (`doc`, `docm`), filesystem (`buat_direktori`, `daftar_direktori`), argumen CLI (`ambil_argumen_cli`), konkurensi coroutine (`jalan_paralel`), penguraian JSON (`ke_json`), dan penanganan error (`tangkap`).
+- 📝 **Koleksi Snippets Lengkap:** Cuplikan kode cepat untuk membuat fungsi utama (`utama`), fungsi (`fungsi`), struktur (`struktur`), implementasi sifat (`terapkan`), koleksi asosiatif (`Kamus`, `pasang`, `ambil_atau`, `daftar_kunci`, `daftar_nilai`, `bersihkan`), unit test (`uji`), asersi (`pastikan`, `pastikan_sama`), komentar dokumen (`doc`, `docm`), filesystem (`buat_direktori`, `daftar_direktori`), argumen CLI (`ambil_argumen_cli`), konkurensi coroutine (`jalan_paralel`), penguraian JSON (`ke_json`), dan penanganan error (`tangkap`).
 - 🚀 **Integrasi Perintah & Terminal:**
   - `DapCode: Jalankan Berkas Aktif (Run)` -> `dapcodec run`
   - `DapCode: Jalankan Pengujian Unit (Test)` -> `dapcodec test`

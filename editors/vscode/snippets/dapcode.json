@@ -663,6 +663,88 @@
             "}"
         ],
         "description": "Kerangka animasi loop grafis Kanvas 2D berbasis selang waktu delta frame (kanvas_delta_waktu)"
+    },
+    "Inisialisasi Kamus": {
+        "prefix": "Kamus",
+        "body": [
+            "${1:peta} := Kamus<${2:Teks}, ${3:u64}>()"
+        ],
+        "description": "Inisialisasi koleksi asosiatif Kamus<K, V> baru"
+    },
+    "Kamus Pasang Kunci Nilai": {
+        "prefix": "pasang",
+        "body": [
+            "${1:kamus}.pasang(\"${2:kunci}\", ${3:nilai})"
+        ],
+        "description": "Menyimpan pasangan kunci-nilai ke dalam Kamus"
+    },
+    "Kamus Ambil Nilai": {
+        "prefix": "ambil",
+        "body": [
+            "${1:nilai} := ${2:kamus}.ambil(\"${3:kunci}\") ? tangkap err {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Mengambil nilai dari Kamus dengan penanganan Error Union"
+    },
+    "Kamus Ambil atau Nilai Bawaan": {
+        "prefix": "ambil_atau",
+        "body": [
+            "${1:nilai} := ${2:kamus}.ambil_atau(\"${3:kunci}\", ${4:bawaan})"
+        ],
+        "description": "Mengambil nilai dari Kamus atau nilai bawaan jika kunci tidak ada"
+    },
+    "Kamus Periksa Ada Kunci": {
+        "prefix": "ada",
+        "body": [
+            "${1:kamus}.ada(\"${2:kunci}\")"
+        ],
+        "description": "Memeriksa apakah kunci tertentu ada dalam Kamus"
+    },
+    "Kamus Hapus Kunci": {
+        "prefix": "hapus",
+        "body": [
+            "${1:kamus}.hapus(\"${2:kunci}\")"
+        ],
+        "description": "Menghapus pasangan kunci dari Kamus"
+    },
+    "Kamus Daftar Kunci": {
+        "prefix": "daftar_kunci",
+        "body": [
+            "${1:kunci_list} := ${2:kamus}.daftar_kunci()"
+        ],
+        "description": "Mendapatkan daftar seluruh kunci dalam Kamus berurutan alfabetis"
+    },
+    "Kamus Daftar Nilai": {
+        "prefix": "daftar_nilai",
+        "body": [
+            "${1:nilai_list} := ${2:kamus}.daftar_nilai()"
+        ],
+        "description": "Mendapatkan daftar seluruh nilai dalam Kamus"
+    },
+    "Kamus Konversi ke JSON": {
+        "prefix": "ke_json",
+        "body": [
+            "${1:json_str} := ${2:kamus}.ke_json()"
+        ],
+        "description": "Mengonversi seluruh isi Kamus menjadi string JSON terformat"
+    },
+    "Kamus Bersihkan": {
+        "prefix": "bersihkan",
+        "body": [
+            "${1:kamus}.bersihkan()"
+        ],
+        "description": "Mengosongkan seluruh pasangan kunci-nilai dalam Kamus"
+    },
+    "Perulangan Untuk Kunci di Kamus": {
+        "prefix": "untuk_kamus",
+        "body": [
+            "untuk ${1:kunci} di ${2:kamus} {",
+            "\t${3:nilai} := ${2:kamus}.ambil(${1:kunci}) ? tangkap err { \"\" }",
+            "\t$0",
+            "}"
+        ],
+        "description": "Iterasi seluruh kunci dalam Kamus dengan perulangan untuk-di"
     }
 }
 
