@@ -99,6 +99,56 @@ impl fmt::Display for Value {
     }
 }
 
+impl Value {
+    pub fn is_equal(&self, other: &Value) -> bool {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => a == b,
+            (Value::Float(a), Value::Float(b)) => (a - b).abs() < f64::EPSILON,
+            (Value::String(a), Value::String(b)) => a == b,
+            (Value::Bool(a), Value::Bool(b)) => a == b,
+            (Value::Unit, Value::Unit) => true,
+            (Value::Struct { name: n1, fields: f1 }, Value::Struct { name: n2, fields: f2 }) => {
+                if n1 != n2 || f1.len() != f2.len() {
+                    return false;
+                }
+                for (k, v1) in f1 {
+                    if let Some(v2) = f2.get(k) {
+                        if !v1.is_equal(v2) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+                true
+            }
+            (Value::List(l1), Value::List(l2)) => {
+                let lock1 = l1.lock().unwrap();
+                let lock2 = l2.lock().unwrap();
+                if lock1.len() != lock2.len() {
+                    return false;
+                }
+                for i in 0..lock1.len() {
+                    if !lock1[i].is_equal(&lock2[i]) {
+                        return false;
+                    }
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TestResult {
+    pub name: String,
+    pub passed: bool,
+    pub error: Option<String>,
+    pub duration: std::time::Duration,
+    pub span: Span,
+}
+
 #[derive(Debug, Clone)]
 pub enum ControlFlow {
     Next(Value),
@@ -203,6 +253,67 @@ impl Evaluator {
         } else {
             Err(Diagnostic::error("Fungsi 'utama()' tidak ditemukan").with_span(program.span))
         }
+    }
+
+    pub fn run_tests(&mut self, program: &Program) -> Vec<TestResult> {
+        // Collect functions and impl methods first so tests can call them
+        for decl in &program.decls {
+            match decl {
+                Decl::Fn(f) => {
+                    self.functions.insert(f.name.clone(), f.clone());
+                }
+                Decl::Impl(i) => {
+                    let struct_methods = self.methods.entry(i.target_struct.clone()).or_default();
+                    for m in &i.methods {
+                        struct_methods.insert(m.name.clone(), m.clone());
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let mut results = Vec::new();
+
+        for decl in &program.decls {
+            if let Decl::Test(t) = decl {
+                let start = std::time::Instant::now();
+                let mut env = Environment::new();
+                let res = self.eval_block(&t.body, &mut env);
+                let duration = start.elapsed();
+
+                match res {
+                    Ok(ControlFlow::Next(_)) | Ok(ControlFlow::Return(_)) => {
+                        results.push(TestResult {
+                            name: t.name.clone(),
+                            passed: true,
+                            error: None,
+                            duration,
+                            span: t.span,
+                        });
+                    }
+                    Ok(ControlFlow::Fail(e)) => {
+                        results.push(TestResult {
+                            name: t.name.clone(),
+                            passed: false,
+                            error: Some(e.to_string()),
+                            duration,
+                            span: t.span,
+                        });
+                    }
+                    Err(diag) => {
+                        results.push(TestResult {
+                            name: t.name.clone(),
+                            passed: false,
+                            error: Some(diag.message),
+                            duration,
+                            span: t.span,
+                        });
+                    }
+                }
+            }
+        }
+
+        results
     }
 
     pub fn eval_fn(
@@ -505,6 +616,55 @@ impl Evaluator {
                         }
                         let task_val = self.eval_expr(&args[0].value, env)?;
                         return self.await_task(task_val, *span);
+                    }
+                }
+
+                // Built-in Stdlib: Test Assertions
+                if let Expr::Ident(name, _) = &**callee {
+                    if name == "pastikan" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'pastikan' membutuhkan 1 argumen (kondisi: bool)").with_span(*span));
+                        }
+                        let cond_val = self.eval_expr(&args[0].value, env)?;
+                        match cond_val {
+                            Value::Bool(true) => return Ok(Value::Unit),
+                            Value::Bool(false) => {
+                                return Err(Diagnostic::error("Asersi gagal: kondisi bernilai 'salah'").with_span(*span));
+                            }
+                            other => {
+                                return Err(Diagnostic::error(format!("Asersi gagal: kondisi bukan boolean ({:?})", other)).with_span(*span));
+                            }
+                        }
+                    }
+                    if name == "pastikan_sama" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'pastikan_sama' membutuhkan 2 argumen (sebenarnya, diharapkan)").with_span(*span));
+                        }
+                        let a = self.eval_expr(&args[0].value, env)?;
+                        let b = self.eval_expr(&args[1].value, env)?;
+                        if a.is_equal(&b) {
+                            return Ok(Value::Unit);
+                        } else {
+                            return Err(Diagnostic::error(format!(
+                                "Asersi gagal: nilai '{:?}' tidak sama dengan '{:?}'",
+                                a, b
+                            )).with_span(*span));
+                        }
+                    }
+                    if name == "pastikan_tidak_sama" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'pastikan_tidak_sama' membutuhkan 2 argumen (a, b)").with_span(*span));
+                        }
+                        let a = self.eval_expr(&args[0].value, env)?;
+                        let b = self.eval_expr(&args[1].value, env)?;
+                        if !a.is_equal(&b) {
+                            return Ok(Value::Unit);
+                        } else {
+                            return Err(Diagnostic::error(format!(
+                                "Asersi gagal: kedua nilai bernilai sama ({:?})",
+                                a
+                            )).with_span(*span));
+                        }
                     }
                 }
 

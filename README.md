@@ -62,6 +62,7 @@ dapcode-lang/
 ├── examples/
 │   ├── demo.dap                  # Program percontohan resmi DapCode
 │   ├── uji_stdlib.dap            # Demonstrasi fitur Pustaka Standar (Stdlib)
+│   ├── demo_uji.dap              # Demonstrasi Test Runner Terbawa (uji, pastikan)
 │   └── proyek_multiberkas/       # Contoh proyek multi-berkas dengan DapCode.toml
 │       ├── DapCode.toml
 │       └── src/
@@ -118,6 +119,7 @@ dapcode-lang/
     ├── lsp_test.rs               # Uji LSP (Init, Diagnostics, Hover, Completion)
     ├── net_test.rs               # Uji Jaringan & HTTP Client (GET, POST, Status, 404 Catch)
     ├── dependency_test.rs        # Uji Manajemen Dependensi & Multi-Paket (add, install, remove)
+    ├── test_runner_test.rs       # Uji Test Runner Terbawa (uji, pastikan, pastikan_sama)
     └── demo_test.rs
 ```
 
@@ -225,6 +227,27 @@ dapcodec install
 dapcodec remove jaringan
 ```
 
+### 14. Menjalankan Unit Test Terbawa (`test`)
+```powershell
+# Jalankan seluruh pengujian di proyek atau folder tests/
+dapcodec test
+
+# Jalankan pengujian pada berkas spesifik
+dapcodec test examples/demo_uji.dap
+
+# Jalankan pengujian dengan filter nama tertentu
+dapcodec test examples/demo_uji.dap --filter perkalian
+```
+Mendukung sintaks bawaan:
+```dap
+uji "perhitungan perkalian" {
+    hasil := kali(6, 7)
+    pastikan_sama(hasil, 42)
+    pastikan(hasil > 40)
+    pastikan_tidak_sama(hasil, 0)
+}
+```
+
 ---
 
 ## 🎨 Dukungan Editor & Ekstensi VS Code
@@ -253,5 +276,5 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 14 modul test (35 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 15 modul test (39 pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 

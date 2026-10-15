@@ -325,6 +325,7 @@ impl<'a> Lexer<'a> {
             "di" => TokenKind::Di,
             "dalam" => TokenKind::Dalam,
             "impor" => TokenKind::Impor,
+            "uji" => TokenKind::Uji,
             "benar" => TokenKind::Benar,
             "salah" => TokenKind::Salah,
             _ => TokenKind::Ident(word.to_string()),

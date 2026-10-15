@@ -59,6 +59,7 @@ impl<'a> Parser<'a> {
         self.skip_newlines();
         match self.peek_kind() {
             TokenKind::Impor => self.parse_import_decl().map(Decl::Import),
+            TokenKind::Uji => self.parse_test_decl().map(Decl::Test),
             TokenKind::Struktur => self.parse_struct_decl().map(Decl::Struct),
             TokenKind::Sifat => self.parse_trait_decl().map(Decl::Trait),
             TokenKind::Terapkan => self.parse_impl_decl().map(Decl::Impl),
@@ -70,7 +71,7 @@ impl<'a> Parser<'a> {
             _ => {
                 let tok = self.peek();
                 Err(Diagnostic::error(format!(
-                    "Diharapkan deklarasi ('impor', 'struktur', 'sifat', 'terapkan', atau 'fungsi'), tetapi menemukan '{}'",
+                    "Diharapkan deklarasi ('impor', 'uji', 'struktur', 'sifat', 'terapkan', atau 'fungsi'), tetapi menemukan '{}'",
                     tok.kind
                 ))
                 .with_span(tok.span))
@@ -97,6 +98,38 @@ impl<'a> Parser<'a> {
             path,
             span: start.merge(str_span),
         })
+    }
+
+    fn parse_test_decl(&mut self) -> Result<TestDecl> {
+        let start = self.expect(TokenKind::Uji)?.span;
+        self.skip_newlines();
+
+        let name = match self.peek_kind() {
+            TokenKind::StringLit(s) => {
+                let s = s.clone();
+                self.advance();
+                s
+            }
+            TokenKind::Ident(s) => {
+                let s = s.clone();
+                self.advance();
+                s
+            }
+            _ => {
+                let tok = self.peek();
+                return Err(Diagnostic::error(format!(
+                    "Diharapkan nama pengujian berupa string teks atau identifier setelah 'uji', tetapi menemukan '{}'",
+                    tok.kind
+                ))
+                .with_span(tok.span));
+            }
+        };
+
+        self.skip_newlines();
+        let body = self.parse_block()?;
+        let span = start.merge(body.span);
+
+        Ok(TestDecl { name, body, span })
     }
 
     fn parse_struct_decl(&mut self) -> Result<StructDecl> {

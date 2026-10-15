@@ -102,6 +102,14 @@ pub enum Commands {
         /// Nama paket dependensi yang akan dihapus
         name: String,
     },
+    /// Menjalankan pengujian terintegrasi (blok 'uji "..."')
+    Test {
+        /// Berkas sumber .dap atau direktori pengujian (opsional)
+        file: Option<PathBuf>,
+        /// Filter nama pengujian tertentu
+        #[arg(short, long)]
+        filter: Option<String>,
+    },
 }
 
 pub fn run_cli() -> io::Result<()> {
@@ -126,6 +134,7 @@ pub fn run_cli() -> io::Result<()> {
         } => cmd_add(&name, path, git, version),
         Commands::Install => cmd_install(),
         Commands::Remove { name } => cmd_remove(&name),
+        Commands::Test { file, filter } => cmd_test(file.as_deref(), filter.as_deref()),
     }
 }
 
@@ -787,4 +796,142 @@ pub fn cmd_install_in(dir: &Path) -> io::Result<()> {
 
     Ok(())
 }
+
+pub fn cmd_test(file: Option<&Path>, filter: Option<&str>) -> io::Result<()> {
+    let mut files_to_test = Vec::new();
+
+    if let Some(f) = file {
+        if f.is_file() {
+            files_to_test.push(f.to_path_buf());
+        } else if f.is_dir() {
+            collect_dap_files(f, &mut files_to_test)?;
+        } else {
+            eprintln!("{}: Path '{}' tidak ditemukan.", "kesalahan".red().bold(), f.display());
+            return Err(io::Error::new(io::ErrorKind::NotFound, "Path tidak ditemukan"));
+        }
+    } else {
+        let tests_dir = Path::new("tests");
+        if tests_dir.is_dir() {
+            collect_dap_files(tests_dir, &mut files_to_test)?;
+        }
+        if let Some((manifest_path, manifest)) = ProjectManifest::find_upwards(Path::new(".")) {
+            let manifest_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+            let main_path = manifest_dir.join(&manifest.berkas_utama);
+            if main_path.exists() && !files_to_test.contains(&main_path) {
+                files_to_test.push(main_path);
+            }
+            let src_dir = manifest_dir.join("src");
+            if src_dir.is_dir() {
+                collect_dap_files(&src_dir, &mut files_to_test)?;
+            }
+        } else if files_to_test.is_empty() {
+            collect_dap_files(Path::new("."), &mut files_to_test)?;
+        }
+    }
+
+    files_to_test.sort();
+    files_to_test.dedup();
+
+    if files_to_test.is_empty() {
+        println!("{}: Tidak ada berkas .dap yang ditemukan untuk diuji.", "info:".blue().bold());
+        return Ok(());
+    }
+
+    println!("{}", "Menjalankan Pengujian DapCode...".cyan().bold());
+    println!("{}", "=".repeat(45).dimmed());
+
+    let mut total_passed = 0;
+    let mut total_failed = 0;
+    let mut total_tests = 0;
+    let total_start = std::time::Instant::now();
+
+    for file_path in &files_to_test {
+        let mut sm = SourceMap::new();
+        let (file_id, program) = match load_program_and_modules(file_path, &mut sm) {
+            Some(res) => res,
+            None => {
+                total_failed += 1;
+                continue;
+            }
+        };
+
+        // Type checking
+        let mut checker = TypeChecker::new(file_id);
+        if let Err(diag) = checker.check_program(&program) {
+            eprintln!("{}: Gagal memeriksa tipe pada '{}':\n{}", "kesalahan".red().bold(), file_path.display(), diag.render(&sm));
+            total_failed += 1;
+            continue;
+        }
+
+        let test_count = program.decls.iter().filter(|d| matches!(d, Decl::Test(_))).count();
+        if test_count == 0 {
+            continue;
+        }
+
+        println!("\n  Berkas: {}", file_path.display().to_string().bold());
+
+        let mut evaluator = Evaluator::new();
+        let results = evaluator.run_tests(&program);
+
+        for res in results {
+            if let Some(f) = filter {
+                if !res.name.contains(f) {
+                    continue;
+                }
+            }
+
+            total_tests += 1;
+            let duration_ms = res.duration.as_secs_f64() * 1000.0;
+
+            if res.passed {
+                total_passed += 1;
+                println!(
+                    "    uji \"{}\" ... {} ({:.2} ms)",
+                    res.name,
+                    "ok".green().bold(),
+                    duration_ms
+                );
+            } else {
+                total_failed += 1;
+                println!(
+                    "    uji \"{}\" ... {} ({:.2} ms)",
+                    res.name,
+                    "GAGAL".red().bold(),
+                    duration_ms
+                );
+                if let Some(err) = res.error {
+                    eprintln!("      {}: {}", "kegagalan".red(), err);
+                }
+            }
+        }
+    }
+
+    let elapsed_ms = total_start.elapsed().as_secs_f64() * 1000.0;
+    println!("\n{}", "=".repeat(45).dimmed());
+
+    if total_tests == 0 {
+        println!("{}: Tidak ada blok 'uji \"...\"' yang ditemukan pada berkas yang dipindai.", "info:".yellow().bold());
+        return Ok(());
+    }
+
+    if total_failed == 0 {
+        println!(
+            "Hasil pengujian: {}. {} lolos; 0 gagal; selesai dalam {:.2} ms\n",
+            "ok".green().bold(),
+            total_passed,
+            elapsed_ms
+        );
+        Ok(())
+    } else {
+        eprintln!(
+            "Hasil pengujian: {}. {} lolos; {} gagal; selesai dalam {:.2} ms\n",
+            "GAGAL".red().bold(),
+            total_passed,
+            total_failed,
+            elapsed_ms
+        );
+        Err(io::Error::new(io::ErrorKind::Other, format!("{} pengujian gagal", total_failed)))
+    }
+}
+
 

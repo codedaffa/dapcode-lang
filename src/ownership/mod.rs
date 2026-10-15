@@ -114,6 +114,10 @@ impl OwnershipAnalyzer {
                         self.report.functions.insert(full_name, fa);
                     }
                 }
+                Decl::Test(t) => {
+                    let fa = self.analyze_fn(&format!("uji::{}", t.name), &[], &t.body);
+                    self.report.functions.insert(format!("uji::{}", t.name), fa);
+                }
                 _ => {}
             }
         }

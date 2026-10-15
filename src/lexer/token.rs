@@ -22,6 +22,7 @@ pub enum TokenKind {
     Di,            // di
     Dalam,         // dalam
     Impor,         // impor
+    Uji,           // uji
     Benar,         // benar
     Salah,         // salah
 
@@ -129,6 +130,7 @@ impl fmt::Display for TokenKind {
             TokenKind::Di => write!(f, "di"),
             TokenKind::Dalam => write!(f, "dalam"),
             TokenKind::Impor => write!(f, "impor"),
+            TokenKind::Uji => write!(f, "uji"),
             TokenKind::Benar => write!(f, "benar"),
             TokenKind::Salah => write!(f, "salah"),
             TokenKind::IntLit(n) => write!(f, "{}", n),

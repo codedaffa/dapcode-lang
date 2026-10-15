@@ -37,7 +37,22 @@ impl Formatter {
             Decl::Trait(t) => self.format_trait(t),
             Decl::Impl(i) => self.format_impl(i),
             Decl::Fn(f) => self.format_fn(f),
+            Decl::Test(t) => self.format_test(t),
         }
+    }
+
+    fn format_test(&mut self, t: &TestDecl) -> String {
+        let mut out = format!("{}uji \"{}\" {{\n", self.indent(), t.name);
+        self.indent_level += 1;
+        for s in &t.body.stmts {
+            out.push_str(&format!("{}{}\n", self.indent(), self.format_stmt(s)));
+        }
+        if let Some(e) = &t.body.expr {
+            out.push_str(&format!("{}{}\n", self.indent(), self.format_expr(e)));
+        }
+        self.indent_level -= 1;
+        out.push_str(&format!("{}}}", self.indent()));
+        out
     }
 
     fn format_struct(&self, s: &StructDecl) -> String {

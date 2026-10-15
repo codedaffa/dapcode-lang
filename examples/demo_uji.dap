@@ -1,0 +1,31 @@
+fungsi kali(a: bulat, b: bulat) -> bulat {
+    kembali a * b
+}
+
+fungsi bagi(a: bulat, b: bulat) -> bulat ! teks {
+    jika b == 0 {
+        gagal "Pembagi tidak boleh nol"
+    }
+    kembali a / b
+}
+
+uji "perhitungan perkalian dasar" {
+    hasil := kali(6, 7)
+    pastikan_sama(hasil, 42)
+    pastikan(hasil > 40)
+    pastikan_tidak_sama(hasil, 0)
+}
+
+uji "pembagian normal dan error union" {
+    hasil := bagi(100, 4) ? tangkap err {
+        gagal err
+    }
+    pastikan_sama(hasil, 25)
+}
+
+uji "validasi string dan boolean" {
+    teks_asli := "dapcode"
+    kapital := ke_huruf_besar(teks_asli)
+    pastikan_sama(kapital, "DAPCODE")
+    pastikan(panjang_teks(kapital) == 7)
+}

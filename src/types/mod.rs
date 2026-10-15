@@ -265,6 +265,24 @@ impl TypeChecker {
             ),
         );
 
+        // Standard Library: Test Assertions
+        self.functions.insert(
+            "pastikan".to_string(),
+            (vec![Type::Bool], Type::Unit),
+        );
+        let pastikan_arg1 = self.fresh_var();
+        let pastikan_arg2 = pastikan_arg1.clone();
+        self.functions.insert(
+            "pastikan_sama".to_string(),
+            (vec![pastikan_arg1, pastikan_arg2], Type::Unit),
+        );
+        let pastikan_tdk1 = self.fresh_var();
+        let pastikan_tdk2 = pastikan_tdk1.clone();
+        self.functions.insert(
+            "pastikan_tidak_sama".to_string(),
+            (vec![pastikan_tdk1, pastikan_tdk2], Type::Unit),
+        );
+
         // 1. First pass: Collect all struct declarations
         for decl in &program.decls {
             if let Decl::Struct(s) = decl {
@@ -460,6 +478,9 @@ impl TypeChecker {
                         self.check_fn(m, Some(&i.target_struct))?;
                     }
                 }
+                Decl::Test(t) => {
+                    self.check_test(t)?;
+                }
                 _ => {}
             }
         }
@@ -511,6 +532,15 @@ impl TypeChecker {
             }
         }
 
+        self.exit_scope();
+        self.current_fn_ret = None;
+        Ok(())
+    }
+
+    fn check_test(&mut self, t: &TestDecl) -> Result<()> {
+        self.current_fn_ret = Some(Type::Unit);
+        self.enter_scope();
+        let _ = self.check_block(&t.body)?;
         self.exit_scope();
         self.current_fn_ret = None;
         Ok(())
@@ -617,6 +647,9 @@ impl TypeChecker {
                 match self.resolve_type(&ret_expected) {
                     Type::ErrorUnion(_, expected_err) => {
                         self.unify(&err_ty, &expected_err, *span)?;
+                    }
+                    Type::Unit => {
+                        // Diizinkan pada blok pengujian (uji) atau fungsi Unit untuk memicu kegagalan
                     }
                     other => {
                         return Err(Diagnostic::error(format!(
@@ -782,6 +815,35 @@ impl TypeChecker {
                         for a in args {
                             self.check_expr(&a.value)?;
                         }
+                        return Ok(Type::Unit);
+                    }
+                    if name == "pastikan" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'pastikan' membutuhkan tepat 1 argumen (kondisi: bool)")
+                                .with_span(*span));
+                        }
+                        let cond_ty = self.check_expr(&args[0].value)?;
+                        self.unify(&cond_ty, &Type::Bool, args[0].span)?;
+                        return Ok(Type::Unit);
+                    }
+                    if name == "pastikan_sama" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'pastikan_sama' membutuhkan tepat 2 argumen (sebenarnya, diharapkan)")
+                                .with_span(*span));
+                        }
+                        let a_ty = self.check_expr(&args[0].value)?;
+                        let b_ty = self.check_expr(&args[1].value)?;
+                        self.unify(&a_ty, &b_ty, *span)?;
+                        return Ok(Type::Unit);
+                    }
+                    if name == "pastikan_tidak_sama" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'pastikan_tidak_sama' membutuhkan tepat 2 argumen (a, b)")
+                                .with_span(*span));
+                        }
+                        let a_ty = self.check_expr(&args[0].value)?;
+                        let b_ty = self.check_expr(&args[1].value)?;
+                        self.unify(&a_ty, &b_ty, *span)?;
                         return Ok(Type::Unit);
                     }
                 }

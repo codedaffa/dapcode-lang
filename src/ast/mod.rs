@@ -14,12 +14,20 @@ pub struct ImportDecl {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct TestDecl {
+    pub name: String,
+    pub body: Block,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Decl {
     Import(ImportDecl),
     Struct(StructDecl),
     Trait(TraitDecl),
     Impl(ImplDecl),
     Fn(FnDecl),
+    Test(TestDecl),
 }
 
 #[derive(Debug, Clone, PartialEq)]
