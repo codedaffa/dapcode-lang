@@ -17,7 +17,7 @@ fungsi tangani_permintaan(req: PermintaanHttp) -> ResponsHttp {
 
     // 2. Endpoint REST API Dinamis
     jika req.jalur == "/api/status" {
-        respons := respons_json("{\"status\": \"online\", \"versi\": \"0.1.0\", \"engine\": \"DapCode C11\", \"websocket\": \"aktif\"}")
+        respons := respons_json("\{\"status\": \"online\", \"versi\": \"0.1.0\", \"engine\": \"DapCode C11\", \"websocket\": \"aktif\"\}")
         kembali respons.cors()
     }
 
@@ -25,7 +25,7 @@ fungsi tangani_permintaan(req: PermintaanHttp) -> ResponsHttp {
         id := req.param("/api/pengguna/:id", "id") ? tangkap err {
             kembali respons_teks("Parameter tidak valid").cors()
         }
-        respons := respons_json("{\"pengguna_id\": \"{id}\", \"peran\": \"pengembang\"}")
+        respons := respons_json("\{\"pengguna_id\": \"{id}\", \"peran\": \"pengembang\"\}")
         kembali respons.cors()
     }
 
