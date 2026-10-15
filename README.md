@@ -399,32 +399,57 @@ fungsi utama() {
 }
 ```
 
-### 18. Web Framework Tingkat Tinggi & DapRouter (`cocok_rute`, Route Params, Query Parser, & CORS)
-DapCode menyediakan fasilitas router web modern tingkat tinggi dengan parameter dinamis, parser query string, dan injeksi header CORS:
+### 18. Web Framework Tingkat Tinggi & DapRouter (`cocok_rute`, Route Params, Middleware & Query)
+DapCode menyediakan fasilitas web framework modern tingkat tinggi lengkap dengan routing parameter dinamis, parsing query string dengan fallback nilai bawaan, middleware autentikasi Bearer token, sub-routing awalan, serta pembangun respons pengalihan (redirect):
 ```dap
 fungsi tangani_web(req: PermintaanHttp) -> ResponsHttp {
-    // 1. Pencocokan Rute Dinamis & Ekstraksi Parameter (:id)
+    klien := req.header_atau("User-Agent", "Klien Anonim")
+    cetak("[HTTP] {req.metode} {req.jalur} dari {klien}")
+
+    // 1. Pengalihan Rute (Redirect Middleware)
+    jika req.jalur == "/beranda" {
+        kembali respons_redirect("/", 301).cors()
+    }
+
+    // 2. Middleware Autentikasi untuk Sub-Rute Terproteksi (/api/admin/*)
+    jika req.cocok_awalan("/api/admin") {
+        token := req.otorisasi_bearer() ? tangkap err {
+            kembali respons_401("Akses ditolak: Token Bearer diperlukan").cors()
+        }
+        jika token != "kunci-rahasia-2026" {
+            kembali respons_403("Akses dilarang: Token otorisasi salah").cors()
+        }
+        sisa := req.sisa_jalur("/api/admin")
+        kembali respons_json("{\"admin\":benar,\"sub_rute\":\"{sisa}\"}").cors()
+    }
+
+    // 3. Pencocokan Rute Dinamis & Ekstraksi Parameter (:id)
     jika req.cocok("/api/produk/:id") {
         id := req.param("/api/produk/:id", "id") ? tangkap err {
-            kembali kirim_respons_http(400, "text/plain", "ID tidak valid: {err}")
+            kembali kirim_respons_http(400, "text/plain", "ID tidak valid: {err}").cors()
         }
-        kembali respons_json("{\"id\":\"{id}\",\"nama\":\"Kopi Gayo\"}").cors()
+        resp := respons_json("{\"id\":\"{id}\",\"nama\":\"Kopi Gayo\"}").cors()
+        cetak("Status respons: {resp.status_teks()}")
+        kembali resp
     }
 
-    // 2. Penguraian URL Query String (?kata=kopi&halaman=2)
+    // 4. Penguraian URL Query String dengan Nilai Bawaan (?kata=kopi&halaman=2&urut=murah)
     jika req.jalur == "/api/cari" {
-        kata := req.kueri_param("kata") ? tangkap err { "semua" }
-        hal := req.kueri_param("halaman") ? tangkap err { "1" }
-        kembali respons_json("{\"kata\":\"{kata}\",\"halaman\":{hal}}").cors()
+        kata := req.kueri_atau("kata", "semua")
+        hal := req.kueri_atau("halaman", "1")
+        urut := req.kueri_atau("urut", "terbaru")
+        semua := req.semua_kueri()
+
+        kembali respons_json("{\"kata\":\"{kata}\",\"halaman\":{hal},\"urut\":\"{urut}\",\"total_filter\":{semua.panjang()}}").cors()
     }
 
-    // 3. Header Kustom & Dukungan Preflight CORS (OPTIONS)
+    // 5. Header Kustom & Dukungan Preflight CORS (OPTIONS)
     jika req.metode == "OPTIONS" {
         kembali respons_teks("OK").cors()
     }
 
-    // 4. Fallback 404
-    kembali kirim_respons_http(404, "text/plain", "404 Halaman Tidak Ditemukan").cors()
+    // 6. Fallback 404
+    kembali kirim_respons_http(404, "text/plain", "404 Halaman Tidak Ditemukan: {req.jalur}").cors()
 }
 
 fungsi utama() {
@@ -507,6 +532,39 @@ fungsi utama() {
 - **Kepatuhan Penuh RFC 6455:** Mendukung kalkulasi SHA-1 + GUID `258EAFA5-E914-47DA-95CA-C5AB0DC85B11` Base64 key, decoding frame bertopeng (*masked frame*), payload 7-bit, 16-bit, dan 64-bit, unmasking XOR 4-byte, auto-reply ping (opcode `0x9`) ke pong (opcode `0xA`), serta penutupan koneksi graceful (opcode `0x8`).
 - **Native C11 Zero-Dependency:** Kompilasi langsung ke biner native C11 berkecepatan tinggi via GCC (`-lws2_32` di Windows dan POSIX BSD sockets di Linux/macOS).
 
+### 21. Mesin Reguler Ekspresi Mandiri (`cocok_regex`, `cari_regex`, `ganti_regex`, `ekstrak_regex`, `ekstrak_grup_regex`, `pisah_regex`)
+DapCode menyertakan pustaka standar Reguler Ekspresi (Regex) 100% murni Rust (*zero external dependencies*) dengan dukungan fitur regex modern:
+- **Karakter & Shorthand:** `\d` (digit), `\D` (non-digit), `\w` (word), `\W` (non-word), `\s` (whitespace), `\S` (non-whitespace), `.` (semua karakter).
+- **Kuantifier Greedy:** `*` (0 atau lebih), `+` (1 atau lebih), `?` (opsional 0 atau 1), `{n}` (tepat n), `{n,}` (minimal n), `{n,m}` (antara n dan m).
+- **Jangkar & Batas Kata:** `^` (awal teks), `$` (akhir teks), `\b` (batas kata / *word boundary*), `\B` (bukan batas kata).
+- **Grup & Alternasi:** `(...)` (grup penangkapan / *capturing groups*), `|` (alternasi logika ATAU).
+
+```dap
+fungsi utama() {
+    teks := "Server dimulai pada 2026-10-16 pukul 04:30 WIB"
+
+    // 1. Ekstraksi Grup Penangkapan (...)
+    grup := ekstrak_grup_regex("(\\d\{4\})-(\\d\{2\})-(\\d\{2\})", teks) ? tangkap err {
+        Daftar()
+    }
+    jika grup.panjang() > 0 {
+        cetak("Tanggal: {grup.ambil(0)}") // 2026-10-16 (Full match)
+        cetak("Tahun  : {grup.ambil(1)}") // 2026 (Group 1)
+        cetak("Bulan  : {grup.ambil(2)}") // 10   (Group 2)
+        cetak("Hari   : {grup.ambil(3)}") // 16   (Group 3)
+    }
+
+    // 2. Pemisahan String Berdasarkan Pola Delimiter (pisah_regex)
+    csv := "Kopi Arabika, 35000 , 20 , Minuman Segar"
+    kolom := pisah_regex(",\\s*", csv)
+    cetak("Jumlah kolom: {kolom.panjang()}") // 4
+
+    // 3. Batas Kata (\b)
+    ada_kata := cocok_regex("\\bcat\\b", "the cat sat on a mat") // benar
+    tidak_ada := cocok_regex("\\bcat\\b", "concatenate")        // salah
+}
+```
+
 ---
 
 ## 🎨 Dukungan Editor & Ekstensi VS Code
@@ -518,10 +576,10 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
   ```
 - **Integrasi LSP Cerdas (`extension.js`):**
   - **Diagnostik Real-Time:** Pelaporan kesalahan sintaks, kepemilikan (*borrow check*), dan tipe secara langsung saat mengetik.
-  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`), fungsi pustaka standar (`buka_basis_data`, `db_simpan`, `db_ambil`, `db_hapus`, `db_ada`, `buat_server_http`, `buat_server_websocket`, `kirim_respons_http`, `respons_json`, `respons_teks`, `respons_berkas`, `sajikan_berkas_statis`, `cocok_rute`, `ambil_param_rute`, `ambil_kueri_param`, `ada_kueri_param`, `tambah_header`, `respons_cors`, `kunci_websocket`, `respons_upgrade_websocket`, `sha1`, `ke_json`, `cetak`, dll), dan simbol lokal.
+  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`), fungsi pustaka standar (`buka_basis_data`, `db_simpan`, `db_ambil`, `db_hapus`, `db_ada`, `buat_server_http`, `buat_server_websocket`, `kirim_respons_http`, `respons_json`, `respons_teks`, `respons_401`, `respons_403`, `respons_redirect`, `respons_berkas`, `sajikan_berkas_statis`, `cocok_rute`, `cocok_awalan`, `sisa_jalur`, `ambil_param_rute`, `ambil_kueri_param`, `ada_kueri_param`, `kueri_param_atau`, `semua_kueri_param`, `ambil_header_http`, `ada_header_http`, `header_atau`, `ambil_otorisasi_bearer`, `tambah_header`, `respons_cors`, `kunci_websocket`, `respons_upgrade_websocket`, `cocok_regex`, `cari_regex`, `ganti_regex`, `ekstrak_regex`, `ekstrak_grup_regex`, `pisah_regex`, `sha1`, `ke_json`, `cetak`, dll), dan simbol lokal.
   - **Auto-Completion Kontekstual:** Rekomendasi otomatis kata kunci bahasa Indonesia, tipe data, fungsi pustaka standar, serta deklarasi lokal.
   - **Document Formatting:** Format kode sumber otomatis saat dokumen diformat atau disimpan.
-- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `server_http`, `buat_server_websocket`, `tingkatkan_websocket`, `buka_db`, `db_simpan`, `db_ambil`, `respons_json`, `respons_teks`, `respons_berkas`, `sajikan_berkas_statis`, `req.sajikan_statis`, `cocok_rute`, `ambil_kueri_param`, `respons_cors`, `ke_json`, unit test `uji`, asersi `pastikan`, komentar dokumen `///` & `//!`, operasi direktori `buat_direktori`, dan argumen CLI `ambil_argumen_cli`.
+- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `server_http`, `buat_server_websocket`, `tingkatkan_websocket`, `buka_db`, `db_simpan`, `db_ambil`, `respons_json`, `respons_teks`, `respons_401`, `respons_redirect`, `respons_berkas`, `sajikan_berkas_statis`, `req.sajikan_statis`, `cocok_rute`, `cocok_awalan`, `sisa_jalur`, `ambil_kueri_param`, `kueri_param_atau`, `semua_kueri_param`, `ambil_otorisasi_bearer`, `cocok_regex`, `ekstrak_grup_regex`, `pisah_regex`, `respons_cors`, `ke_json`, unit test `uji`, asersi `pastikan`, komentar dokumen `///` & `//!`, operasi direktori `buat_direktori`, dan argumen CLI `ambil_argumen_cli`.
 - **Integrasi Menu & Perintah Cepat:**
   - `dapcode.run` -> Jalankan berkas aktif dengan `dapcodec run`.
   - `dapcode.test` -> Jalankan pengujian unit aktif dengan `dapcodec test`.
@@ -538,6 +596,6 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 24 modul test (72+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & CORS, Static Files & MIME Asset Serving, Subsistem WebSocket RFC 6455 & Real-Time Communication, Embedded Database (BasisData & DapDb), Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 30 modul test (100+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & Middleware, Static Files & MIME Asset Serving, Subsistem WebSocket RFC 6455 & Real-Time Communication, Embedded Database (BasisData & DapDb), Mesin Reguler Ekspresi Mandiri (Regex & Capturing Groups), Audio Synthesis & WebAudio Mock, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 
 
