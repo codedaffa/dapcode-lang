@@ -3,7 +3,7 @@ use crate::fmt::Formatter;
 use crate::json::{parse_json, JsonValue};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use crate::span::SourceMap;
+use crate::span::{SourceMap, Span};
 use crate::types::TypeChecker;
 use std::collections::HashMap;
 use std::io::{self, BufRead, Read, Write};
@@ -66,7 +66,7 @@ impl LspServer {
             "initialize" => {
                 let id = id.unwrap_or(1);
                 Some(format!(
-                    r#"{{"jsonrpc":"2.0","id":{},"result":{{"capabilities":{{"textDocumentSync":1,"hoverProvider":true,"completionProvider":{{"triggerCharacters":[".",":","\""]}},"documentFormattingProvider":true}}}}}}"#,
+                    r#"{{"jsonrpc":"2.0","id":{},"result":{{"capabilities":{{"textDocumentSync":1,"hoverProvider":true,"completionProvider":{{"triggerCharacters":[".",":","\""]}},"documentFormattingProvider":true,"definitionProvider":true,"documentSymbolProvider":true}}}}}}"#,
                     id
                 ))
             }
@@ -162,6 +162,42 @@ impl LspServer {
                     ))
                 }
             }
+            "textDocument/definition" => {
+                let id = id.unwrap_or(1);
+                let mut def_json = "null".to_string();
+                if let Some(params) = msg.get("params") {
+                    if let Some(td) = params.get("textDocument") {
+                        if let Some(uri) = td.get("uri").and_then(|u| u.as_str()) {
+                            let pos = params.get("position");
+                            let line = pos
+                                .and_then(|p| p.get("line"))
+                                .and_then(|l| l.as_f64())
+                                .map(|n| n as usize)
+                                .unwrap_or(0);
+                            let col = pos
+                                .and_then(|p| p.get("character"))
+                                .and_then(|c| c.as_f64())
+                                .map(|n| n as usize)
+                                .unwrap_or(0);
+                            if let Some(loc) = self.compute_definition_at(uri, line, col) {
+                                def_json = loc;
+                            }
+                        }
+                    }
+                }
+                Some(format!(r#"{{"jsonrpc":"2.0","id":{},"result":{}}}"#, id, def_json))
+            }
+            "textDocument/documentSymbol" => {
+                let id = id.unwrap_or(1);
+                let uri = msg
+                    .get("params")
+                    .and_then(|p| p.get("textDocument"))
+                    .and_then(|t| t.get("uri"))
+                    .and_then(|u| u.as_str())
+                    .unwrap_or("");
+                let symbols = self.compute_document_symbols(uri);
+                Some(format!(r#"{{"jsonrpc":"2.0","id":{},"result":[{}]}}"#, id, symbols))
+            }
             "shutdown" => {
                 let id = id.unwrap_or(1);
                 Some(format!(r#"{{"jsonrpc":"2.0","id":{},"result":null}}"#, id))
@@ -242,8 +278,8 @@ impl LspServer {
     }
 
     fn compute_hover_at(&self, uri: &str, line: usize, col: usize) -> String {
-        if let Some(text) = self.documents.get(uri) {
-            if let Some(word) = Self::get_word_at(text, line, col) {
+        if let Some(text) = self.get_document_text(uri) {
+            if let Some(word) = Self::get_word_at(&text, line, col) {
                 // Check built-in docs
                 if let Some(doc) = Self::get_builtin_hover(&word) {
                     return doc;
@@ -252,7 +288,7 @@ impl LspServer {
                 // Check AST symbols in document
                 let mut sm = SourceMap::new();
                 let (file_id, _) = sm.add_file(uri, text.clone());
-                let mut lexer = Lexer::new(text, file_id);
+                let mut lexer = Lexer::new(&text, file_id);
                 if let Ok(tokens) = lexer.tokenize() {
                     let mut parser = Parser::new(tokens, file_id);
                     if let Ok(prog) = parser.parse_program() {
@@ -262,13 +298,21 @@ impl LspServer {
                                     let params = f
                                         .params
                                         .iter()
-                                        .map(|p| format!("{}: {:?}", p.name, p.ty))
+                                        .map(|p| {
+                                            if p.is_self {
+                                                "ini".to_string()
+                                            } else if let Some(ref ty) = p.ty {
+                                                format!("{}: {}", p.name, crate::doc::format_type_expr(ty))
+                                            } else {
+                                                p.name.clone()
+                                            }
+                                        })
                                         .collect::<Vec<_>>()
                                         .join(", ");
                                     let ret = f
                                         .ret_ty
                                         .as_ref()
-                                        .map(|t| format!(" -> {:?}", t))
+                                        .map(|t| format!(" -> {}", crate::doc::format_type_expr(t)))
                                         .unwrap_or_default();
                                     return format!(
                                         "### `fungsi {}({}){}`\\n\\nFungsi didefinisikan dalam modul ini.",
@@ -279,7 +323,7 @@ impl LspServer {
                                     let fields = s
                                         .fields
                                         .iter()
-                                        .map(|f| format!("- `{}: {:?}`", f.name, f.ty))
+                                        .map(|f| format!("- `{}: {}`", f.name, crate::doc::format_type_expr(&f.ty)))
                                         .collect::<Vec<_>>()
                                         .join("\\n");
                                     return format!(
@@ -292,6 +336,35 @@ impl LspServer {
                                         "### `sifat {}`\\n\\nSifat/Trait didefinisikan dalam modul ini.",
                                         t.name
                                     );
+                                }
+                                Decl::Impl(imp) => {
+                                    for m in &imp.methods {
+                                        if m.name == word {
+                                            let params = m
+                                                .params
+                                                .iter()
+                                                .map(|p| {
+                                                    if p.is_self {
+                                                        "ini".to_string()
+                                                    } else if let Some(ref ty) = p.ty {
+                                                        format!("{}: {}", p.name, crate::doc::format_type_expr(ty))
+                                                    } else {
+                                                        p.name.clone()
+                                                    }
+                                                })
+                                                .collect::<Vec<_>>()
+                                                .join(", ");
+                                            let ret = m
+                                                .ret_ty
+                                                .as_ref()
+                                                .map(|t| format!(" -> {}", crate::doc::format_type_expr(t)))
+                                                .unwrap_or_default();
+                                            return format!(
+                                                "### `metode {}({}){}`\\n\\nMetode untuk struktur `{}`.",
+                                                m.name, params, ret, imp.target_struct
+                                            );
+                                        }
+                                    }
                                 }
                                 _ => {}
                             }
@@ -572,10 +645,10 @@ impl LspServer {
     }
 
     fn compute_formatting(&self, uri: &str) -> String {
-        if let Some(text) = self.documents.get(uri) {
+        if let Some(text) = self.get_document_text(uri) {
             let mut sm = SourceMap::new();
             let (file_id, _) = sm.add_file(uri, text.clone());
-            let mut lexer = Lexer::new(text, file_id);
+            let mut lexer = Lexer::new(&text, file_id);
             if let Ok(tokens) = lexer.tokenize() {
                 let mut parser = Parser::new(tokens, file_id);
                 if let Ok(prog) = parser.parse_program() {
@@ -595,5 +668,644 @@ impl LspServer {
             }
         }
         "".to_string()
+    }
+
+    pub fn uri_to_path(uri: &str) -> String {
+        let mut path = uri.trim();
+        if let Some(stripped) = path.strip_prefix("file://") {
+            path = stripped;
+        }
+        if path.starts_with('/') && path.len() >= 3 {
+            let bytes = path.as_bytes();
+            if bytes[1].is_ascii_alphabetic()
+                && (bytes[2] == b':'
+                    || path[2..].starts_with("%3A")
+                    || path[2..].starts_with("%3a"))
+            {
+                path = &path[1..];
+            }
+        }
+        path.replace("%3A", ":")
+            .replace("%3a", ":")
+            .replace("%20", " ")
+            .replace('\\', "/")
+    }
+
+    pub fn path_to_uri(path: &str) -> String {
+        let normalized = path.replace('\\', "/");
+        if normalized.starts_with('/') {
+            format!("file://{}", normalized)
+        } else {
+            format!("file:///{}", normalized)
+        }
+    }
+
+    pub fn get_document_text(&self, uri: &str) -> Option<String> {
+        if let Some(text) = self.documents.get(uri) {
+            return Some(text.clone());
+        }
+        let req_path = Self::uri_to_path(uri);
+        for (doc_uri, text) in &self.documents {
+            if Self::uri_to_path(doc_uri) == req_path {
+                return Some(text.clone());
+            }
+        }
+        if let Ok(content) = std::fs::read_to_string(&req_path) {
+            return Some(content);
+        }
+        None
+    }
+
+    fn span_to_lsp_range(span: Span, sm: &SourceMap) -> (usize, usize, usize, usize) {
+        if let Some(file) = sm.get_file(span.file_id) {
+            let (l1, c1) = file.line_col(span.start);
+            let (l2, c2) = file.line_col(span.end);
+            (
+                l1.saturating_sub(1),
+                c1.saturating_sub(1),
+                l2.saturating_sub(1),
+                c2.saturating_sub(1),
+            )
+        } else {
+            (0, 0, 0, 0)
+        }
+    }
+
+    fn pos_in_lsp_range(
+        line: usize,
+        col: usize,
+        sl: usize,
+        sc: usize,
+        el: usize,
+        ec: usize,
+    ) -> bool {
+        if line < sl || line > el {
+            return false;
+        }
+        if line == sl && col < sc {
+            return false;
+        }
+        if line == el && col > ec {
+            return false;
+        }
+        true
+    }
+
+    fn format_range(sl: usize, sc: usize, el: usize, ec: usize) -> String {
+        format!(
+            r#"{{"start":{{"line":{},"character":{}}},"end":{{"line":{},"character":{}}}}}"#,
+            sl, sc, el, ec
+        )
+    }
+
+    fn format_location(uri: &str, sl: usize, sc: usize, el: usize, ec: usize) -> String {
+        let clean_uri = uri.replace('\\', "/");
+        format!(
+            r#"{{"uri":"{}","range":{}}}"#,
+            clean_uri,
+            Self::format_range(sl, sc, el, ec)
+        )
+    }
+
+    fn format_document_symbol(
+        name: &str,
+        detail: &str,
+        kind: usize,
+        sl: usize,
+        sc: usize,
+        el: usize,
+        ec: usize,
+        children: &[String],
+    ) -> String {
+        let clean_name = name.replace('\\', "\\\\").replace('"', "\\\"");
+        let clean_detail = detail
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', " ");
+        let range = Self::format_range(sl, sc, el, ec);
+        let children_part = if children.is_empty() {
+            "".to_string()
+        } else {
+            format!(r#","children":[{}]"#, children.join(","))
+        };
+
+        format!(
+            r#"{{"name":"{}","detail":"{}","kind":{},"range":{},"selectionRange":{}{}}}"#,
+            clean_name, clean_detail, kind, range, range, children_part
+        )
+    }
+
+    fn find_var_at_pos(
+        block: &Block,
+        word: &str,
+        line: usize,
+        col: usize,
+        sm: &SourceMap,
+    ) -> Option<Span> {
+        // 1. Check nested blocks if cursor is inside them
+        for stmt in &block.stmts {
+            match stmt {
+                Stmt::If {
+                    then_branch,
+                    else_branch,
+                    ..
+                } => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(then_branch.span, sm);
+                    if Self::pos_in_lsp_range(line, col, sl, sc, el, ec) {
+                        if let Some(s) = Self::find_var_at_pos(then_branch, word, line, col, sm) {
+                            return Some(s);
+                        }
+                    }
+                    if let Some(eb) = else_branch {
+                        let (sl, sc, el, ec) = Self::span_to_lsp_range(eb.span, sm);
+                        if Self::pos_in_lsp_range(line, col, sl, sc, el, ec) {
+                            if let Some(s) = Self::find_var_at_pos(eb, word, line, col, sm) {
+                                return Some(s);
+                            }
+                        }
+                    }
+                }
+                Stmt::ForIn {
+                    var_name,
+                    span,
+                    body,
+                    ..
+                } => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(body.span, sm);
+                    if Self::pos_in_lsp_range(line, col, sl, sc, el, ec) {
+                        if let Some(s) = Self::find_var_at_pos(body, word, line, col, sm) {
+                            return Some(s);
+                        }
+                        if var_name == word {
+                            return Some(*span);
+                        }
+                    }
+                }
+                Stmt::While { body, .. } => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(body.span, sm);
+                    if Self::pos_in_lsp_range(line, col, sl, sc, el, ec) {
+                        if let Some(s) = Self::find_var_at_pos(body, word, line, col, sm) {
+                            return Some(s);
+                        }
+                    }
+                }
+                Stmt::Expr(expr) => {
+                    if let Some(s) = Self::find_var_in_expr_at_pos(expr, word, line, col, sm) {
+                        return Some(s);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // 2. Check local variable declarations in current block
+        for stmt in &block.stmts {
+            match stmt {
+                Stmt::VarDecl { name, span, .. } if name == word => {
+                    return Some(*span);
+                }
+                Stmt::ForIn { var_name, span, .. } if var_name == word => {
+                    return Some(*span);
+                }
+                _ => {}
+            }
+        }
+
+        None
+    }
+
+    fn find_var_in_expr_at_pos(
+        expr: &Expr,
+        word: &str,
+        line: usize,
+        col: usize,
+        sm: &SourceMap,
+    ) -> Option<Span> {
+        match expr {
+            Expr::Catch {
+                err_var,
+                handler,
+                span,
+                ..
+            } => {
+                let (sl, sc, el, ec) = Self::span_to_lsp_range(handler.span, sm);
+                if Self::pos_in_lsp_range(line, col, sl, sc, el, ec) {
+                    if let Some(s) = Self::find_var_at_pos(handler, word, line, col, sm) {
+                        return Some(s);
+                    }
+                    if err_var == word {
+                        return Some(*span);
+                    }
+                }
+                None
+            }
+            Expr::Parallel { body, .. } | Expr::Comptime { body, .. } | Expr::Block(body) => {
+                let (sl, sc, el, ec) = Self::span_to_lsp_range(body.span, sm);
+                if Self::pos_in_lsp_range(line, col, sl, sc, el, ec) {
+                    Self::find_var_at_pos(body, word, line, col, sm)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    pub fn compute_definition_at(&self, uri: &str, line: usize, col: usize) -> Option<String> {
+        let text = self.get_document_text(uri)?;
+        let mut sm = SourceMap::new();
+        let (file_id, _) = sm.add_file(uri, text.clone());
+        let mut lexer = Lexer::new(&text, file_id);
+        let tokens = lexer.tokenize().ok()?;
+        let mut parser = Parser::new(tokens, file_id);
+        let prog = parser.parse_program().ok()?;
+
+        // 1. Check if cursor is directly on an import declaration
+        for decl in &prog.decls {
+            if let Decl::Import(imp) = decl {
+                let (sl, sc, el, ec) = Self::span_to_lsp_range(imp.span, &sm);
+                if Self::pos_in_lsp_range(line, col, sl, sc, el, ec) {
+                    let cur_file_path = Self::uri_to_path(uri);
+                    let cur_p = std::path::Path::new(&cur_file_path);
+                    let target_path = if let Some(parent) = cur_p.parent() {
+                        if parent.as_os_str().is_empty() {
+                            std::path::PathBuf::from(&imp.path)
+                        } else {
+                            parent.join(&imp.path)
+                        }
+                    } else {
+                        std::path::PathBuf::from(&imp.path)
+                    };
+                    let target_uri = Self::path_to_uri(&target_path.to_string_lossy());
+                    return Some(Self::format_location(&target_uri, 0, 0, 0, 0));
+                }
+            }
+        }
+
+        // 2. Identify word at cursor
+        let word = Self::get_word_at(&text, line, col)?;
+
+        // 3. Search local scopes (function params & local variables in active block)
+        for decl in &prog.decls {
+            match decl {
+                Decl::Fn(f) => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(f.span, &sm);
+                    if Self::pos_in_lsp_range(line, col, sl, sc, el, ec) {
+                        for p in &f.params {
+                            if p.name == word {
+                                let (psl, psc, pel, pec) = Self::span_to_lsp_range(p.span, &sm);
+                                return Some(Self::format_location(uri, psl, psc, pel, pec));
+                            }
+                        }
+                        if let Some(var_span) =
+                            Self::find_var_at_pos(&f.body, &word, line, col, &sm)
+                        {
+                            let (vsl, vsc, vel, vec) = Self::span_to_lsp_range(var_span, &sm);
+                            return Some(Self::format_location(uri, vsl, vsc, vel, vec));
+                        }
+                    }
+                }
+                Decl::Impl(imp) => {
+                    for m in &imp.methods {
+                        let (sl, sc, el, ec) = Self::span_to_lsp_range(m.span, &sm);
+                        if Self::pos_in_lsp_range(line, col, sl, sc, el, ec) {
+                            for p in &m.params {
+                                if p.name == word {
+                                    let (psl, psc, pel, pec) =
+                                        Self::span_to_lsp_range(p.span, &sm);
+                                    return Some(Self::format_location(uri, psl, psc, pel, pec));
+                                }
+                            }
+                            if let Some(var_span) =
+                                Self::find_var_at_pos(&m.body, &word, line, col, &sm)
+                            {
+                                let (vsl, vsc, vel, vec) =
+                                    Self::span_to_lsp_range(var_span, &sm);
+                                return Some(Self::format_location(uri, vsl, vsc, vel, vec));
+                            }
+                        }
+                    }
+                }
+                Decl::Test(t) => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(t.span, &sm);
+                    if Self::pos_in_lsp_range(line, col, sl, sc, el, ec) {
+                        if let Some(var_span) =
+                            Self::find_var_at_pos(&t.body, &word, line, col, &sm)
+                        {
+                            let (vsl, vsc, vel, vec) = Self::span_to_lsp_range(var_span, &sm);
+                            return Some(Self::format_location(uri, vsl, vsc, vel, vec));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // 4. Search top-level declarations in current file
+        for decl in &prog.decls {
+            match decl {
+                Decl::Fn(f) if f.name == word => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(f.span, &sm);
+                    return Some(Self::format_location(uri, sl, sc, el, ec));
+                }
+                Decl::Struct(s) if s.name == word => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(s.span, &sm);
+                    return Some(Self::format_location(uri, sl, sc, el, ec));
+                }
+                Decl::Struct(s) => {
+                    for fld in &s.fields {
+                        if fld.name == word {
+                            let (sl, sc, el, ec) = Self::span_to_lsp_range(fld.span, &sm);
+                            return Some(Self::format_location(uri, sl, sc, el, ec));
+                        }
+                    }
+                }
+                Decl::Trait(t) if t.name == word => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(t.span, &sm);
+                    return Some(Self::format_location(uri, sl, sc, el, ec));
+                }
+                Decl::Trait(t) => {
+                    for m in &t.methods {
+                        if m.name == word {
+                            let (sl, sc, el, ec) = Self::span_to_lsp_range(m.span, &sm);
+                            return Some(Self::format_location(uri, sl, sc, el, ec));
+                        }
+                    }
+                }
+                Decl::Impl(imp) => {
+                    for m in &imp.methods {
+                        if m.name == word {
+                            let (sl, sc, el, ec) = Self::span_to_lsp_range(m.span, &sm);
+                            return Some(Self::format_location(uri, sl, sc, el, ec));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // 5. Cross-file lookup in imported modules
+        for decl in &prog.decls {
+            if let Decl::Import(imp) = decl {
+                let cur_file_path = Self::uri_to_path(uri);
+                let cur_p = std::path::Path::new(&cur_file_path);
+                let target_path = if let Some(parent) = cur_p.parent() {
+                    if parent.as_os_str().is_empty() {
+                        std::path::PathBuf::from(&imp.path)
+                    } else {
+                        parent.join(&imp.path)
+                    }
+                } else {
+                    std::path::PathBuf::from(&imp.path)
+                };
+                let target_uri = Self::path_to_uri(&target_path.to_string_lossy());
+                if let Some(target_text) = self.get_document_text(&target_uri) {
+                    let mut imp_sm = SourceMap::new();
+                    let (imp_fid, _) = imp_sm.add_file(&target_uri, target_text.clone());
+                    let mut imp_lexer = Lexer::new(&target_text, imp_fid);
+                    if let Ok(imp_tokens) = imp_lexer.tokenize() {
+                        let mut imp_parser = Parser::new(imp_tokens, imp_fid);
+                        if let Ok(imp_prog) = imp_parser.parse_program() {
+                            for d in &imp_prog.decls {
+                                match d {
+                                    Decl::Fn(f) if f.name == word => {
+                                        let (sl, sc, el, ec) =
+                                            Self::span_to_lsp_range(f.span, &imp_sm);
+                                        return Some(Self::format_location(
+                                            &target_uri,
+                                            sl,
+                                            sc,
+                                            el,
+                                            ec,
+                                        ));
+                                    }
+                                    Decl::Struct(s) if s.name == word => {
+                                        let (sl, sc, el, ec) =
+                                            Self::span_to_lsp_range(s.span, &imp_sm);
+                                        return Some(Self::format_location(
+                                            &target_uri,
+                                            sl,
+                                            sc,
+                                            el,
+                                            ec,
+                                        ));
+                                    }
+                                    Decl::Trait(t) if t.name == word => {
+                                        let (sl, sc, el, ec) =
+                                            Self::span_to_lsp_range(t.span, &imp_sm);
+                                        return Some(Self::format_location(
+                                            &target_uri,
+                                            sl,
+                                            sc,
+                                            el,
+                                            ec,
+                                        ));
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn compute_document_symbols(&self, uri: &str) -> String {
+        let text = match self.get_document_text(uri) {
+            Some(t) => t,
+            None => return "".to_string(),
+        };
+
+        let mut sm = SourceMap::new();
+        let (file_id, _) = sm.add_file(uri, text.clone());
+        let mut lexer = Lexer::new(&text, file_id);
+        let tokens = match lexer.tokenize() {
+            Ok(t) => t,
+            Err(_) => return "".to_string(),
+        };
+        let mut parser = Parser::new(tokens, file_id);
+        let prog = match parser.parse_program() {
+            Ok(p) => p,
+            Err(_) => return "".to_string(),
+        };
+
+        let mut symbols = Vec::new();
+
+        for decl in &prog.decls {
+            match decl {
+                Decl::Fn(f) => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(f.span, &sm);
+                    let params = f
+                        .params
+                        .iter()
+                        .map(|p| {
+                            if p.is_self {
+                                "ini".to_string()
+                            } else if let Some(ref ty) = p.ty {
+                                format!("{}: {}", p.name, crate::doc::format_type_expr(ty))
+                            } else {
+                                p.name.clone()
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    let ret = f
+                        .ret_ty
+                        .as_ref()
+                        .map(|t| format!(" -> {}", crate::doc::format_type_expr(t)))
+                        .unwrap_or_else(|| " -> Unit".to_string());
+                    let detail = format!("({}){}", params, ret);
+                    symbols.push(Self::format_document_symbol(
+                        &f.name, &detail, 12, sl, sc, el, ec, &[],
+                    ));
+                }
+                Decl::Struct(s) => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(s.span, &sm);
+                    let mut field_symbols = Vec::new();
+                    for field in &s.fields {
+                        let (fsl, fsc, fel, fec) = Self::span_to_lsp_range(field.span, &sm);
+                        let detail = crate::doc::format_type_expr(&field.ty);
+                        field_symbols.push(Self::format_document_symbol(
+                            &field.name,
+                            &detail,
+                            8,
+                            fsl,
+                            fsc,
+                            fel,
+                            fec,
+                            &[],
+                        ));
+                    }
+                    symbols.push(Self::format_document_symbol(
+                        &s.name,
+                        "struktur",
+                        23,
+                        sl,
+                        sc,
+                        el,
+                        ec,
+                        &field_symbols,
+                    ));
+                }
+                Decl::Trait(t) => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(t.span, &sm);
+                    let mut method_symbols = Vec::new();
+                    for m in &t.methods {
+                        let (msl, msc, mel, mec) = Self::span_to_lsp_range(m.span, &sm);
+                        let params = m
+                            .params
+                            .iter()
+                            .map(|p| {
+                                if p.is_self {
+                                    "ini".to_string()
+                                } else if let Some(ref ty) = p.ty {
+                                    format!("{}: {}", p.name, crate::doc::format_type_expr(ty))
+                                } else {
+                                    p.name.clone()
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        let ret = m
+                            .ret_ty
+                            .as_ref()
+                            .map(|t| format!(" -> {}", crate::doc::format_type_expr(t)))
+                            .unwrap_or_else(|| " -> Unit".to_string());
+                        let detail = format!("({}){}", params, ret);
+                        method_symbols.push(Self::format_document_symbol(
+                            &m.name, &detail, 6, msl, msc, mel, mec, &[],
+                        ));
+                    }
+                    symbols.push(Self::format_document_symbol(
+                        &t.name,
+                        "sifat",
+                        11,
+                        sl,
+                        sc,
+                        el,
+                        ec,
+                        &method_symbols,
+                    ));
+                }
+                Decl::Impl(imp) => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(imp.span, &sm);
+                    let name = if let Some(ref tr) = imp.trait_name {
+                        format!("terapkan {} untuk {}", tr, imp.target_struct)
+                    } else {
+                        format!("terapkan {}", imp.target_struct)
+                    };
+                    let mut method_symbols = Vec::new();
+                    for m in &imp.methods {
+                        let (msl, msc, mel, mec) = Self::span_to_lsp_range(m.span, &sm);
+                        let params = m
+                            .params
+                            .iter()
+                            .map(|p| {
+                                if p.is_self {
+                                    "ini".to_string()
+                                } else if let Some(ref ty) = p.ty {
+                                    format!("{}: {}", p.name, crate::doc::format_type_expr(ty))
+                                } else {
+                                    p.name.clone()
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        let ret = m
+                            .ret_ty
+                            .as_ref()
+                            .map(|t| format!(" -> {}", crate::doc::format_type_expr(t)))
+                            .unwrap_or_else(|| " -> Unit".to_string());
+                        let detail = format!("({}){}", params, ret);
+                        method_symbols.push(Self::format_document_symbol(
+                            &m.name, &detail, 6, msl, msc, mel, mec, &[],
+                        ));
+                    }
+                    symbols.push(Self::format_document_symbol(
+                        &name,
+                        "implementasi",
+                        5,
+                        sl,
+                        sc,
+                        el,
+                        ec,
+                        &method_symbols,
+                    ));
+                }
+                Decl::Test(test) => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(test.span, &sm);
+                    let name = format!("uji \"{}\"", test.name);
+                    symbols.push(Self::format_document_symbol(
+                        &name,
+                        "pengujian unit",
+                        12,
+                        sl,
+                        sc,
+                        el,
+                        ec,
+                        &[],
+                    ));
+                }
+                Decl::Import(imp) => {
+                    let (sl, sc, el, ec) = Self::span_to_lsp_range(imp.span, &sm);
+                    let name = format!("impor \"{}\"", imp.path);
+                    symbols.push(Self::format_document_symbol(
+                        &name,
+                        "modul eksternal",
+                        3,
+                        sl,
+                        sc,
+                        el,
+                        ec,
+                        &[],
+                    ));
+                }
+            }
+        }
+
+        symbols.join(",")
     }
 }
