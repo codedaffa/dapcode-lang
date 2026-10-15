@@ -665,6 +665,10 @@ static inline void dap_kanvas_titik(f64 x, f64 y, f64 ukuran) { (void)x; (void)y
 static inline void dap_kanvas_teks(const char* teks, f64 x, f64 y, f64 ukuran) { (void)teks; (void)x; (void)y; (void)ukuran; }
 static inline f64 dap_kanvas_lebar(void) { return 800.0; }
 static inline f64 dap_kanvas_tinggi(void) { return 600.0; }
+static inline f64 dap_kanvas_mouse_x(void) { return 400.0; }
+static inline f64 dap_kanvas_mouse_y(void) { return 300.0; }
+static inline uint64_t dap_kanvas_mouse_klik(void) { return 0; }
+static inline uint64_t dap_kanvas_tombol_ditekan(uint64_t kode) { (void)kode; return 0; }
 
 static inline DapResult_Teks dap_kompilasi_ke_wasm(const char* kode) {
     (void)kode;

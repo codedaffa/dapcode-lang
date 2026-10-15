@@ -25,6 +25,15 @@ fungsi uji_kanvas_lengkap() -> Unit {
     pastikan_sama(w, 800.0)
     pastikan_sama(h, 600.0)
 
+    mx := kanvas_mouse_x()
+    my := kanvas_mouse_y()
+    klik := kanvas_mouse_klik()
+    tombol := kanvas_tombol_ditekan(32)
+    pastikan_sama(mx, 400.0)
+    pastikan_sama(my, 300.0)
+    pastikan_sama(klik, 0)
+    pastikan_sama(tombol, 0)
+
     kanvas_bersihkan(0.1, 0.2, 0.3, 1.0)
     kanvas_warna_isi(1.0, 0.0, 0.0, 0.8)
     kanvas_warna_garis(0.0, 1.0, 0.0, 1.0)
@@ -63,6 +72,10 @@ fungsi gambar_statis() -> Unit {
     kanvas_persegi(10.0, 10.0, 50.0, 50.0)
     kanvas_lingkaran(100.0, 100.0, 25.0)
     kanvas_teks("Test", 20.0, 20.0, 12.0)
+    mx := kanvas_mouse_x()
+    my := kanvas_mouse_y()
+    klik := kanvas_mouse_klik()
+    tombol := kanvas_tombol_ditekan(65)
 }
 "#;
     let program = parse_code(code);
@@ -74,6 +87,10 @@ fungsi gambar_statis() -> Unit {
     assert!(c_code.contains("dap_kanvas_persegi"));
     assert!(c_code.contains("dap_kanvas_lingkaran"));
     assert!(c_code.contains("dap_kanvas_teks"));
+    assert!(c_code.contains("dap_kanvas_mouse_x"));
+    assert!(c_code.contains("dap_kanvas_mouse_y"));
+    assert!(c_code.contains("dap_kanvas_mouse_klik"));
+    assert!(c_code.contains("dap_kanvas_tombol_ditekan"));
 }
 
 #[test]
@@ -92,6 +109,12 @@ fungsi render_grafis() -> Unit {
     kanvas_garis(10.0, 10.0, 500.0, 400.0)
     kanvas_titik(250.0, 150.0, 4.0)
     kanvas_teks("WebAssembly Canvas 2D", 60.0, 100.0, 14.0)
+
+    mx := kanvas_mouse_x()
+    my := kanvas_mouse_y()
+    klik := kanvas_mouse_klik()
+    tombol := kanvas_tombol_ditekan(32)
+    kanvas_titik(mx, my, 8.0)
 }
 
 fungsi utama() -> u64 {
@@ -139,6 +162,10 @@ const imports = {{
         }},
         kanvas_lebar: () => 800.0,
         kanvas_tinggi: () => 600.0,
+        kanvas_mouse_x: () => 150.0,
+        kanvas_mouse_y: () => 250.0,
+        kanvas_mouse_klik: () => 1n,
+        kanvas_tombol_ditekan: (code) => (code === 32n ? 1n : 0n),
     }}
 }};
 WebAssembly.instantiate(buf, imports).then(({{ instance }}) => {{
@@ -163,10 +190,17 @@ WebAssembly.instantiate(buf, imports).then(({{ instance }}) => {{
         process.exit(3);
     }}
 
+    // Verifikasi titik pada koordinat mouse (150.0, 250.0)
+    const mousePoint = log.find(c => c[0] === 'titik' && c[1] === 150.0 && c[2] === 250.0);
+    if (!mousePoint) {{
+        console.error("Titik koordinat mouse tidak ditemukan:", log);
+        process.exit(4);
+    }}
+
     console.log("CANVAS_WASM_NODE_OK");
 }}).catch(err => {{
     console.error(err);
-    process.exit(4);
+    process.exit(5);
 }});
 "#,
         temp_wasm.to_string_lossy().replace('\\', "/")

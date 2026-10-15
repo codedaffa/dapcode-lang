@@ -745,6 +745,22 @@ impl TypeChecker {
             "kanvas_tinggi".to_string(),
             (vec![], Type::F64),
         );
+        self.functions.insert(
+            "kanvas_mouse_x".to_string(),
+            (vec![], Type::F64),
+        );
+        self.functions.insert(
+            "kanvas_mouse_y".to_string(),
+            (vec![], Type::F64),
+        );
+        self.functions.insert(
+            "kanvas_mouse_klik".to_string(),
+            (vec![], Type::U64),
+        );
+        self.functions.insert(
+            "kanvas_tombol_ditekan".to_string(),
+            (vec![Type::U64], Type::U64),
+        );
 
         // Compiler Service: In-Memory WebAssembly Compilation
         self.functions.insert(

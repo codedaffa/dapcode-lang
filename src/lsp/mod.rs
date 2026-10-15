@@ -527,6 +527,10 @@ impl LspServer {
             "kanvas_teks" => Some("### `fungsi kanvas_teks(teks: Teks, x: f64, y: f64, ukuran: f64) -> Unit`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMenuliskan teks string pada koordinat kanvas (x, y) dengan ukuran font dalam piksel.".to_string()),
             "kanvas_lebar" => Some("### `fungsi kanvas_lebar() -> f64`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMengembalikan lebar elemen kanvas aktif dalam satuan piksel.".to_string()),
             "kanvas_tinggi" => Some("### `fungsi kanvas_tinggi() -> f64`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMengembalikan tinggi elemen kanvas aktif dalam satuan piksel.".to_string()),
+            "kanvas_mouse_x" => Some("### `fungsi kanvas_mouse_x() -> f64`\\n\\n**Pustaka Grafis DapCode - Interaktivitas Input Kanvas**\\n\\nMendapatkan posisi koordinat horizontal (X) kursor mouse pada kanvas.".to_string()),
+            "kanvas_mouse_y" => Some("### `fungsi kanvas_mouse_y() -> f64`\\n\\n**Pustaka Grafis DapCode - Interaktivitas Input Kanvas**\\n\\nMendapatkan posisi koordinat vertikal (Y) kursor mouse pada kanvas.".to_string()),
+            "kanvas_mouse_klik" => Some("### `fungsi kanvas_mouse_klik() -> u64`\\n\\n**Pustaka Grafis DapCode - Interaktivitas Input Kanvas**\\n\\nMengembalikan `1` jika tombol mouse utama sedang ditekan, atau `0` jika dilepas.".to_string()),
+            "kanvas_tombol_ditekan" => Some("### `fungsi kanvas_tombol_ditekan(kode: u64) -> u64`\\n\\n**Pustaka Grafis DapCode - Interaktivitas Input Kanvas**\\n\\nMengembalikan `1` jika tombol keyboard dengan kode tertentu sedang ditekan (misal: 37=Kiri, 38=Atas, 39=Kanan, 40=Bawah, 32=Spasi, 87=W, 65=A, 83=S, 68=D).".to_string()),
             "kompilasi_ke_wasm" => Some("### `fungsi kompilasi_ke_wasm(kode: Teks) -> Teks ! Teks`\\n\\n**Layanan Kompilasi DapCode - WebAssembly Engine**\\n\\nMengompilasi kode sumber teks DapCode menjadi biner WebAssembly (.wasm) secara dinamis dalam memori dan mengembalikannya sebagai string terenkode Base64. Mengembalikan `! Teks` jika terdapat galat sintaksis atau tipe data.".to_string()),
             "struktur" => Some("### Kata Kunci `struktur`\\n\\nMendeklarasikan tipe data komposit baru dengan bidang-bidang bertipe.".to_string()),
             "sifat" => Some("### Kata Kunci `sifat`\\n\\nMendeklarasikan kontrak antarmuka (trait) perilaku bersama.".to_string()),
@@ -641,6 +645,10 @@ impl LspServer {
             ("kanvas_teks", "kanvas_teks(\"${1:teks}\", ${2:x}, ${3:y}, ${4:16.0})", 3, "Tulis teks pada kanvas dengan ukuran piksel"),
             ("kanvas_lebar", "kanvas_lebar()", 3, "Ambil dimensi lebar kanvas piksel"),
             ("kanvas_tinggi", "kanvas_tinggi()", 3, "Ambil dimensi tinggi kanvas piksel"),
+            ("kanvas_mouse_x", "kanvas_mouse_x()", 3, "Ambil posisi koordinat X kursor mouse"),
+            ("kanvas_mouse_y", "kanvas_mouse_y()", 3, "Ambil posisi koordinat Y kursor mouse"),
+            ("kanvas_mouse_klik", "kanvas_mouse_klik()", 3, "Periksa status klik tombol mouse (1=klik, 0=lepas)"),
+            ("kanvas_tombol_ditekan", "kanvas_tombol_ditekan(${1:kode_tombol})", 3, "Periksa tombol keyboard ditekan (1=ditekan, 0=lepas)"),
             ("kompilasi_ke_wasm", "kompilasi_ke_wasm(${1:kode})", 3, "Kompilasi kode sumber DapCode ke WebAssembly Base64 in-memory"),
         ];
 

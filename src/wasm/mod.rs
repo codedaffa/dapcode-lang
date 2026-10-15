@@ -197,7 +197,7 @@ impl WasmEmitter {
             }
         }
 
-        let canvas_0_fns = ["kanvas_lebar", "kanvas_tinggi"];
+        let canvas_0_fns = ["kanvas_lebar", "kanvas_tinggi", "kanvas_mouse_x", "kanvas_mouse_y"];
         let sig_canvas_0 = self.get_or_add_sig(vec![], vec![WasmType::F64]);
         for name in &canvas_0_fns {
             if called.contains(*name) {
@@ -215,6 +215,40 @@ impl WasmEmitter {
                     ),
                 );
             }
+        }
+
+        if called.contains("kanvas_mouse_klik") {
+            let sig_mouse_klik = self.get_or_add_sig(vec![], vec![WasmType::I64]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "kanvas_mouse_klik".to_string(), sig_mouse_klik));
+            self.func_table.insert(
+                "kanvas_mouse_klik".to_string(),
+                (
+                    func_idx,
+                    sig_mouse_klik,
+                    FuncSignature {
+                        params: vec![],
+                        results: vec![WasmType::I64],
+                    },
+                ),
+            );
+        }
+
+        if called.contains("kanvas_tombol_ditekan") {
+            let sig_key_pressed = self.get_or_add_sig(vec![WasmType::I64], vec![WasmType::I64]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "kanvas_tombol_ditekan".to_string(), sig_key_pressed));
+            self.func_table.insert(
+                "kanvas_tombol_ditekan".to_string(),
+                (
+                    func_idx,
+                    sig_key_pressed,
+                    FuncSignature {
+                        params: vec![WasmType::I64],
+                        results: vec![WasmType::I64],
+                    },
+                ),
+            );
         }
 
         let canvas_1_fns = ["kanvas_tebal_garis"];
@@ -1336,6 +1370,10 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
                         }},
                         kanvas_lebar: () => 800.0,
                         kanvas_tinggi: () => 600.0,
+                        kanvas_mouse_x: () => 400.0,
+                        kanvas_mouse_y: () => 300.0,
+                        kanvas_mouse_klik: () => 0n,
+                        kanvas_tombol_ditekan: () => 0n,
                     }}
                 }};
 

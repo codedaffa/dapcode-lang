@@ -1093,6 +1093,7 @@ function getPlaygroundWebviewHtml() {
             <option value="spiral_archimedes">🌀 Spiral Archimedes</option>
             <option value="partikel_pantul">⚡ Partikel Pantul Fisika</option>
             <option value="diagram_batang">📊 Diagram Batang Statistik</option>
+            <option value="game_pesawat">🎮 Game: Pesawat Antariksa 2D</option>
         </select>
         <button id="btn-apply-preset">📥 Ke Editor</button>
         <button id="btn-external">🌐 Buka di Browser</button>
@@ -1295,8 +1296,90 @@ fungsi render() -> Unit {
 fungsi utama() -> u64 {
     render()
     kembali 1
+}\`,
+            game_pesawat: \`// 🎮 Simulator Pesawat Antariksa 2D
+fungsi gambar_bintang(w: f64, h: f64) -> Unit {
+    kanvas_bersihkan(0.02, 0.03, 0.07, 1.0)
+    kanvas_warna_isi(0.8, 0.9, 1.0, 0.5)
+    kanvas_titik(80.0, 60.0, 2.0)
+    kanvas_titik(220.0, 110.0, 2.5)
+    kanvas_titik(450.0, 80.0, 1.5)
+    kanvas_titik(670.0, 140.0, 2.0)
+    kanvas_titik(140.0, 320.0, 2.0)
+    kanvas_titik(380.0, 420.0, 3.0)
+    kanvas_titik(590.0, 310.0, 1.5)
+    kanvas_titik(720.0, 410.0, 2.5)
+}
+fungsi render_pesawat(px: f64, py: f64, klik: u64) -> Unit {
+    kanvas_warna_isi(1.0, 0.45, 0.1, 0.9)
+    kanvas_lingkaran(px - 22.0, py, 7.0)
+    kanvas_warna_isi(1.0, 0.85, 0.2, 0.95)
+    kanvas_lingkaran(px - 17.0, py, 4.0)
+    kanvas_warna_isi(0.18, 0.45, 0.85, 1.0)
+    kanvas_garis(px + 28.0, py, px - 18.0, py - 18.0)
+    kanvas_garis(px - 18.0, py - 18.0, px - 10.0, py)
+    kanvas_garis(px - 10.0, py, px - 18.0, py + 18.0)
+    kanvas_garis(px - 18.0, py + 18.0, px + 28.0, py)
+    kanvas_warna_isi(0.25, 0.65, 1.0, 0.9)
+    kanvas_persegi(px - 10.0, py - 6.0, 22.0, 12.0)
+    kanvas_warna_isi(0.4, 0.95, 1.0, 0.95)
+    kanvas_lingkaran(px + 6.0, py, 5.0)
+    jika klik == 1 {
+        kanvas_warna_garis(0.2, 1.0, 0.5, 0.95)
+        kanvas_tebal_garis(3.0)
+        kanvas_garis(px + 20.0, py - 12.0, 800.0, py - 12.0)
+        kanvas_garis(px + 20.0, py + 12.0, 800.0, py + 12.0)
+        kanvas_warna_isi(1.0, 1.0, 1.0, 0.9)
+        kanvas_lingkaran(px + 22.0, py - 12.0, 4.0)
+        kanvas_lingkaran(px + 22.0, py + 12.0, 4.0)
+    }
+}
+fungsi render_game() -> Unit {
+    w := kanvas_lebar()
+    h := kanvas_tinggi()
+    mx := kanvas_mouse_x()
+    my := kanvas_mouse_y()
+    klik := kanvas_mouse_klik()
+    gambar_bintang(w, h)
+    render_pesawat(mx, my, klik)
+    kanvas_warna_garis(0.2, 0.8, 1.0, 0.5)
+    kanvas_tebal_garis(1.0)
+    kanvas_bingkai_lingkaran(mx, my, 35.0)
+    kanvas_garis(mx - 45.0, my, mx + 45.0, my)
+    kanvas_garis(mx, my - 45.0, mx, my + 45.0)
+    kanvas_warna_isi(0.06, 0.1, 0.18, 0.85)
+    kanvas_persegi(15.0, 15.0, 300.0, 75.0)
+    kanvas_warna_garis(0.3, 0.7, 1.0, 0.6)
+    kanvas_tebal_garis(1.5)
+    kanvas_bingkai_persegi(15.0, 15.0, 300.0, 75.0)
+    kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
+    kanvas_teks("🎮 SIMULATOR PESAWAT ANTARIKSA", 26.0, 38.0, 13.0)
+    kanvas_warna_isi(0.4, 0.9, 1.0, 0.9)
+    kanvas_teks("Kontrol: Gerakkan Mouse & Klik Tembak", 26.0, 58.0, 11.0)
+    jika klik == 1 {
+        kanvas_warna_isi(0.2, 1.0, 0.5, 1.0)
+        kanvas_teks("STATUS: ⚡ LASER DIAKTIFKAN!", 26.0, 76.0, 11.0)
+    } selain_itu {
+        kanvas_warna_isi(0.8, 0.8, 0.8, 0.7)
+        kanvas_teks("STATUS: Menjelajah Orbit Antariksa", 26.0, 76.0, 11.0)
+    }
+}
+fungsi utama() -> u64 {
+    render_game()
+    kembali 1
 }\`
         };
+
+        let currentWasmInstance = null;
+        let autoCompile = true;
+        let commandCount = 0;
+        let lastFrameTime = performance.now();
+        let frameCount = 0;
+        let fpsTimer = performance.now();
+        let canvasMouseX = 400.0;
+        let canvasMouseY = 240.0;
+        let canvasMouseDown = false;
+        const canvasKeysPressed = new Set();
 
         function appendLog(msg) {
             consoleOutput.textContent += (consoleOutput.textContent ? "\\n" : "") + msg;
@@ -1365,6 +1448,10 @@ fungsi utama() -> u64 {
                 },
                 kanvas_lebar: () => 800.0,
                 kanvas_tinggi: () => 480.0,
+                kanvas_mouse_x: () => canvasMouseX,
+                kanvas_mouse_y: () => canvasMouseY,
+                kanvas_mouse_klik: () => (canvasMouseDown ? 1n : 0n),
+                kanvas_tombol_ditekan: (kode) => (canvasKeysPressed.has(Number(kode)) ? 1n : 0n),
                 cetak_u64: (n) => appendLog(n.toString()),
                 cetak_f64: (f) => appendLog(f.toString()),
                 cetak_teks: (ptr, len) => {
@@ -1373,6 +1460,21 @@ fungsi utama() -> u64 {
                     appendLog(str);
                 }
             };
+        }
+
+        function rerunCurrentFrame() {
+            if (!currentWasmInstance) return;
+            commandCount = 0;
+            const tStart = performance.now();
+            if (currentWasmInstance.exports.render_game) {
+                currentWasmInstance.exports.render_game();
+            } else if (currentWasmInstance.exports.utama) {
+                currentWasmInstance.exports.utama();
+            } else if (currentWasmInstance.exports.render) {
+                currentWasmInstance.exports.render();
+            }
+            metricRender.textContent = \`\${(performance.now() - tStart).toFixed(2)} ms\`;
+            metricCmds.textContent = commandCount.toString();
         }
 
         async function runWasmBytes(wasmBytes) {
@@ -1388,7 +1490,9 @@ fungsi utama() -> u64 {
                 currentWasmInstance = instance;
                 memRef = instance.exports.memory;
 
-                if (instance.exports.utama) {
+                if (instance.exports.render_game) {
+                    instance.exports.render_game();
+                } else if (instance.exports.utama) {
                     instance.exports.utama();
                 } else if (instance.exports.render) {
                     instance.exports.render();
@@ -1443,14 +1547,45 @@ fungsi utama() -> u64 {
             }
         });
 
-        // Mouse tracking HUD
+        // Mouse tracking & tombol HUD
         canvas.addEventListener("mousemove", (e) => {
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
-            const x = Math.round((e.clientX - rect.left) * scaleX);
-            const y = Math.round((e.clientY - rect.top) * scaleY);
-            coordsHud.textContent = \`X: \${x}, Y: \${y}\`;
+            canvasMouseX = (e.clientX - rect.left) * scaleX;
+            canvasMouseY = (e.clientY - rect.top) * scaleY;
+            coordsHud.textContent = \`X: \${Math.round(canvasMouseX)}, Y: \${Math.round(canvasMouseY)}\`;
+            if (currentWasmInstance) {
+                rerunCurrentFrame();
+            }
+        });
+
+        canvas.addEventListener("mousedown", (e) => {
+            canvasMouseDown = true;
+            if (currentWasmInstance) {
+                rerunCurrentFrame();
+            }
+        });
+
+        canvas.addEventListener("mouseup", (e) => {
+            canvasMouseDown = false;
+            if (currentWasmInstance) {
+                rerunCurrentFrame();
+            }
+        });
+
+        window.addEventListener("keydown", (e) => {
+            canvasKeysPressed.add(e.keyCode || e.which);
+            if (currentWasmInstance) {
+                rerunCurrentFrame();
+            }
+        });
+
+        window.addEventListener("keyup", (e) => {
+            canvasKeysPressed.delete(e.keyCode || e.which);
+            if (currentWasmInstance) {
+                rerunCurrentFrame();
+            }
         });
 
         // FPS loop
@@ -1473,15 +1608,7 @@ fungsi utama() -> u64 {
 
         btnRerun.addEventListener("click", () => {
             if (currentWasmInstance) {
-                commandCount = 0;
-                const tStart = performance.now();
-                if (currentWasmInstance.exports.utama) {
-                    currentWasmInstance.exports.utama();
-                } else if (currentWasmInstance.exports.render) {
-                    currentWasmInstance.exports.render();
-                }
-                metricRender.textContent = (performance.now() - tStart).toFixed(2) + " ms";
-                metricCmds.textContent = commandCount.toString();
+                rerunCurrentFrame();
             } else {
                 vscode.postMessage({ command: "requestCompile" });
             }

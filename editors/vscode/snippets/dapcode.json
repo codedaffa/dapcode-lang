@@ -572,6 +572,64 @@
             "}"
         ],
         "description": "Kerangka fungsi render grafis Kanvas 2D interaktif untuk target WebAssembly"
+    },
+    "Kanvas Posisi Mouse X": {
+        "prefix": "kanvas_mouse_x",
+        "body": [
+            "mx := kanvas_mouse_x()"
+        ],
+        "description": "Mendapatkan koordinat X kursor mouse pada Kanvas 2D"
+    },
+    "Kanvas Posisi Mouse Y": {
+        "prefix": "kanvas_mouse_y",
+        "body": [
+            "my := kanvas_mouse_y()"
+        ],
+        "description": "Mendapatkan koordinat Y kursor mouse pada Kanvas 2D"
+    },
+    "Kanvas Klik Mouse": {
+        "prefix": "kanvas_mouse_klik",
+        "body": [
+            "klik := kanvas_mouse_klik()"
+        ],
+        "description": "Memeriksa status klik tombol mouse pada kanvas (1=klik, 0=lepas)"
+    },
+    "Kanvas Tombol Keyboard Ditekan": {
+        "prefix": "kanvas_tombol_ditekan",
+        "body": [
+            "ditekan := kanvas_tombol_ditekan(${1:32})"
+        ],
+        "description": "Memeriksa apakah tombol keyboard tertentu sedang ditekan (32=Spasi, 37=Kiri, 38=Atas, 39=Kanan, 40=Bawah)"
+    },
+    "Template Game 2D Interaktif": {
+        "prefix": "game_2d_template",
+        "body": [
+            "fungsi render_game() -> Unit {",
+            "\tw := kanvas_lebar()",
+            "\th := kanvas_tinggi()",
+            "\tmx := kanvas_mouse_x()",
+            "\tmy := kanvas_mouse_y()",
+            "\tklik := kanvas_mouse_klik()",
+            "\t",
+            "\tkanvas_bersihkan(0.04, 0.05, 0.08, 1.0)",
+            "\t",
+            "\t// Objek pemain mengikuti kursor mouse",
+            "\tkanvas_warna_isi(0.2, 0.6, 1.0, 1.0)",
+            "\tkanvas_lingkaran(mx, my, 18.0)",
+            "\t",
+            "\tjika klik == 1 {",
+            "\t\tkanvas_warna_garis(1.0, 0.4, 0.2, 1.0)",
+            "\t\tkanvas_tebal_garis(3.0)",
+            "\t\tkanvas_garis(mx, my, w, my)",
+            "\t}",
+            "}",
+            "",
+            "fungsi utama() -> u64 {",
+            "\trender_game()",
+            "\tkembali 1",
+            "}"
+        ],
+        "description": "Kerangka game 2D interaktif berbasis pergerakan mouse dan klik di Kanvas DapCode"
     }
 }
 

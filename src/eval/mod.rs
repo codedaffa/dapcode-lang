@@ -1797,6 +1797,22 @@ impl Evaluator {
                     if name == "kanvas_tinggi" {
                         return Ok(Value::Float(600.0));
                     }
+                    if name == "kanvas_mouse_x" {
+                        return Ok(Value::Float(400.0));
+                    }
+                    if name == "kanvas_mouse_y" {
+                        return Ok(Value::Float(300.0));
+                    }
+                    if name == "kanvas_mouse_klik" {
+                        return Ok(Value::Int(0));
+                    }
+                    if name == "kanvas_tombol_ditekan" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'kanvas_tombol_ditekan' membutuhkan 1 argumen: (kode)").with_span(*span));
+                        }
+                        let _ = self.eval_expr(&args[0].value, env)?;
+                        return Ok(Value::Int(0));
+                    }
                     if name == "kanvas_bersihkan"
                         || name == "kanvas_warna_isi"
                         || name == "kanvas_warna_garis"
