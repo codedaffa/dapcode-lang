@@ -747,6 +747,23 @@ impl TypeChecker {
                 Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
             ),
         );
+        self.functions.insert(
+            "ekstrak_grup_regex".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::ErrorUnion(
+                    Box::new(Type::List(Box::new(Type::String))),
+                    Box::new(Type::String),
+                ),
+            ),
+        );
+        self.functions.insert(
+            "pisah_regex".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::List(Box::new(Type::String)),
+            ),
+        );
 
         // Standard Library: WebAssembly HTML5 Canvas 2D
         self.functions.insert(

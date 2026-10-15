@@ -77,6 +77,29 @@ fungsi utama() {
     hewan := "Saya punya kucing"
     ada_peliharaan := cocok_regex("kucing|anjing", hewan)
     cetak("Peliharaan: {ada_peliharaan}")
+
+    // 6. Uji batas kata \b
+    ada_kata := cocok_regex("\\bcat\\b", "the cat sat")
+    cetak("Kata cat: {ada_kata}")
+    tidak_ada_kata := cocok_regex("\\bcat\\b", "concatenate")
+    cetak("Kata concatenate: {tidak_ada_kata}")
+
+    // 7. Uji ekstrak_grup_regex
+    tgl := "2026-10-16"
+    grup := ekstrak_grup_regex("(\\d\{4\})-(\\d\{2\})-(\\d\{2\})", tgl) ? tangkap err {
+        Daftar()
+    }
+    cetak("Grup tahun: {grup.ambil(1)}")
+    cetak("Grup bulan: {grup.ambil(2)}")
+    cetak("Grup hari: {grup.ambil(3)}")
+
+    // 8. Uji pisah_regex
+    csv := "satu, dua,tiga"
+    pecah := pisah_regex(",\\s*", csv)
+    cetak("Pecah jumlah: {pecah.panjang()}")
+    cetak("Pecah 0: {pecah.ambil(0)}")
+    cetak("Pecah 1: {pecah.ambil(1)}")
+    cetak("Pecah 2: {pecah.ambil(2)}")
 }
 "#;
 
@@ -90,6 +113,15 @@ fungsi utama() {
     assert_eq!(output[6], "Disensor: Kontak rahasia: [SENSOR] dan [SENSOR]");
     assert_eq!(output[7], "Email: halo@dapcode.com");
     assert_eq!(output[8], "Peliharaan: benar");
+    assert_eq!(output[9], "Kata cat: benar");
+    assert_eq!(output[10], "Kata concatenate: salah");
+    assert_eq!(output[11], "Grup tahun: 2026");
+    assert_eq!(output[12], "Grup bulan: 10");
+    assert_eq!(output[13], "Grup hari: 16");
+    assert_eq!(output[14], "Pecah jumlah: 3");
+    assert_eq!(output[15], "Pecah 0: satu");
+    assert_eq!(output[16], "Pecah 1: dua");
+    assert_eq!(output[17], "Pecah 2: tiga");
 }
 
 #[test]
@@ -109,6 +141,9 @@ fungsi utama() {
         kembali
     }
     cetak("EKSTRAK: {ekstrak}")
+
+    pecah := pisah_regex(",\\s*", "kopi, teh, susu")
+    cetak("PECAH_JML: {pecah.panjang()}")
 }
 "#;
 
@@ -137,6 +172,7 @@ fungsi utama() {
     assert!(stdout.contains("KECACAHAN_OK"));
     assert!(stdout.contains("GANTI: ID Pengguna: 9999"));
     assert!(stdout.contains("EKSTRAK: 4589"));
+    assert!(stdout.contains("PECAH_JML: 3"));
 
     let _ = std::fs::remove_file(&out_exe);
     let _ = std::fs::remove_file(out_exe.with_extension("c"));

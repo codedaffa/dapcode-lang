@@ -5,8 +5,9 @@
 //! - Karakter harfiah & titik sembarang (.)
 //! - Kuantifier greedy: *, +, ?, {n}, {n,m}
 //! - Kelas karakter: [a-z], [0-9], [^...], \d, \D, \w, \W, \s, \S
+//! - Penanda batas kata (\b, \B) dan jangkar (^, $)
+//! - Grup penangkapan: (...) dan non-capturing (?:...)
 //! - Karakter pelarian (escaped characters)
-//! - Penanda jangkar: ^ (awal teks), $ (akhir teks)
 //! - Alternasi cabang (a|b)
 //!
 //! Fungsi utama:
@@ -14,6 +15,10 @@
 //! - `cari_regex(pola: &str, teks: &str) -> Vec<String>`
 //! - `ganti_regex(pola: &str, teks: &str, pengganti: &str) -> String`
 //! - `ekstrak_regex(pola: &str, teks: &str) -> Result<String, String>`
+//! - `ekstrak_grup_regex(pola: &str, teks: &str) -> Result<Vec<String>, String>`
+//! - `pisah_regex(pola: &str, teks: &str) -> Vec<String>`
+
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CharClass {
@@ -52,11 +57,15 @@ impl CharClass {
 pub enum RegexNode {
     AnchorStart,
     AnchorEnd,
+    WordBoundary,
+    NonWordBoundary,
     Class(CharClass),
     ZeroOrMore(Box<RegexNode>),
     OneOrMore(Box<RegexNode>),
     ZeroOrOne(Box<RegexNode>),
     Repeat(Box<RegexNode>, usize, Option<usize>),
+    Group(usize, Box<RegexNode>),
+    GroupEnd(usize, usize),
     Concat(Vec<RegexNode>),
     Alternation(Vec<RegexNode>),
 }
@@ -64,6 +73,7 @@ pub enum RegexNode {
 pub struct RegexParser {
     chars: Vec<char>,
     pos: usize,
+    group_counter: usize,
 }
 
 impl RegexParser {
@@ -71,6 +81,7 @@ impl RegexParser {
         RegexParser {
             chars: pattern.chars().collect(),
             pos: 0,
+            group_counter: 0,
         }
     }
 
@@ -93,11 +104,17 @@ impl RegexParser {
     }
 
     pub fn parse(&mut self) -> Result<Vec<RegexNode>, String> {
+        let (nodes, _) = self.parse_with_group_count()?;
+        Ok(nodes)
+    }
+
+    pub fn parse_with_group_count(&mut self) -> Result<(Vec<RegexNode>, usize), String> {
         let node = self.parse_alternation()?;
-        match node {
-            RegexNode::Concat(nodes) => Ok(nodes),
-            other => Ok(vec![other]),
-        }
+        let nodes = match node {
+            RegexNode::Concat(nodes) => nodes,
+            other => vec![other],
+        };
+        Ok((nodes, self.group_counter))
     }
 
     fn parse_alternation(&mut self) -> Result<RegexNode, String> {
@@ -199,11 +216,28 @@ impl RegexParser {
             '$' => Ok(RegexNode::AnchorEnd),
             '.' => Ok(RegexNode::Class(CharClass::Any)),
             '(' => {
-                let inner = self.parse_alternation()?;
-                if let Some(')') = self.advance() {
-                    Ok(inner)
+                if self.peek() == Some('?') {
+                    self.advance(); // consume '?'
+                    if self.peek() == Some(':') {
+                        self.advance(); // consume ':'
+                        let inner = self.parse_alternation()?;
+                        if let Some(')') = self.advance() {
+                            Ok(inner)
+                        } else {
+                            Err("Kurung '(?:' tidak ditutup dengan ')'".to_string())
+                        }
+                    } else {
+                        Err("Ekspresi '(?...)' tidak didukung".to_string())
+                    }
                 } else {
-                    Err("Kurung '(' tidak ditutup dengan ')'".to_string())
+                    self.group_counter += 1;
+                    let group_id = self.group_counter;
+                    let inner = self.parse_alternation()?;
+                    if let Some(')') = self.advance() {
+                        Ok(RegexNode::Group(group_id, Box::new(inner)))
+                    } else {
+                        Err("Kurung '(' tidak ditutup dengan ')'".to_string())
+                    }
                 }
             }
             '[' => self.parse_bracket(),
@@ -213,6 +247,8 @@ impl RegexParser {
                     None => return Err("Karakter escape '\\' menggantung di akhir pola".to_string()),
                 };
                 match escaped {
+                    'b' => Ok(RegexNode::WordBoundary),
+                    'B' => Ok(RegexNode::NonWordBoundary),
                     'd' => Ok(RegexNode::Class(CharClass::Digit)),
                     'D' => Ok(RegexNode::Class(CharClass::NonDigit)),
                     'w' => Ok(RegexNode::Class(CharClass::Word)),
@@ -249,6 +285,7 @@ impl RegexParser {
                 self.advance();
                 let esc = self.advance().ok_or("Escape '\\' tidak lengkap dalam '['")?;
                 match esc {
+                    'b' => '\x08',
                     'd' => {
                         classes.push(CharClass::Digit);
                         continue;
@@ -314,7 +351,12 @@ pub fn parse_regex(pattern: &str) -> Result<Vec<RegexNode>, String> {
     parser.parse()
 }
 
-fn match_single(node: &RegexNode, chars: &[char], idx: usize) -> Option<usize> {
+fn match_single(
+    node: &RegexNode,
+    chars: &[char],
+    idx: usize,
+    captures: &mut HashMap<usize, (usize, usize)>,
+) -> Option<usize> {
     match node {
         RegexNode::Class(cls) => {
             if idx < chars.len() && cls.matches(chars[idx]) {
@@ -323,20 +365,27 @@ fn match_single(node: &RegexNode, chars: &[char], idx: usize) -> Option<usize> {
                 None
             }
         }
-        RegexNode::Concat(nodes) => match_here(nodes, chars, idx),
+        RegexNode::Concat(nodes) => match_here(nodes, chars, idx, captures),
         RegexNode::Alternation(branches) => {
+            let snap = captures.clone();
             for b in branches {
-                if let Some(end) = match_single(b, chars, idx) {
+                *captures = snap.clone();
+                if let Some(end) = match_single(b, chars, idx, captures) {
                     return Some(end);
                 }
             }
             None
         }
-        _ => match_here(std::slice::from_ref(node), chars, idx),
+        _ => match_here(std::slice::from_ref(node), chars, idx, captures),
     }
 }
 
-fn match_here(nodes: &[RegexNode], chars: &[char], idx: usize) -> Option<usize> {
+fn match_here(
+    nodes: &[RegexNode],
+    chars: &[char],
+    idx: usize,
+    captures: &mut HashMap<usize, (usize, usize)>,
+) -> Option<usize> {
     if nodes.is_empty() {
         return Some(idx);
     }
@@ -344,81 +393,124 @@ fn match_here(nodes: &[RegexNode], chars: &[char], idx: usize) -> Option<usize> 
     match &nodes[0] {
         RegexNode::AnchorStart => {
             if idx == 0 {
-                match_here(&nodes[1..], chars, idx)
+                match_here(&nodes[1..], chars, idx, captures)
             } else {
                 None
             }
         }
         RegexNode::AnchorEnd => {
             if idx == chars.len() {
-                match_here(&nodes[1..], chars, idx)
+                match_here(&nodes[1..], chars, idx, captures)
             } else {
                 None
             }
         }
+        RegexNode::WordBoundary => {
+            let is_prev_word = idx > 0 && CharClass::Word.matches(chars[idx - 1]);
+            let is_curr_word = idx < chars.len() && CharClass::Word.matches(chars[idx]);
+            if is_prev_word != is_curr_word {
+                match_here(&nodes[1..], chars, idx, captures)
+            } else {
+                None
+            }
+        }
+        RegexNode::NonWordBoundary => {
+            let is_prev_word = idx > 0 && CharClass::Word.matches(chars[idx - 1]);
+            let is_curr_word = idx < chars.len() && CharClass::Word.matches(chars[idx]);
+            if is_prev_word == is_curr_word {
+                match_here(&nodes[1..], chars, idx, captures)
+            } else {
+                None
+            }
+        }
+        RegexNode::Group(id, inner) => {
+            let marker = RegexNode::GroupEnd(*id, idx);
+            let mut combined = vec![*inner.clone(), marker];
+            combined.extend_from_slice(&nodes[1..]);
+            match_here(&combined, chars, idx, captures)
+        }
+        RegexNode::GroupEnd(id, start) => {
+            let old_cap = captures.insert(*id, (*start, idx));
+            if let Some(end) = match_here(&nodes[1..], chars, idx, captures) {
+                return Some(end);
+            }
+            if let Some(prev) = old_cap {
+                captures.insert(*id, prev);
+            } else {
+                captures.remove(id);
+            }
+            None
+        }
         RegexNode::Class(cls) => {
             if idx < chars.len() && cls.matches(chars[idx]) {
-                match_here(&nodes[1..], chars, idx + 1)
+                match_here(&nodes[1..], chars, idx + 1, captures)
             } else {
                 None
             }
         }
         RegexNode::ZeroOrOne(inner) => {
-            if let Some(next_idx) = match_single(inner, chars, idx) {
-                if let Some(end) = match_here(&nodes[1..], chars, next_idx) {
+            let snap = captures.clone();
+            if let Some(next_idx) = match_single(inner, chars, idx, captures) {
+                if let Some(end) = match_here(&nodes[1..], chars, next_idx, captures) {
                     return Some(end);
                 }
             }
-            match_here(&nodes[1..], chars, idx)
+            *captures = snap;
+            match_here(&nodes[1..], chars, idx, captures)
         }
         RegexNode::ZeroOrMore(inner) => {
-            let mut positions = vec![idx];
+            let mut states = vec![(idx, captures.clone())];
             let mut cur = idx;
-            while let Some(next) = match_single(inner, chars, cur) {
+            while let Some(next) = match_single(inner, chars, cur, captures) {
                 if next == cur {
                     break;
                 }
-                positions.push(next);
+                states.push((next, captures.clone()));
                 cur = next;
             }
-            for &pos in positions.iter().rev() {
-                if let Some(end) = match_here(&nodes[1..], chars, pos) {
+            for (pos, snap) in states.into_iter().rev() {
+                *captures = snap;
+                if let Some(end) = match_here(&nodes[1..], chars, pos, captures) {
                     return Some(end);
                 }
             }
             None
         }
         RegexNode::OneOrMore(inner) => {
-            let first_idx = match_single(inner, chars, idx)?;
-            let mut positions = vec![first_idx];
+            let first_idx = match_single(inner, chars, idx, captures)?;
+            let mut states = vec![(first_idx, captures.clone())];
             let mut cur = first_idx;
-            while let Some(next) = match_single(inner, chars, cur) {
+            while let Some(next) = match_single(inner, chars, cur, captures) {
                 if next == cur {
                     break;
                 }
-                positions.push(next);
+                states.push((next, captures.clone()));
                 cur = next;
             }
-            for &pos in positions.iter().rev() {
-                if let Some(end) = match_here(&nodes[1..], chars, pos) {
+            for (pos, snap) in states.into_iter().rev() {
+                *captures = snap;
+                if let Some(end) = match_here(&nodes[1..], chars, pos, captures) {
                     return Some(end);
                 }
             }
             None
         }
         RegexNode::Repeat(inner, min, max) => {
-            let mut positions = vec![idx];
+            let mut states = Vec::new();
+            if *min == 0 {
+                states.push((idx, captures.clone()));
+            }
             let mut cur = idx;
             let limit = max.unwrap_or(usize::MAX);
             let mut count = 0;
             while count < limit {
-                if let Some(next) = match_single(inner, chars, cur) {
+                if let Some(next) = match_single(inner, chars, cur, captures) {
                     if next == cur {
                         break;
                     }
                     count += 1;
                     if count >= *min {
-                        positions.push(next);
+                        states.push((next, captures.clone()));
                     }
                     cur = next;
                 } else {
@@ -428,8 +520,9 @@ fn match_here(nodes: &[RegexNode], chars: &[char], idx: usize) -> Option<usize> 
             if count < *min {
                 return None;
             }
-            for &pos in positions.iter().rev() {
-                if let Some(end) = match_here(&nodes[1..], chars, pos) {
+            for (pos, snap) in states.into_iter().rev() {
+                *captures = snap;
+                if let Some(end) = match_here(&nodes[1..], chars, pos, captures) {
                     return Some(end);
                 }
             }
@@ -438,13 +531,15 @@ fn match_here(nodes: &[RegexNode], chars: &[char], idx: usize) -> Option<usize> 
         RegexNode::Concat(inner_nodes) => {
             let mut combined = inner_nodes.clone();
             combined.extend_from_slice(&nodes[1..]);
-            match_here(&combined, chars, idx)
+            match_here(&combined, chars, idx, captures)
         }
         RegexNode::Alternation(branches) => {
+            let snap = captures.clone();
             for branch in branches {
+                *captures = snap.clone();
                 let mut combined = vec![branch.clone()];
                 combined.extend_from_slice(&nodes[1..]);
-                if let Some(end) = match_here(&combined, chars, idx) {
+                if let Some(end) = match_here(&combined, chars, idx, captures) {
                     return Some(end);
                 }
             }
@@ -454,14 +549,38 @@ fn match_here(nodes: &[RegexNode], chars: &[char], idx: usize) -> Option<usize> 
 }
 
 pub fn find_first(nodes: &[RegexNode], chars: &[char]) -> Option<(usize, usize)> {
+    let mut dummy = HashMap::new();
     let has_anchor_start = matches!(nodes.first(), Some(RegexNode::AnchorStart));
 
     if has_anchor_start {
-        match_here(nodes, chars, 0).map(|end| (0, end))
+        match_here(nodes, chars, 0, &mut dummy).map(|end| (0, end))
     } else {
         for start in 0..=chars.len() {
-            if let Some(end) = match_here(nodes, chars, start) {
+            if let Some(end) = match_here(nodes, chars, start, &mut dummy) {
                 return Some((start, end));
+            }
+        }
+        None
+    }
+}
+
+pub fn find_first_with_captures(
+    nodes: &[RegexNode],
+    chars: &[char],
+) -> Option<(usize, usize, HashMap<usize, (usize, usize)>)> {
+    let has_anchor_start = matches!(nodes.first(), Some(RegexNode::AnchorStart));
+
+    if has_anchor_start {
+        let mut captures = HashMap::new();
+        if let Some(end) = match_here(nodes, chars, 0, &mut captures) {
+            return Some((0, end, captures));
+        }
+        None
+    } else {
+        for start in 0..=chars.len() {
+            let mut captures = HashMap::new();
+            if let Some(end) = match_here(nodes, chars, start, &mut captures) {
+                return Some((start, end, captures));
             }
         }
         None
@@ -474,7 +593,8 @@ pub fn find_all(nodes: &[RegexNode], chars: &[char]) -> Vec<(usize, usize)> {
 
     let mut idx = 0;
     while idx <= chars.len() {
-        if let Some(end) = match_here(nodes, chars, idx) {
+        let mut dummy = HashMap::new();
+        if let Some(end) = match_here(nodes, chars, idx, &mut dummy) {
             results.push((idx, end));
             if has_anchor_start {
                 break;
@@ -556,6 +676,55 @@ pub fn ekstrak_regex(pola: &str, teks: &str) -> Result<String, String> {
     }
 }
 
+/// Mengekstrak seluruh grup penangkapan (capturing groups) dari pola regex
+/// Index 0: Teks lengkap yang cocok (full match)
+/// Index 1..n: Grup penangkapan sub-ekspresi (1, 2, ...)
+pub fn ekstrak_grup_regex(pola: &str, teks: &str) -> Result<Vec<String>, String> {
+    let mut parser = RegexParser::new(pola);
+    let (nodes, group_count) = parser.parse_with_group_count()?;
+    let chars: Vec<char> = teks.chars().collect();
+
+    if let Some((s, e, captures)) = find_first_with_captures(&nodes, &chars) {
+        let mut res = Vec::with_capacity(group_count + 1);
+        res.push(chars[s..e].iter().collect());
+        for i in 1..=group_count {
+            if let Some(&(gs, ge)) = captures.get(&i) {
+                res.push(chars[gs..ge].iter().collect());
+            } else {
+                res.push(String::new());
+            }
+        }
+        Ok(res)
+    } else {
+        Err(format!("Pola regex '{}' tidak cocok pada teks", pola))
+    }
+}
+
+/// Memecah teks menjadi daftar substring berdasarkan pemisah pola regex
+pub fn pisah_regex(pola: &str, teks: &str) -> Vec<String> {
+    let nodes = match parse_regex(pola) {
+        Ok(n) => n,
+        Err(_) => return vec![teks.to_string()],
+    };
+    let chars: Vec<char> = teks.chars().collect();
+    if chars.is_empty() {
+        return vec![String::new()];
+    }
+    let matches = find_all(&nodes, &chars);
+    if matches.is_empty() {
+        return vec![teks.to_string()];
+    }
+
+    let mut parts = Vec::new();
+    let mut last_end = 0;
+    for (start, end) in matches {
+        parts.push(chars[last_end..start].iter().collect::<String>());
+        last_end = end;
+    }
+    parts.push(chars[last_end..].iter().collect::<String>());
+    parts
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -584,6 +753,33 @@ mod tests {
         assert!(cocok_regex(r"^\d+$", "12345"));
         assert!(cocok_regex(r"[a-z]+", "DapCode 2026"));
         assert!(cocok_regex(r"[^0-9]+", "abc"));
+    }
+
+    #[test]
+    fn test_word_boundaries() {
+        assert!(cocok_regex(r"\bcat\b", "black cat"));
+        assert!(cocok_regex(r"\bcat\b", "cat"));
+        assert!(!cocok_regex(r"\bcat\b", "concatenate"));
+        assert!(cocok_regex(r"\Bcat", "concatenate"));
+    }
+
+    #[test]
+    fn test_capturing_groups() {
+        let groups = ekstrak_grup_regex(r"(\d{4})-(\d{2})-(\d{2})", "Tanggal: 2026-10-16").unwrap();
+        assert_eq!(groups.len(), 4);
+        assert_eq!(groups[0], "2026-10-16");
+        assert_eq!(groups[1], "2026");
+        assert_eq!(groups[2], "10");
+        assert_eq!(groups[3], "16");
+    }
+
+    #[test]
+    fn test_pisah_regex() {
+        let parts = pisah_regex(r",\s*", "kopi, teh,  susu,gula");
+        assert_eq!(parts, vec!["kopi", "teh", "susu", "gula"]);
+
+        let words = pisah_regex(r"\s+", "DapCode   bahasa   modern");
+        assert_eq!(words, vec!["DapCode", "bahasa", "modern"]);
     }
 
     #[test]

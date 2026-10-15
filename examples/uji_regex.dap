@@ -5,12 +5,19 @@
 fungsi utama() {
     cetak("=== Demo Pustaka Standar Regex DapCode ===")
 
-    // 1. Pencocokan Pola (cocok_regex)
+    // 1. Pencocokan Pola & Batas Kata (cocok_regex dengan \b)
     kode := "TRX-88921-ID"
     jika cocok_regex("^TRX-\\d+-ID$", kode) {
         cetak("Format kode valid: {kode}")
     } selain_itu {
         cetak("Format kode tidak valid!")
+    }
+
+    kalimat := "kucing hitam itu melompat"
+    jika cocok_regex("\\bcat\\b", kalimat) {
+        cetak("Menemukan kata bahasa inggris cat")
+    } selain_itu {
+        cetak("Batas kata \\b: Tidak ada kata utuh 'cat' dalam '{kalimat}'")
     }
 
     // 2. Pencarian Semua Kemunculan (cari_regex)
@@ -23,11 +30,32 @@ fungsi utama() {
 
     // 3. Sensor / Penggantian Teks (ganti_regex)
     biodata := "Hubungi saya di 08123456789 atau nomor kantor 0219876543"
-    sensor_hp := ganti_regex("\\d{4,}", biodata, "[NOMOR DISEMBUNYIKAN]")
+    sensor_hp := ganti_regex("\\d\{4,\}", biodata, "[NOMOR DISEMBUNYIKAN]")
     cetak("\nHasil sensor kontak:")
     cetak(sensor_hp)
 
-    // 4. Ekstraksi Informasi Penting (ekstrak_regex)
+    // 4. Ekstraksi Grup Penangkapan (ekstrak_grup_regex dengan '()')
+    tanggal_log := "Server dimulai pada 2026-10-16 pukul 04:30 WIB"
+    grup_tgl := ekstrak_grup_regex("(\\d\{4\})-(\\d\{2\})-(\\d\{2\})", tanggal_log) ? tangkap err {
+        Daftar()
+    }
+    jika grup_tgl.panjang() > 0 {
+        cetak("\nHasil Ekstraksi Grup Penangkapan Regex:")
+        cetak("  - Teks Lengkap: {grup_tgl.ambil(0)}")
+        cetak("  - Tahun       : {grup_tgl.ambil(1)}")
+        cetak("  - Bulan       : {grup_tgl.ambil(2)}")
+        cetak("  - Hari        : {grup_tgl.ambil(3)}")
+    }
+
+    // 5. Pemecahan String Berdasarkan Pola (pisah_regex)
+    data_csv := "Kopi Arabika, 35000 , 20 , Minuman Segar"
+    kolom := pisah_regex(",\\s*", data_csv)
+    cetak("\nHasil Pemecahan String (pisah_regex): {kolom.panjang()} kolom")
+    untuk k di kolom {
+        cetak("  * Kolom: {k}")
+    }
+
+    // 6. Ekstraksi Informasi Penting (ekstrak_regex)
     catatan := "Surel pengembang: contact@dapcode.org dan alternatif halo@dev.id"
     surel := ekstrak_regex("\\w+@\\w+\\.\\w+", catatan) ? tangkap err {
         cetak("Gagal mengekstrak surel: {err}")
@@ -35,7 +63,7 @@ fungsi utama() {
     }
     cetak("\nSurel utama yang berhasil diekstrak: {surel}")
 
-    // 5. Alternasi Pilihan Kata (a|b)
+    // 7. Alternasi Pilihan Kata (a|b)
     percakapan := "Hari ini cuacanya hujan deras di Jakarta"
     jika cocok_regex("cerah|hujan|mendung", percakapan) {
         cetak("\nTerdeteksi informasi cuaca dalam percakapan.")

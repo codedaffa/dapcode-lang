@@ -1913,6 +1913,30 @@ impl Evaluator {
                             Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
                         };
                     }
+                    if name == "ekstrak_grup_regex" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'ekstrak_grup_regex' membutuhkan 2 argumen: (pola, teks)").with_span(*span));
+                        }
+                        let pola = self.eval_expr(&args[0].value, env)?.to_string();
+                        let teks = self.eval_expr(&args[1].value, env)?.to_string();
+                        return match crate::regex::ekstrak_grup_regex(&pola, &teks) {
+                            Ok(groups) => {
+                                let v_groups: Vec<Value> = groups.into_iter().map(Value::String).collect();
+                                Ok(Value::ErrorUnion(Ok(Box::new(Value::List(Arc::new(Mutex::new(v_groups)))))))
+                            }
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
+                    if name == "pisah_regex" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'pisah_regex' membutuhkan 2 argumen: (pola, teks)").with_span(*span));
+                        }
+                        let pola = self.eval_expr(&args[0].value, env)?.to_string();
+                        let teks = self.eval_expr(&args[1].value, env)?.to_string();
+                        let parts = crate::regex::pisah_regex(&pola, &teks);
+                        let v_parts: Vec<Value> = parts.into_iter().map(Value::String).collect();
+                        return Ok(Value::List(Arc::new(Mutex::new(v_parts))));
+                    }
 
                     // Standard Library: WebAssembly HTML5 Canvas 2D (Headless Mock Runtime)
                     if name == "kanvas_lebar" {
