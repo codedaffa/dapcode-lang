@@ -766,6 +766,32 @@ impl TypeChecker {
             (vec![], Type::F64),
         );
 
+        // Standard Library: Web Audio Synthesizer
+        self.functions.insert(
+            "audio_mainkan_nada".to_string(),
+            (vec![Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "audio_mainkan_gelombang".to_string(),
+            (vec![Type::U64, Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "audio_efek_suara".to_string(),
+            (vec![Type::U64], Type::Unit),
+        );
+        self.functions.insert(
+            "audio_frekuensi_nada".to_string(),
+            (vec![Type::String], Type::F64),
+        );
+        self.functions.insert(
+            "audio_set_volume".to_string(),
+            (vec![Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "audio_hentikan_semua".to_string(),
+            (vec![], Type::Unit),
+        );
+
         // Compiler Service: In-Memory WebAssembly Compilation
         self.functions.insert(
             "kompilasi_ke_wasm".to_string(),

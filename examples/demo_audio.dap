@@ -1,0 +1,85 @@
+// ========================================================
+// 🎵 Demo Web Audio Synthesizer & Efek Suara (SFX)
+// DapCode Pure-Rust WebAssembly & Interpreter Runtime
+// ========================================================
+
+fungsi mainkan_melodi_arpegio() -> Unit {
+    cetak("--- 1. Memainkan Melodi Arpegio Tangga Nada C Mayor ---")
+    vol := 0.6
+    durasi := 0.25
+
+    // Konversi notasi nama nada ke frekuensi Hertz
+    nada_c4 := audio_frekuensi_nada("C4")
+    nada_e4 := audio_frekuensi_nada("E4")
+    nada_g4 := audio_frekuensi_nada("G4")
+    nada_c5 := audio_frekuensi_nada("C5")
+
+    cetak("Frekuensi C4 = {nada_c4} Hz")
+    cetak("Frekuensi E4 = {nada_e4} Hz")
+    cetak("Frekuensi G4 = {nada_g4} Hz")
+    cetak("Frekuensi C5 = {nada_c5} Hz")
+
+    // Mainkan nada murni sinus
+    audio_mainkan_nada(nada_c4, durasi, vol)
+    audio_mainkan_nada(nada_e4, durasi, vol)
+    audio_mainkan_nada(nada_g4, durasi, vol)
+    audio_mainkan_nada(nada_c5, durasi * 1.5, vol)
+}
+
+fungsi demo_bentuk_gelombang() -> Unit {
+    cetak("")
+    cetak("--- 2. Sintesis Berbagai Bentuk Gelombang Osilator ---")
+    f := 440.0 // Nada A4 (440 Hz)
+
+    // Tipe 0: Sine wave (lembut)
+    cetak("Memainkan gelombang Sine (0)...")
+    audio_mainkan_gelombang(0, f, 0.2, 0.5)
+
+    // Tipe 1: Square wave (retro chiptune 8-bit)
+    cetak("Memainkan gelombang Square / 8-Bit (1)...")
+    audio_mainkan_gelombang(1, f, 0.2, 0.4)
+
+    // Tipe 2: Sawtooth wave (synth tajam)
+    cetak("Memainkan gelombang Sawtooth (2)...")
+    audio_mainkan_gelombang(2, f, 0.2, 0.4)
+
+    // Tipe 3: Triangle wave (flute hangat)
+    cetak("Memainkan gelombang Triangle (3)...")
+    audio_mainkan_gelombang(3, f, 0.2, 0.5)
+}
+
+fungsi demo_efek_suara_game() -> Unit {
+    cetak("")
+    cetak("--- 3. Efek Suara Prosedural Game (SFX) ---")
+
+    cetak("Efek 0: Bip / Klik")
+    audio_efek_suara(0)
+
+    cetak("Efek 1: Lompat / Jump")
+    audio_efek_suara(1)
+
+    cetak("Efek 2: Ambil Koin / Coin")
+    audio_efek_suara(2)
+
+    cetak("Efek 3: Ledakan / Explosion")
+    audio_efek_suara(3)
+
+    cetak("Efek 4: Kalah / Game Over")
+    audio_efek_suara(4)
+
+    cetak("Efek 5: Menang / Powerup Fanfare")
+    audio_efek_suara(5)
+}
+
+fungsi utama() -> u64 {
+    cetak("=== Inisialisasi DapCode Web Audio Synthesizer ===")
+    audio_set_volume(0.8)
+
+    mainkan_melodi_arpegio()
+    demo_bentuk_gelombang()
+    demo_efek_suara_game()
+
+    cetak("")
+    cetak("Sintesis Web Audio berhasil dijalankan!")
+    kembali 0
+}

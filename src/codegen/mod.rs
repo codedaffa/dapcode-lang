@@ -671,6 +671,61 @@ static inline uint64_t dap_kanvas_mouse_klik(void) { return 0; }
 static inline uint64_t dap_kanvas_tombol_ditekan(uint64_t kode) { (void)kode; return 0; }
 static inline f64 dap_kanvas_delta_waktu(void) { return 0.0166; }
 
+static inline void dap_audio_mainkan_nada(f64 frekuensi, f64 durasi, f64 volume) {
+    (void)frekuensi; (void)durasi; (void)volume;
+#ifdef _WIN32
+    if (frekuensi >= 37.0 && frekuensi <= 32767.0) {
+        Beep((DWORD)frekuensi, (DWORD)(durasi * 1000.0));
+    }
+#endif
+}
+static inline void dap_audio_mainkan_gelombang(uint64_t tipe, f64 frekuensi, f64 durasi, f64 volume) {
+    (void)tipe; (void)frekuensi; (void)durasi; (void)volume;
+#ifdef _WIN32
+    if (frekuensi >= 37.0 && frekuensi <= 32767.0) {
+        Beep((DWORD)frekuensi, (DWORD)(durasi * 1000.0));
+    }
+#endif
+}
+static inline void dap_audio_efek_suara(uint64_t tipe) {
+    (void)tipe;
+#ifdef _WIN32
+    if (tipe == 0) Beep(1000, 50);
+    else if (tipe == 1) { Beep(200, 50); Beep(600, 100); }
+    else if (tipe == 2) { Beep(987, 80); Beep(1318, 150); }
+    else if (tipe == 3) { Beep(150, 200); }
+    else if (tipe == 4) { Beep(330, 100); Beep(293, 100); Beep(261, 150); }
+    else if (tipe == 5) { Beep(261, 80); Beep(329, 80); Beep(392, 80); Beep(523, 160); }
+#endif
+}
+static inline f64 dap_audio_frekuensi_nada(const char* notasi) {
+    if (!notasi || notasi[0] == '\0') return 440.0;
+    char letter = (char)toupper((unsigned char)notasi[0]);
+    int base = 0;
+    switch (letter) {
+        case 'C': base = 0; break;
+        case 'D': base = 2; break;
+        case 'E': base = 4; break;
+        case 'F': base = 5; break;
+        case 'G': base = 7; break;
+        case 'A': base = 9; break;
+        case 'B': base = 11; break;
+        default: return 440.0;
+    }
+    int idx = 1;
+    int accidental = 0;
+    if (notasi[idx] == '#' || notasi[idx] == '+') { accidental = 1; idx++; }
+    else if (notasi[idx] == 'b' || notasi[idx] == 'B' || notasi[idx] == '-') { accidental = -1; idx++; }
+    int octave = 4;
+    if (notasi[idx] >= '0' && notasi[idx] <= '9') {
+        octave = notasi[idx] - '0';
+    }
+    int midi = (octave + 1) * 12 + base + accidental;
+    return 440.0 * pow(2.0, ((double)midi - 69.0) / 12.0);
+}
+static inline void dap_audio_set_volume(f64 vol) { (void)vol; }
+static inline void dap_audio_hentikan_semua(void) { }
+
 static inline DapResult_Teks dap_kompilasi_ke_wasm(const char* kode) {
     (void)kode;
     DapResult_Teks res;

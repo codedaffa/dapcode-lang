@@ -680,6 +680,128 @@ fungsi utama() -> u64 {
             kanvas_tombol_ditekan: (kode) => (canvasKeysPressed.has(Number(kode)) ? 1n : 0n),
             kanvas_delta_waktu: () => currentDeltaTime,
             waktu_sekarang_ms: () => BigInt(Date.now()),
+            audio_mainkan_nada: (freq, dur, vol) => {
+                try {
+                    const audioCtx = window.__dapAudioCtx || (window.__dapAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                    const now = audioCtx.currentTime;
+                    gain.gain.setValueAtTime(0.0001, now);
+                    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, Math.min(1.0, vol)), now + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + dur + 0.05);
+                } catch(e) { console.error('Audio error:', e); }
+            },
+            audio_mainkan_gelombang: (tipe, freq, dur, vol) => {
+                try {
+                    const audioCtx = window.__dapAudioCtx || (window.__dapAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
+                    const types = ['sine', 'square', 'sawtooth', 'triangle'];
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = types[Number(tipe) % 4] || 'sine';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                    const now = audioCtx.currentTime;
+                    gain.gain.setValueAtTime(0.0001, now);
+                    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, Math.min(1.0, vol)), now + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + dur + 0.05);
+                } catch(e) { console.error('Audio error:', e); }
+            },
+            audio_efek_suara: (tipe) => {
+                try {
+                    const audioCtx = window.__dapAudioCtx || (window.__dapAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
+                    const now = audioCtx.currentTime;
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    const t = Number(tipe);
+                    if (t === 0) { // Bip
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(1000, now);
+                        gain.gain.setValueAtTime(0.3, now);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+                        osc.start(now); osc.stop(now + 0.09);
+                    } else if (t === 1) { // Lompat
+                        osc.type = 'square';
+                        osc.frequency.setValueAtTime(150, now);
+                        osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                        gain.gain.setValueAtTime(0.25, now);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+                        osc.start(now); osc.stop(now + 0.17);
+                    } else if (t === 2) { // Koin
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(987.77, now);
+                        osc.frequency.setValueAtTime(1318.51, now + 0.08);
+                        gain.gain.setValueAtTime(0.3, now);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+                        osc.start(now); osc.stop(now + 0.36);
+                    } else if (t === 3) { // Ledakan
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(220, now);
+                        osc.frequency.exponentialRampToValueAtTime(30, now + 0.35);
+                        gain.gain.setValueAtTime(0.4, now);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+                        osc.start(now); osc.stop(now + 0.39);
+                    } else if (t === 4) { // Kalah
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(330, now);
+                        osc.frequency.setValueAtTime(293, now + 0.12);
+                        osc.frequency.setValueAtTime(261, now + 0.24);
+                        osc.frequency.setValueAtTime(196, now + 0.36);
+                        gain.gain.setValueAtTime(0.3, now);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+                        osc.start(now); osc.stop(now + 0.56);
+                    } else if (t === 5) { // Menang
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(261, now);
+                        osc.frequency.setValueAtTime(329, now + 0.1);
+                        osc.frequency.setValueAtTime(392, now + 0.2);
+                        osc.frequency.setValueAtTime(523, now + 0.3);
+                        gain.gain.setValueAtTime(0.3, now);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+                        osc.start(now); osc.stop(now + 0.56);
+                    }
+                } catch(e) { console.error('Audio SFX error:', e); }
+            },
+            audio_frekuensi_nada: (ptr, len) => {
+                try {
+                    const mem = getMemory();
+                    if (!mem) return 440.0;
+                    const arr = new Uint8Array(mem.buffer, ptr, len);
+                    const note = new TextDecoder().decode(arr).trim().toUpperCase();
+                    const map = {
+                        'C0': 16.35, 'C#0': 17.32, 'DB0': 17.32, 'D0': 18.35, 'D#0': 19.45, 'EB0': 19.45, 'E0': 20.60, 'F0': 21.83, 'F#0': 23.12, 'GB0': 23.12, 'G0': 24.50, 'G#0': 25.96, 'AB0': 25.96, 'A0': 27.50, 'A#0': 29.14, 'BB0': 29.14, 'B0': 30.87,
+                        'C1': 32.70, 'C#1': 34.65, 'DB1': 34.65, 'D1': 36.71, 'D#1': 38.89, 'EB1': 38.89, 'E1': 41.20, 'F1': 43.65, 'F#1': 46.25, 'GB1': 46.25, 'G1': 49.00, 'G#1': 51.91, 'AB1': 51.91, 'A1': 55.00, 'A#1': 58.27, 'BB1': 58.27, 'B1': 61.74,
+                        'C2': 65.41, 'C#2': 69.30, 'DB2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'EB2': 77.78, 'E2': 82.41, 'F2': 87.31, 'F#2': 92.50, 'GB2': 92.50, 'G2': 98.00, 'G#2': 103.83, 'AB2': 103.83, 'A2': 110.00, 'A#2': 116.54, 'BB2': 116.54, 'B2': 123.47,
+                        'C3': 130.81, 'C#3': 138.59, 'DB3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'EB3': 155.56, 'E3': 164.81, 'F3': 174.61, 'F#3': 185.00, 'GB3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'AB3': 207.65, 'A3': 220.00, 'A#3': 233.08, 'BB3': 233.08, 'B3': 246.94,
+                        'C4': 261.63, 'C#4': 277.18, 'DB4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'EB4': 311.13, 'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'GB4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'AB4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'BB4': 466.16, 'B4': 493.88,
+                        'C5': 523.25, 'C#5': 554.37, 'DB5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'EB5': 622.25, 'E5': 659.25, 'F5': 698.46, 'F#5': 739.99, 'GB5': 739.99, 'G5': 783.99, 'G#5': 830.61, 'AB5': 830.61, 'A5': 880.00, 'A#5': 932.33, 'BB5': 932.33, 'B5': 987.77,
+                        'C6': 1046.50, 'C#6': 1108.73, 'DB6': 1108.73, 'D6': 1174.66, 'D#6': 1244.51, 'EB6': 1244.51, 'E6': 1318.51, 'F6': 1396.91, 'F#6': 1479.98, 'GB6': 1479.98, 'G6': 1567.98, 'G#6': 1661.22, 'AB6': 1661.22, 'A6': 1760.00, 'A#6': 1864.66, 'BB6': 1864.66, 'B6': 1975.53
+                    };
+                    return map[note] || 440.0;
+                } catch(e) { return 440.0; }
+            },
+            audio_set_volume: (vol) => {},
+            audio_hentikan_semua: () => {
+                try {
+                    if (window.__dapAudioCtx) {
+                        window.__dapAudioCtx.close();
+                        window.__dapAudioCtx = null;
+                    }
+                } catch(e) {}
+            },
         };
     }
 

@@ -361,6 +361,109 @@ impl WasmEmitter {
             );
         }
 
+        // Web Audio Synthesizer imports
+        if called.contains("audio_mainkan_nada") {
+            let sig = self.get_or_add_sig(vec![WasmType::F64, WasmType::F64, WasmType::F64], vec![]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "audio_mainkan_nada".to_string(), sig));
+            self.func_table.insert(
+                "audio_mainkan_nada".to_string(),
+                (
+                    func_idx,
+                    sig,
+                    FuncSignature {
+                        params: vec![WasmType::F64, WasmType::F64, WasmType::F64],
+                        results: vec![],
+                    },
+                ),
+            );
+        }
+
+        if called.contains("audio_mainkan_gelombang") {
+            let sig = self.get_or_add_sig(vec![WasmType::I64, WasmType::F64, WasmType::F64, WasmType::F64], vec![]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "audio_mainkan_gelombang".to_string(), sig));
+            self.func_table.insert(
+                "audio_mainkan_gelombang".to_string(),
+                (
+                    func_idx,
+                    sig,
+                    FuncSignature {
+                        params: vec![WasmType::I64, WasmType::F64, WasmType::F64, WasmType::F64],
+                        results: vec![],
+                    },
+                ),
+            );
+        }
+
+        if called.contains("audio_efek_suara") {
+            let sig = self.get_or_add_sig(vec![WasmType::I64], vec![]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "audio_efek_suara".to_string(), sig));
+            self.func_table.insert(
+                "audio_efek_suara".to_string(),
+                (
+                    func_idx,
+                    sig,
+                    FuncSignature {
+                        params: vec![WasmType::I64],
+                        results: vec![],
+                    },
+                ),
+            );
+        }
+
+        if called.contains("audio_set_volume") {
+            let sig = self.get_or_add_sig(vec![WasmType::F64], vec![]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "audio_set_volume".to_string(), sig));
+            self.func_table.insert(
+                "audio_set_volume".to_string(),
+                (
+                    func_idx,
+                    sig,
+                    FuncSignature {
+                        params: vec![WasmType::F64],
+                        results: vec![],
+                    },
+                ),
+            );
+        }
+
+        if called.contains("audio_hentikan_semua") {
+            let sig = self.get_or_add_sig(vec![], vec![]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "audio_hentikan_semua".to_string(), sig));
+            self.func_table.insert(
+                "audio_hentikan_semua".to_string(),
+                (
+                    func_idx,
+                    sig,
+                    FuncSignature {
+                        params: vec![],
+                        results: vec![],
+                    },
+                ),
+            );
+        }
+
+        if called.contains("audio_frekuensi_nada") {
+            let sig = self.get_or_add_sig(vec![WasmType::I32, WasmType::I32], vec![WasmType::F64]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "audio_frekuensi_nada".to_string(), sig));
+            self.func_table.insert(
+                "audio_frekuensi_nada".to_string(),
+                (
+                    func_idx,
+                    sig,
+                    FuncSignature {
+                        params: vec![WasmType::I32, WasmType::I32],
+                        results: vec![WasmType::F64],
+                    },
+                ),
+            );
+        }
+
         self.num_imports = self.imports.len() as u32;
 
         // 1. Daftarkan tanda tangan setiap fungsi user
@@ -1040,6 +1143,39 @@ impl WasmEmitter {
                         return Ok(WasmType::I32);
                     }
 
+                    if name == "audio_frekuensi_nada" && args.len() == 1 {
+                        let arg0 = &args[0].value;
+                        if let Expr::Lit(Literal::String(s), _) = arg0 {
+                            let (off, len) = self.intern_string(s);
+                            out.push(0x41); // i32.const
+                            encode_i64_leb128(off as i64, out);
+                            out.push(0x41); // i32.const
+                            encode_i64_leb128(len as i64, out);
+                        } else if let Expr::InterpolatedString(parts, _) = arg0 {
+                            let mut static_str = String::new();
+                            for p in parts {
+                                if let InterpolatedExprPart::Lit(s) = p {
+                                    static_str.push_str(s);
+                                }
+                            }
+                            let (off, len) = self.intern_string(&static_str);
+                            out.push(0x41);
+                            encode_i64_leb128(off as i64, out);
+                            out.push(0x41);
+                            encode_i64_leb128(len as i64, out);
+                        } else {
+                            let _ = self.compile_expr(arg0, locals_map, out)?;
+                            out.push(0x41);
+                            encode_i64_leb128(0, out);
+                        }
+
+                        if let Some((func_idx, _, _)) = self.func_table.get("audio_frekuensi_nada").cloned() {
+                            out.push(0x10); // call
+                            encode_u32_leb128(func_idx, out);
+                        }
+                        return Ok(WasmType::F64);
+                    }
+
                     // Operasi matematika perangkat keras bawaan WebAssembly MVP (Hardware Native)
                     if name == "akar_kuadrat" && args.len() == 1 {
                         let ty = self.compile_expr(&args[0].value, locals_map, out)?;
@@ -1399,6 +1535,137 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
                         kanvas_tombol_ditekan: () => 0n,
                         kanvas_delta_waktu: () => 0.0166,
                         waktu_sekarang_ms: () => BigInt(Date.now()),
+                        audio_mainkan_nada: (freq, dur, vol) => {{
+                            try {{
+                                const ctx = window.__dapAudioCtx || (window.__dapAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+                                if (ctx.state === 'suspended') ctx.resume();
+                                const osc = ctx.createOscillator();
+                                const gain = ctx.createGain();
+                                osc.type = 'sine';
+                                osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                                const now = ctx.currentTime;
+                                gain.gain.setValueAtTime(0.0001, now);
+                                gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, Math.min(1.0, vol)), now + 0.02);
+                                gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+                                osc.connect(gain);
+                                gain.connect(ctx.destination);
+                                osc.start(now);
+                                osc.stop(now + dur + 0.05);
+                                log('[Audio] Mainkan nada ' + freq + 'Hz, durasi=' + dur + 's, vol=' + vol);
+                            }} catch(e) {{ log('[Audio Error] ' + e.message); }}
+                        }},
+                        audio_mainkan_gelombang: (tipe, freq, dur, vol) => {{
+                            try {{
+                                const ctx = window.__dapAudioCtx || (window.__dapAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+                                if (ctx.state === 'suspended') ctx.resume();
+                                const types = ['sine', 'square', 'sawtooth', 'triangle'];
+                                const osc = ctx.createOscillator();
+                                const gain = ctx.createGain();
+                                osc.type = types[Number(tipe) % 4] || 'sine';
+                                osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                                const now = ctx.currentTime;
+                                gain.gain.setValueAtTime(0.0001, now);
+                                gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, Math.min(1.0, vol)), now + 0.02);
+                                gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+                                osc.connect(gain);
+                                gain.connect(ctx.destination);
+                                osc.start(now);
+                                osc.stop(now + dur + 0.05);
+                                log('[Audio] Gelombang ' + osc.type + ' ' + freq + 'Hz, durasi=' + dur + 's');
+                            }} catch(e) {{ log('[Audio Error] ' + e.message); }}
+                        }},
+                        audio_efek_suara: (tipe) => {{
+                            try {{
+                                const ctx = window.__dapAudioCtx || (window.__dapAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+                                if (ctx.state === 'suspended') ctx.resume();
+                                const now = ctx.currentTime;
+                                const osc = ctx.createOscillator();
+                                const gain = ctx.createGain();
+                                osc.connect(gain);
+                                gain.connect(ctx.destination);
+                                const t = Number(tipe);
+                                if (t === 0) {{
+                                    osc.type = 'sine';
+                                    osc.frequency.setValueAtTime(1000, now);
+                                    gain.gain.setValueAtTime(0.3, now);
+                                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+                                    osc.start(now); osc.stop(now + 0.09);
+                                    log('[Audio SFX] Bip');
+                                }} else if (t === 1) {{
+                                    osc.type = 'square';
+                                    osc.frequency.setValueAtTime(150, now);
+                                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                                    gain.gain.setValueAtTime(0.25, now);
+                                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+                                    osc.start(now); osc.stop(now + 0.17);
+                                    log('[Audio SFX] Lompat');
+                                }} else if (t === 2) {{
+                                    osc.type = 'sine';
+                                    osc.frequency.setValueAtTime(987.77, now);
+                                    osc.frequency.setValueAtTime(1318.51, now + 0.08);
+                                    gain.gain.setValueAtTime(0.3, now);
+                                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+                                    osc.start(now); osc.stop(now + 0.36);
+                                    log('[Audio SFX] Koin');
+                                }} else if (t === 3) {{
+                                    osc.type = 'sawtooth';
+                                    osc.frequency.setValueAtTime(220, now);
+                                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.35);
+                                    gain.gain.setValueAtTime(0.4, now);
+                                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+                                    osc.start(now); osc.stop(now + 0.39);
+                                    log('[Audio SFX] Ledakan');
+                                }} else if (t === 4) {{
+                                    osc.type = 'triangle';
+                                    osc.frequency.setValueAtTime(330, now);
+                                    osc.frequency.setValueAtTime(293, now + 0.12);
+                                    osc.frequency.setValueAtTime(261, now + 0.24);
+                                    osc.frequency.setValueAtTime(196, now + 0.36);
+                                    gain.gain.setValueAtTime(0.3, now);
+                                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+                                    osc.start(now); osc.stop(now + 0.56);
+                                    log('[Audio SFX] Kalah');
+                                }} else if (t === 5) {{
+                                    osc.type = 'triangle';
+                                    osc.frequency.setValueAtTime(261, now);
+                                    osc.frequency.setValueAtTime(329, now + 0.1);
+                                    osc.frequency.setValueAtTime(392, now + 0.2);
+                                    osc.frequency.setValueAtTime(523, now + 0.3);
+                                    gain.gain.setValueAtTime(0.3, now);
+                                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+                                    osc.start(now); osc.stop(now + 0.56);
+                                    log('[Audio SFX] Menang');
+                                }}
+                            }} catch(e) {{ log('[Audio Error] ' + e.message); }}
+                        }},
+                        audio_frekuensi_nada: (ptr, len) => {{
+                            try {{
+                                const arr = new Uint8Array(memory.buffer, ptr, len);
+                                const note = new TextDecoder().decode(arr).trim().toUpperCase();
+                                const map = {{
+                                    'C0': 16.35, 'C#0': 17.32, 'DB0': 17.32, 'D0': 18.35, 'D#0': 19.45, 'EB0': 19.45, 'E0': 20.60, 'F0': 21.83, 'F#0': 23.12, 'GB0': 23.12, 'G0': 24.50, 'G#0': 25.96, 'AB0': 25.96, 'A0': 27.50, 'A#0': 29.14, 'BB0': 29.14, 'B0': 30.87,
+                                    'C1': 32.70, 'C#1': 34.65, 'DB1': 34.65, 'D1': 36.71, 'D#1': 38.89, 'EB1': 38.89, 'E1': 41.20, 'F1': 43.65, 'F#1': 46.25, 'GB1': 46.25, 'G1': 49.00, 'G#1': 51.91, 'AB1': 51.91, 'A1': 55.00, 'A#1': 58.27, 'BB1': 58.27, 'B1': 61.74,
+                                    'C2': 65.41, 'C#2': 69.30, 'DB2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'EB2': 77.78, 'E2': 82.41, 'F2': 87.31, 'F#2': 92.50, 'GB2': 92.50, 'G2': 98.00, 'G#2': 103.83, 'AB2': 103.83, 'A2': 110.00, 'A#2': 116.54, 'BB2': 116.54, 'B2': 123.47,
+                                    'C3': 130.81, 'C#3': 138.59, 'DB3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'EB3': 155.56, 'E3': 164.81, 'F3': 174.61, 'F#3': 185.00, 'GB3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'AB3': 207.65, 'A3': 220.00, 'A#3': 233.08, 'BB3': 233.08, 'B3': 246.94,
+                                    'C4': 261.63, 'C#4': 277.18, 'DB4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'EB4': 311.13, 'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'GB4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'AB4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'BB4': 466.16, 'B4': 493.88,
+                                    'C5': 523.25, 'C#5': 554.37, 'DB5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'EB5': 622.25, 'E5': 659.25, 'F5': 698.46, 'F#5': 739.99, 'GB5': 739.99, 'G5': 783.99, 'G#5': 830.61, 'AB5': 830.61, 'A5': 880.00, 'A#5': 932.33, 'BB5': 932.33, 'B5': 987.77,
+                                    'C6': 1046.50, 'C#6': 1108.73, 'DB6': 1108.73, 'D6': 1174.66, 'D#6': 1244.51, 'EB6': 1244.51, 'E6': 1318.51, 'F6': 1396.91, 'F#6': 1479.98, 'GB6': 1479.98, 'G6': 1567.98, 'G#6': 1661.22, 'AB6': 1661.22, 'A6': 1760.00, 'A#6': 1864.66, 'BB6': 1864.66, 'B6': 1975.53
+                                }};
+                                return map[note] || 440.0;
+                            }} catch(e) {{ return 440.0; }}
+                        }},
+                        audio_set_volume: (vol) => {{
+                            log('[Audio] Set master volume=' + vol);
+                        }},
+                        audio_hentikan_semua: () => {{
+                            try {{
+                                if (window.__dapAudioCtx) {{
+                                    window.__dapAudioCtx.close();
+                                    window.__dapAudioCtx = null;
+                                }}
+                                log('[Audio] Hentikan semua audio');
+                            }} catch(e) {{}}
+                        }},
                     }}
                 }};
 

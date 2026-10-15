@@ -8,6 +8,47 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Mengonversi notasi nada musik standar (contoh: "C4", "A4", "F#4") ke frekuensi Hertz (Hz).
+pub fn note_to_frequency(note: &str) -> f64 {
+    let s = note.trim();
+    if s.is_empty() {
+        return 440.0;
+    }
+    let bytes = s.as_bytes();
+    let letter = bytes[0].to_ascii_uppercase();
+    let base = match letter {
+        b'C' => 0,
+        b'D' => 2,
+        b'E' => 4,
+        b'F' => 5,
+        b'G' => 7,
+        b'A' => 9,
+        b'B' => 11,
+        _ => return 440.0,
+    };
+
+    let mut idx = 1;
+    let mut accidental = 0i32;
+    if idx < bytes.len() {
+        if bytes[idx] == b'#' || bytes[idx] == b'+' {
+            accidental = 1;
+            idx += 1;
+        } else if bytes[idx] == b'b' || bytes[idx] == b'-' {
+            accidental = -1;
+            idx += 1;
+        }
+    }
+
+    let octave: i32 = if idx < bytes.len() {
+        s[idx..].parse::<i32>().unwrap_or(4)
+    } else {
+        4
+    };
+
+    let midi_note = (octave + 1) * 12 + base + accidental;
+    440.0 * (2.0f64).powf((midi_note - 69) as f64 / 12.0)
+}
+
 #[derive(Clone)]
 pub enum Value {
     Int(u64),
@@ -1831,6 +1872,114 @@ impl Evaluator {
                         for arg in args {
                             let _ = self.eval_expr(&arg.value, env)?;
                         }
+                        return Ok(Value::Unit);
+                    }
+
+                    // Standard Library: Web Audio Synthesizer
+                    if name == "audio_frekuensi_nada" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'audio_frekuensi_nada' membutuhkan 1 argumen: (notasi)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        if let Value::String(s) = val {
+                            let freq = note_to_frequency(&s);
+                            return Ok(Value::Float(freq));
+                        }
+                        return Err(Diagnostic::error("Argumen 'audio_frekuensi_nada' harus berupa teks notasi (contoh: 'A4', 'C4')").with_span(*span));
+                    }
+                    if name == "audio_mainkan_nada" {
+                        if args.len() != 3 {
+                            return Err(Diagnostic::error("'audio_mainkan_nada' membutuhkan 3 argumen: (frekuensi, durasi, volume)").with_span(*span));
+                        }
+                        let freq = match self.eval_expr(&args[0].value, env)? {
+                            Value::Float(f) => f,
+                            Value::Int(i) => i as f64,
+                            _ => return Err(Diagnostic::error("Frekuensi audio harus berupa angka").with_span(*span)),
+                        };
+                        let dur = match self.eval_expr(&args[1].value, env)? {
+                            Value::Float(f) => f,
+                            Value::Int(i) => i as f64,
+                            _ => return Err(Diagnostic::error("Durasi audio harus berupa angka (detik)").with_span(*span)),
+                        };
+                        let vol = match self.eval_expr(&args[2].value, env)? {
+                            Value::Float(f) => f,
+                            Value::Int(i) => i as f64,
+                            _ => return Err(Diagnostic::error("Volume audio harus berupa angka (0.0 - 1.0)").with_span(*span)),
+                        };
+                        let log_msg = format!("[Audio] Mainkan nada freq={:.2}Hz durasi={:.2}s vol={:.2}", freq, dur, vol);
+                        self.output.lock().unwrap().push(log_msg);
+                        return Ok(Value::Unit);
+                    }
+                    if name == "audio_mainkan_gelombang" {
+                        if args.len() != 4 {
+                            return Err(Diagnostic::error("'audio_mainkan_gelombang' membutuhkan 4 argumen: (tipe, frekuensi, durasi, volume)").with_span(*span));
+                        }
+                        let tipe = match self.eval_expr(&args[0].value, env)? {
+                            Value::Int(i) => i,
+                            _ => 0,
+                        };
+                        let freq = match self.eval_expr(&args[1].value, env)? {
+                            Value::Float(f) => f,
+                            Value::Int(i) => i as f64,
+                            _ => return Err(Diagnostic::error("Frekuensi audio harus berupa angka").with_span(*span)),
+                        };
+                        let dur = match self.eval_expr(&args[2].value, env)? {
+                            Value::Float(f) => f,
+                            Value::Int(i) => i as f64,
+                            _ => return Err(Diagnostic::error("Durasi audio harus berupa angka (detik)").with_span(*span)),
+                        };
+                        let vol = match self.eval_expr(&args[3].value, env)? {
+                            Value::Float(f) => f,
+                            Value::Int(i) => i as f64,
+                            _ => return Err(Diagnostic::error("Volume audio harus berupa angka (0.0 - 1.0)").with_span(*span)),
+                        };
+                        let tipe_name = match tipe % 4 {
+                            0 => "sine",
+                            1 => "square",
+                            2 => "sawtooth",
+                            _ => "triangle",
+                        };
+                        let log_msg = format!("[Audio] Gelombang {} freq={:.2}Hz durasi={:.2}s vol={:.2}", tipe_name, freq, dur, vol);
+                        self.output.lock().unwrap().push(log_msg);
+                        return Ok(Value::Unit);
+                    }
+                    if name == "audio_efek_suara" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'audio_efek_suara' membutuhkan 1 argumen: (tipe_efek)").with_span(*span));
+                        }
+                        let tipe = match self.eval_expr(&args[0].value, env)? {
+                            Value::Int(i) => i,
+                            _ => 0,
+                        };
+                        let nama_efek = match tipe {
+                            0 => "bip",
+                            1 => "lompat",
+                            2 => "koin",
+                            3 => "ledakan",
+                            4 => "kalah",
+                            5 => "menang",
+                            _ => "kustom",
+                        };
+                        let log_msg = format!("[Audio SFX] Efek suara: {}", nama_efek);
+                        self.output.lock().unwrap().push(log_msg);
+                        return Ok(Value::Unit);
+                    }
+                    if name == "audio_set_volume" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'audio_set_volume' membutuhkan 1 argumen: (volume)").with_span(*span));
+                        }
+                        let vol = match self.eval_expr(&args[0].value, env)? {
+                            Value::Float(f) => f,
+                            Value::Int(i) => i as f64,
+                            _ => 1.0,
+                        };
+                        let log_msg = format!("[Audio] Set master volume={:.2}", vol);
+                        self.output.lock().unwrap().push(log_msg);
+                        return Ok(Value::Unit);
+                    }
+                    if name == "audio_hentikan_semua" {
+                        let log_msg = "[Audio] Hentikan semua audio".to_string();
+                        self.output.lock().unwrap().push(log_msg);
                         return Ok(Value::Unit);
                     }
 
