@@ -664,6 +664,62 @@ impl TypeChecker {
                 Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)),
             ),
         );
+        self.functions.insert(
+            "db_ambil_awalan".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::ErrorUnion(
+                    Box::new(Type::List(Box::new(Type::String))),
+                    Box::new(Type::String),
+                ),
+            ),
+        );
+        self.functions.insert(
+            "db_mulai_transaksi".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "db_sedang_transaksi".to_string(),
+            (vec![Type::String], Type::Bool),
+        );
+        self.functions.insert(
+            "db_komit".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "db_batal".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "db_ekspor_json".to_string(),
+            (
+                vec![Type::String],
+                Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "db_ekspor_json_awalan".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)),
+            ),
+        );
+        self.functions.insert(
+            "db_impor_json".to_string(),
+            (
+                vec![Type::String, Type::String],
+                Type::ErrorUnion(Box::new(Type::U64), Box::new(Type::String)),
+            ),
+        );
 
         // Standard Library: Reguler Ekspresi (Regex)
         self.functions.insert(
@@ -1501,6 +1557,60 @@ impl TypeChecker {
                                     return Err(Diagnostic::error("Metode 'padatkan' tidak menerima argumen").with_span(*span));
                                 }
                                 Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            "ambil_awalan" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ambil_awalan' membutuhkan 1 argumen (awalan: Teks)").with_span(*span));
+                                }
+                                let p_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&p_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::List(Box::new(Type::String))), Box::new(Type::String)))
+                            }
+                            "mulai_transaksi" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'mulai_transaksi' tidak menerima argumen").with_span(*span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            "sedang_transaksi" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'sedang_transaksi' tidak menerima argumen").with_span(*span));
+                                }
+                                Ok(Type::Bool)
+                            }
+                            "komit" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'komit' tidak menerima argumen").with_span(*span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            "batal" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'batal' tidak menerima argumen").with_span(*span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            "ekspor_json" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'ekspor_json' tidak menerima argumen").with_span(*span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "ekspor_json_awalan" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ekspor_json_awalan' membutuhkan 1 argumen (awalan: Teks)").with_span(*span));
+                                }
+                                let p_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&p_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "impor_json" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'impor_json' membutuhkan 1 argumen (json_teks: Teks)").with_span(*span));
+                                }
+                                let j_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&j_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::U64), Box::new(Type::String)))
                             }
                             other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada BasisData", other)).with_span(*span)),
                         }

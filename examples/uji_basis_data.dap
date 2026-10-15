@@ -1,7 +1,8 @@
 /// Contoh Basis Data Mandiri & Persistensi Data REST API Bawaan DapCode
-/// Menunjukkan penggunaan BasisData terstruktur lokal tanpa dependensi eksternal.
+/// Menunjukkan penggunaan BasisData terstruktur lokal dengan Transaksi Atomik (ACID),
+/// Pencarian Awalan (Prefix Query), serta Ekspor & Impor JSON tanpa dependensi eksternal.
 
-fungsi demo_database_langsung() {
+fungsi demo_database_dasar() {
     cetak("--- 1. Operasi Basis Data Langsung (CRUD) ---")
     db_file := "contoh_toko.db"
 
@@ -34,8 +35,67 @@ fungsi demo_database_langsung() {
         Daftar()
     }
     cetak("Jumlah total entri di database: {kunci_list.panjang()}")
+}
 
-    // 5. Padatkan log berkas append-only
+fungsi demo_transaksi_acid() {
+    cetak("")
+    cetak("--- 2. Transaksi Atomik (ACID Commit & Rollback) ---")
+    db := buka_basis_data("contoh_toko.db") ? tangkap err {
+        kembali
+    }
+
+    // A. Uji Coba Rollback (Batal)
+    db.mulai_transaksi() ? tangkap err {
+        cetak("Gagal mulai transaksi: {err}")
+    }
+    cetak("Status transaksi aktif: {db.sedang_transaksi()}")
+
+    db.simpan("produk:999", "\{\"nama\":\"Produk Batal\",\"harga\":99999\}") ? tangkap err {}
+    cetak("Data 999 dalam transaksi: {db.ambil(\"produk:999\")}")
+
+    db.batal() ? tangkap err {
+        cetak("Gagal membatalkan transaksi: {err}")
+    }
+    cetak("Setelah dibatalkan, produk 999 ada: {db.ada(\"produk:999\")}")
+
+    // B. Uji Coba Commit (Komit Atomik)
+    db.mulai_transaksi() ? tangkap err {}
+    db.simpan("produk:103", "\{\"nama\":\"Cokelat Luwu\",\"harga\":25000,\"stok\":30\}") ? tangkap err {}
+    db.simpan("produk:104", "\{\"nama\":\"Madu Hutan Sumbawa\",\"harga\":75000,\"stok\":15\}") ? tangkap err {}
+    db.komit() ? tangkap err {
+        cetak("Gagal komit transaksi: {err}")
+    }
+    cetak("Batch komit berhasil! Produk 103 terdaftar: {db.ada(\"produk:103\")}")
+}
+
+fungsi demo_prefix_dan_json() {
+    cetak("")
+    cetak("--- 3. Pencarian Awalan (Prefix) & Ekspor/Impor JSON ---")
+    db := buka_basis_data("contoh_toko.db") ? tangkap err {
+        kembali
+    }
+
+    // 1. Pencarian dengan awalan "produk:"
+    kunci_produk := db.ambil_awalan("produk:") ? tangkap err {
+        Daftar()
+    }
+    cetak("Daftar kunci produk (prefix 'produk:'): {kunci_produk.panjang()} item ditemukan")
+
+    // 2. Ekspor ke teks JSON
+    json_produk := db.ekspor_json_awalan("produk:") ? tangkap err {
+        "{}"
+    }
+    cetak("Hasil Ekspor JSON Produk:")
+    cetak(json_produk)
+
+    // 3. Impor pasangan data JSON baru
+    data_baru := "\{\"kategori:kopi\":\"Minuman Seduh\",\"kategori:snack\":\"Makanan Ringan\"\}"
+    jumlah := db.impor_json(data_baru) ? tangkap err {
+        0
+    }
+    cetak("Berhasil mengimpor {jumlah} kategori ke basis data!")
+
+    // 4. Padatkan basis data
     db.padatkan() ? tangkap err {
         cetak("Gagal memadatkan: {err}")
     }
@@ -56,6 +116,14 @@ fungsi tangani_api_db(req: PermintaanHttp) -> ResponsHttp {
         kembali respons_json(json_data)
     }
 
+    // Endpoint GET /api/ekspor/produk
+    jika req.jalur == "/api/ekspor/produk" {
+        ekspor := db.ekspor_json_awalan("produk:") ? tangkap err {
+            "{}"
+        }
+        kembali respons_json(ekspor)
+    }
+
     // Endpoint GET /api/daftar
     jika req.jalur == "/api/daftar" {
         kunci_list := db.daftar_kunci() ? tangkap err {
@@ -68,11 +136,12 @@ fungsi tangani_api_db(req: PermintaanHttp) -> ResponsHttp {
 }
 
 fungsi utama() {
-    demo_database_langsung()
+    demo_database_dasar()
+    demo_transaksi_acid()
+    demo_prefix_dan_json()
 
     cetak("")
-    cetak("--- 2. REST API Persisten Berbasis BasisData ---")
-    cetak("Server melayani endpoint persistensi lokal.")
+    cetak("--- 4. REST API Persisten Berbasis BasisData ---")
     cetak("Menjalankan server selama 1 permintaan uji...")
 
     // Jalankan server HTTP yang terintegrasi dengan database

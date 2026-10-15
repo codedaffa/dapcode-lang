@@ -2089,6 +2089,201 @@ static inline DapResult_bool dap_db_padatkan(const char* jalur) {
     return res;
 }
 
+static inline DapResult_Daftar dap_db_ambil_awalan(const char* jalur, const char* awalan) {
+    DapResult_Daftar res;
+    res.is_err = false;
+    res.err_msg = NULL;
+    DapList* list = dap_Daftar_baru();
+    res.ok = list;
+    if (!jalur) return res;
+    FILE* f = fopen(jalur, "r");
+    if (!f) return res;
+    char line[4096];
+    size_t pfx_len = awalan ? strlen(awalan) : 0;
+    while (fgets(line, sizeof(line), f)) {
+        size_t llen = strlen(line);
+        if (llen > 0 && line[llen-1] == '\n') line[llen-1] = '\0';
+        if (strncmp(line, "S:", 2) == 0) {
+            char* first_col = strchr(line + 2, ':');
+            if (first_col) {
+                size_t l_klen = (size_t)atoi(line + 2);
+                char* k_str = (char*)malloc(l_klen + 1);
+                strncpy(k_str, first_col + 1, l_klen);
+                k_str[l_klen] = '\0';
+                if (!awalan || strncmp(k_str, awalan, pfx_len) == 0) {
+                    dap_Daftar_tambah(list, k_str);
+                } else {
+                    free(k_str);
+                }
+            }
+        }
+    }
+    fclose(f);
+    return res;
+}
+
+static bool s_dap_tx_active = false;
+
+static inline DapResult_bool dap_db_mulai_transaksi(const char* jalur) {
+    DapResult_bool res;
+    res.err_msg = NULL;
+    if (s_dap_tx_active) {
+        res.is_err = true;
+        res.err_msg = "Transaksi sudah aktif";
+        res.ok = false;
+        return res;
+    }
+    s_dap_tx_active = true;
+    res.is_err = false;
+    res.ok = true;
+    return res;
+}
+
+static inline bool dap_db_sedang_transaksi(const char* jalur) {
+    return s_dap_tx_active;
+}
+
+static inline DapResult_bool dap_db_komit(const char* jalur) {
+    DapResult_bool res;
+    res.err_msg = NULL;
+    if (!s_dap_tx_active) {
+        res.is_err = true;
+        res.err_msg = "Tidak ada transaksi yang aktif untuk dikomit";
+        res.ok = false;
+        return res;
+    }
+    s_dap_tx_active = false;
+    res.is_err = false;
+    res.ok = true;
+    return res;
+}
+
+static inline DapResult_bool dap_db_batal(const char* jalur) {
+    DapResult_bool res;
+    res.err_msg = NULL;
+    if (!s_dap_tx_active) {
+        res.is_err = true;
+        res.err_msg = "Tidak ada transaksi yang aktif untuk dibatalkan";
+        res.ok = false;
+        return res;
+    }
+    s_dap_tx_active = false;
+    res.is_err = false;
+    res.ok = true;
+    return res;
+}
+
+static inline DapResult_Teks dap_db_ekspor_json_awalan(const char* jalur, const char* awalan) {
+    DapResult_Teks res;
+    res.is_err = false;
+    res.err_msg = NULL;
+    if (!jalur) {
+        res.ok = "{}";
+        return res;
+    }
+    FILE* f = fopen(jalur, "r");
+    if (!f) {
+        res.ok = "{}";
+        return res;
+    }
+    char line[4096];
+    size_t pfx_len = awalan ? strlen(awalan) : 0;
+    char* buf = (char*)malloc(65536);
+    buf[0] = '{';
+    buf[1] = '\0';
+    size_t b_len = 1;
+    bool first = true;
+    while (fgets(line, sizeof(line), f)) {
+        size_t llen = strlen(line);
+        if (llen > 0 && line[llen-1] == '\n') line[llen-1] = '\0';
+        if (strncmp(line, "S:", 2) == 0) {
+            char* first_col = strchr(line + 2, ':');
+            if (first_col) {
+                size_t l_klen = (size_t)atoi(line + 2);
+                char* k_str = (char*)malloc(l_klen + 1);
+                strncpy(k_str, first_col + 1, l_klen);
+                k_str[l_klen] = '\0';
+                if (!awalan || strncmp(k_str, awalan, pfx_len) == 0) {
+                    char* val = first_col + 1 + l_klen + 1;
+                    if (!first) {
+                        buf[b_len++] = ',';
+                        buf[b_len] = '\0';
+                    }
+                    first = false;
+                    int written = snprintf(buf + b_len, 65536 - b_len, "\"%s\":\"%s\"", k_str, val);
+                    if (written > 0) b_len += (size_t)written;
+                }
+                free(k_str);
+            }
+        }
+    }
+    fclose(f);
+    buf[b_len++] = '}';
+    buf[b_len] = '\0';
+    res.ok = buf;
+    return res;
+}
+
+static inline DapResult_Teks dap_db_ekspor_json(const char* jalur) {
+    return dap_db_ekspor_json_awalan(jalur, "");
+}
+
+static inline DapResult_i64 dap_db_impor_json(const char* jalur, const char* json_teks) {
+    DapResult_i64 res;
+    res.is_err = false;
+    res.err_msg = NULL;
+    res.ok = 0;
+    if (!jalur || !json_teks) return res;
+    const char* p = json_teks;
+    int count = 0;
+    while (*p) {
+        while (*p && *p != '"') p++;
+        if (!*p) break;
+        p++;
+        const char* k_start = p;
+        while (*p && *p != '"') p++;
+        if (!*p) break;
+        size_t k_len = p - k_start;
+        char* k = (char*)malloc(k_len + 1);
+        strncpy(k, k_start, k_len);
+        k[k_len] = '\0';
+        p++;
+        while (*p && *p != ':') p++;
+        if (!*p) { free(k); break; }
+        p++;
+        while (*p && (*p == ' ' || *p == '\t')) p++;
+        if (*p == '"') {
+            p++;
+            const char* v_start = p;
+            while (*p && *p != '"') p++;
+            size_t v_len = p - v_start;
+            char* v = (char*)malloc(v_len + 1);
+            strncpy(v, v_start, v_len);
+            v[v_len] = '\0';
+            dap_db_simpan(jalur, k, v);
+            free(v);
+            count++;
+            if (*p == '"') p++;
+        } else {
+            const char* v_start = p;
+            while (*p && *p != ',' && *p != '}' && *p != ' ' && *p != '\n') p++;
+            size_t v_len = p - v_start;
+            char* v = (char*)malloc(v_len + 1);
+            strncpy(v, v_start, v_len);
+            v[v_len] = '\0';
+            dap_db_simpan(jalur, k, v);
+            free(v);
+            count++;
+        }
+        free(k);
+        while (*p && *p != ',' && *p != '}') p++;
+        if (*p == '}') break;
+        if (*p == ',') p++;
+    }
+    res.ok = count;
+    return res;
+}
+
 // Base64 Encoding & Decoding
 static inline char* dap_ke_base64(const char* s) {
     if (!s) return "";
@@ -2904,6 +3099,37 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 }
                 if method == "daftar_kunci" {
                     return format!("dap_db_daftar_kunci({}.jalur)", rec_str);
+                }
+                if method == "ambil" && args.len() == 1 {
+                    let k = self.emit_expr(&args[0].value);
+                    return format!("dap_db_ambil({}.jalur, {})", rec_str, k);
+                }
+                if method == "ambil_awalan" && args.len() == 1 {
+                    let a = self.emit_expr(&args[0].value);
+                    return format!("dap_db_ambil_awalan({}.jalur, {})", rec_str, a);
+                }
+                if method == "mulai_transaksi" && args.is_empty() {
+                    return format!("dap_db_mulai_transaksi({}.jalur)", rec_str);
+                }
+                if method == "sedang_transaksi" && args.is_empty() {
+                    return format!("dap_db_sedang_transaksi({}.jalur)", rec_str);
+                }
+                if method == "komit" && args.is_empty() {
+                    return format!("dap_db_komit({}.jalur)", rec_str);
+                }
+                if method == "batal" && args.is_empty() {
+                    return format!("dap_db_batal({}.jalur)", rec_str);
+                }
+                if method == "ekspor_json" && args.is_empty() {
+                    return format!("dap_db_ekspor_json({}.jalur)", rec_str);
+                }
+                if method == "ekspor_json_awalan" && args.len() == 1 {
+                    let a = self.emit_expr(&args[0].value);
+                    return format!("dap_db_ekspor_json_awalan({}.jalur, {})", rec_str, a);
+                }
+                if method == "impor_json" && args.len() == 1 {
+                    let j = self.emit_expr(&args[0].value);
+                    return format!("dap_db_impor_json({}.jalur, {})", rec_str, j);
                 }
                 if method == "padatkan" {
                     return format!("dap_db_padatkan({}.jalur)", rec_str);

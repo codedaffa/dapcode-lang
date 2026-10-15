@@ -1790,6 +1790,89 @@ impl Evaluator {
                             Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
                         };
                     }
+                    if name == "db_ambil_awalan" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'db_ambil_awalan' membutuhkan 2 argumen (jalur, awalan)").with_span(*span));
+                        }
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        let a = self.eval_expr(&args[1].value, env)?.to_string();
+                        return match crate::db::db_ambil_awalan(&p, &a) {
+                            Ok(keys) => {
+                                let v_keys: Vec<Value> = keys.into_iter().map(Value::String).collect();
+                                Ok(Value::ErrorUnion(Ok(Box::new(Value::List(Arc::new(Mutex::new(v_keys)))))))
+                            }
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
+                    if name == "db_mulai_transaksi" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'db_mulai_transaksi' membutuhkan 1 argumen (jalur)").with_span(*span));
+                        }
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        return match crate::db::db_mulai_transaksi(&p) {
+                            Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(res))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
+                    if name == "db_sedang_transaksi" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'db_sedang_transaksi' membutuhkan 1 argumen (jalur)").with_span(*span));
+                        }
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        return Ok(Value::Bool(crate::db::db_sedang_transaksi(&p)));
+                    }
+                    if name == "db_komit" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'db_komit' membutuhkan 1 argumen (jalur)").with_span(*span));
+                        }
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        return match crate::db::db_komit(&p) {
+                            Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(res))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
+                    if name == "db_batal" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'db_batal' membutuhkan 1 argumen (jalur)").with_span(*span));
+                        }
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        return match crate::db::db_batal(&p) {
+                            Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(res))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
+                    if name == "db_ekspor_json" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'db_ekspor_json' membutuhkan 1 argumen (jalur)").with_span(*span));
+                        }
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        return match crate::db::db_ekspor_json(&p) {
+                            Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(res))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
+                    if name == "db_ekspor_json_awalan" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'db_ekspor_json_awalan' membutuhkan 2 argumen (jalur, awalan)").with_span(*span));
+                        }
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        let a = self.eval_expr(&args[1].value, env)?.to_string();
+                        return match crate::db::db_ekspor_json_awalan(&p, &a) {
+                            Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(res))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
+                    if name == "db_impor_json" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'db_impor_json' membutuhkan 2 argumen (jalur, json_teks)").with_span(*span));
+                        }
+                        let p = self.eval_expr(&args[0].value, env)?.to_string();
+                        let j = self.eval_expr(&args[1].value, env)?.to_string();
+                        return match crate::db::db_impor_json(&p, &j) {
+                            Ok(count) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Int(count as u64))))),
+                            Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                        };
+                    }
 
                     // Standard Library: Reguler Ekspresi (Regex)
                     if name == "cocok_regex" {
@@ -2233,6 +2316,57 @@ impl Evaluator {
                             "padatkan" => {
                                 return match crate::db::db_padatkan(&path) {
                                     Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(res))))),
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
+                            }
+                            "ambil_awalan" => {
+                                let a = self.eval_expr(&args[0].value, env)?.to_string();
+                                return match crate::db::db_ambil_awalan(&path, &a) {
+                                    Ok(keys) => {
+                                        let v_keys: Vec<Value> = keys.into_iter().map(Value::String).collect();
+                                        Ok(Value::ErrorUnion(Ok(Box::new(Value::List(Arc::new(Mutex::new(v_keys)))))))
+                                    }
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
+                            }
+                            "mulai_transaksi" => {
+                                return match crate::db::db_mulai_transaksi(&path) {
+                                    Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(res))))),
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
+                            }
+                            "sedang_transaksi" => {
+                                return Ok(Value::Bool(crate::db::db_sedang_transaksi(&path)));
+                            }
+                            "komit" => {
+                                return match crate::db::db_komit(&path) {
+                                    Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(res))))),
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
+                            }
+                            "batal" => {
+                                return match crate::db::db_batal(&path) {
+                                    Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Bool(res))))),
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
+                            }
+                            "ekspor_json" => {
+                                return match crate::db::db_ekspor_json(&path) {
+                                    Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(res))))),
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
+                            }
+                            "ekspor_json_awalan" => {
+                                let a = self.eval_expr(&args[0].value, env)?.to_string();
+                                return match crate::db::db_ekspor_json_awalan(&path, &a) {
+                                    Ok(res) => Ok(Value::ErrorUnion(Ok(Box::new(Value::String(res))))),
+                                    Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
+                                };
+                            }
+                            "impor_json" => {
+                                let j = self.eval_expr(&args[0].value, env)?.to_string();
+                                return match crate::db::db_impor_json(&path, &j) {
+                                    Ok(count) => Ok(Value::ErrorUnion(Ok(Box::new(Value::Int(count as u64))))),
                                     Err(e) => Ok(Value::ErrorUnion(Err(Box::new(Value::String(e))))),
                                 };
                             }
