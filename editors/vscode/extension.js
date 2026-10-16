@@ -1754,13 +1754,16 @@ fungsi utama() -> u64 {
             vscode.postMessage({ command: "toggleAutoCompile", enabled: autoCompile });
         });
 
-        btnApplyPreset.addEventListener("click", () => {
+        function applySelectedPreset() {
             const key = presetSelect.value;
             const code = PRESETS[key];
             if (code) {
                 vscode.postMessage({ command: "applyPreset", code: code });
             }
-        });
+        }
+
+        presetSelect.addEventListener("change", applySelectedPreset);
+        btnApplyPreset.addEventListener("click", applySelectedPreset);
 
         btnExternal.addEventListener("click", () => {
             vscode.postMessage({ command: "openExternal" });
