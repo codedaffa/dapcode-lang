@@ -1,0 +1,13 @@
+fungsi sapaan() -> Teks {
+    kembali "hello world"
+}
+
+fungsi utama() {
+    cetak(sapaan())
+}
+
+uji "hasil cetak" {
+    hasil := sapaan()
+    pastikan_sama(hasil, "hello")
+    pastikan_tidak_sama(hasil, "hello world")
+}

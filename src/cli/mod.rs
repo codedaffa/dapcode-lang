@@ -744,6 +744,7 @@ fn cmd_repl() -> io::Result<()> {
 
     let mut env = Environment::new();
     let mut evaluator = Evaluator::new();
+    let mut type_checker = TypeChecker::new(0);
     let mut history: Vec<String> = Vec::new();
     let mut accumulated = String::new();
     let mut depth: i32 = 0;
@@ -780,6 +781,7 @@ fn cmd_repl() -> io::Result<()> {
             if trimmed_line == ":bantuan" || trimmed_line == ":help" {
                 println!("{}", "Panduan Penggunaan DapCode REPL:".cyan().bold());
                 println!("  {}             Tampilkan panduan perintah meta", ":bantuan / :help".yellow());
+                println!("  {} <berkas>    Muat fungsi dan struktur dari berkas .dap", ":muat / :load".yellow());
                 println!("  {} <expr>      Periksa tipe ekspresi tanpa evaluasi", ":tipe / :type".yellow());
                 println!("  {}            Daftar fungsi yang didefinisikan sesi ini", ":fungsi".yellow());
                 println!("  {}           Tampilkan riwayat perintah sesi ini", ":riwayat / :history".yellow());
@@ -787,6 +789,7 @@ fn cmd_repl() -> io::Result<()> {
                 println!("  {}             Reset semua variabel dan fungsi ke awal", ":reset".yellow());
                 println!("  {}            Keluar dari REPL", ":keluar / :exit".yellow());
                 println!("\nSintaks Cepat:");
+                println!("  - Muat berkas:        {}  ->  memuat semua fungsi berkas", ":muat examples/tes.dap".green());
                 println!("  - Evaluasi langsung:  {}  ->  {}", "10 + 20 * 3".green(), "70".bold());
                 println!("  - Variabel:           {}  ->  {}", "nama := \"DapCode\"".green(), "\"DapCode\"".bold());
                 println!("  - Multi-baris:        Membuka kurung kurawal '{}' akan melanjutkan masukan dengan prompt '... '", "{".bold());
@@ -800,7 +803,71 @@ fn cmd_repl() -> io::Result<()> {
             if trimmed_line == ":reset" {
                 env = Environment::new();
                 evaluator = Evaluator::new();
+                type_checker = TypeChecker::new(0);
                 println!("{}", "Environment dan fungsi REPL berhasil di-reset ke kondisi awal.".green());
+                continue;
+            }
+            if trimmed_line.starts_with(":muat") || trimmed_line.starts_with(":load") {
+                let rest = if trimmed_line.starts_with(":muat") {
+                    trimmed_line[5..].trim()
+                } else {
+                    trimmed_line[5..].trim()
+                };
+                let raw_path = rest.trim_matches('"').trim_matches('\'').trim();
+                if raw_path.is_empty() {
+                    println!("{}", "Penggunaan: :muat <jalur_berkas.dap> atau :load <jalur_berkas.dap>".yellow());
+                    println!("Contoh: :muat examples/tes.dap");
+                    continue;
+                }
+
+                let mut path_buf = PathBuf::from(raw_path);
+                if !path_buf.exists() && !raw_path.ends_with(".dap") {
+                    let with_ext = format!("{}.dap", raw_path);
+                    if Path::new(&with_ext).exists() {
+                        path_buf = PathBuf::from(with_ext);
+                    }
+                }
+
+                if !path_buf.exists() {
+                    eprintln!("{}: Berkas '{}' tidak ditemukan.", "kesalahan".red().bold(), raw_path);
+                    continue;
+                }
+
+                let mut sm = SourceMap::new();
+                match load_program_and_modules(&path_buf, &mut sm) {
+                    Some((_, prog)) => {
+                        let _ = type_checker.check_program(&prog);
+                        let mut fn_names = Vec::new();
+                        let mut struct_names = Vec::new();
+
+                        for decl in &prog.decls {
+                            evaluator.register_decl(decl);
+                            match decl {
+                                Decl::Fn(f) => {
+                                    fn_names.push(f.name.clone());
+                                }
+                                Decl::Struct(s) => {
+                                    struct_names.push(s.name.clone());
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        println!(
+                            "{} Berhasil memuat berkas '{}'",
+                            "sukses:".green().bold(),
+                            path_buf.display().to_string().cyan()
+                        );
+                        if !fn_names.is_empty() {
+                            println!("  - Fungsi terdaftar ({}): {}", fn_names.len(), fn_names.join(", ").bold());
+                        }
+                        if !struct_names.is_empty() {
+                            println!("  - Struktur terdaftar ({}): {}", struct_names.len(), struct_names.join(", ").bold());
+                        }
+                        println!("{}", "💡 Fungsi di atas kini dapat langsung dipanggil di REPL!".dimmed());
+                    }
+                    None => {}
+                }
                 continue;
             }
             if trimmed_line == ":riwayat" || trimmed_line == ":history" {
@@ -846,7 +913,7 @@ fn cmd_repl() -> io::Result<()> {
                         let mut parser = Parser::new(tokens, file_id);
                         match parser.parse_expr(Precedence::Lowest) {
                             Ok(expr) => {
-                                let mut checker = TypeChecker::new(file_id);
+                                let mut checker = type_checker.clone();
                                 match checker.check_expr(&expr) {
                                     Ok(ty) => {
                                         let resolved = checker.resolve_type(&ty);
@@ -911,6 +978,7 @@ fn cmd_repl() -> io::Result<()> {
         let mut parser_prog = Parser::new(tokens.clone(), file_id);
         if let Ok(prog) = parser_prog.parse_program() {
             if !prog.decls.is_empty() {
+                let _ = type_checker.check_program(&prog);
                 let mut registered_names = Vec::new();
                 for decl in &prog.decls {
                     match decl {

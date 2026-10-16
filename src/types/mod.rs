@@ -79,6 +79,7 @@ pub struct MethodInfo {
     pub span: Span,
 }
 
+#[derive(Clone)]
 pub struct TypeChecker {
     next_var_id: usize,
     subst: HashMap<TypeVarId, Type>,
