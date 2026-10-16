@@ -708,12 +708,67 @@ fungsi utama() {
 
 ---
 
+### 25. Pustaka Standar Waktu & Kalender (Waktu, Tanggal & Durasi)
+
+DapCode menyediakan pustaka standar kalender sipil dan manipulasi waktu mandiri tanpa ketergantungan eksternal (menggunakan algoritma kalender sipil modern Howard Hinnant C++20 chrono):
+
+- **Model Data Struktur `Waktu`:**
+  - `tahun: u64`: Tahun kalender Gregorian (contoh: `2026`).
+  - `bulan: u64`: Bulan dalam tahun (`1` s.d. `12`).
+  - `hari: u64`: Hari dalam bulan (`1` s.d. `31`).
+  - `jam: u64`: Jam 24-jam format (`0` s.d. `23`).
+  - `menit: u64`: Menit (`0` s.d. `59`).
+  - `detik: u64`: Detik (`0` s.d. `59`).
+- **Metode pada Objek `Waktu`:**
+  - `.ke_epoch() -> u64`: Mengonversi waktu kalender ke detik sejak UNIX epoch (1970-01-01 00:00:00 UTC).
+  - `.ke_iso() -> Teks`: Memformat waktu ke standar representasi internasional ISO 8601 (`"YYYY-MM-DDTHH:MM:SSZ"`).
+  - `.format(pola: Teks) -> Teks`: Memformat waktu dengan penentu pola format fleksibel (`%Y`, `%m`, `%d`, `%H`, `%M`, `%S`, `%A` nama hari Indonesia, `%B` nama bulan Indonesia, `%%`).
+  - `.hari_dalam_minggu() -> Teks`: Mengembalikan nama hari dalam bahasa Indonesia (`"Senin"`, `"Selasa"`, ..., `"Minggu"`).
+- **Fungsi Global Waktu & Kalender:**
+  - `waktu_sekarang() -> Waktu`: Mengambil waktu dan tanggal lokal sistem saat ini dalam struktur `Waktu`.
+  - `waktu_sekarang_detik() -> u64`: Mengembalikan timestamp UNIX epoch dalam detik.
+  - `waktu_sekarang_ms() -> u64`: Mengembalikan timestamp UNIX epoch dalam milidetik.
+  - `waktu_komponen(epoch_detik: u64) -> Waktu`: Memecah detik epoch menjadi komponen waktu UTC.
+  - `waktu_lokal_komponen(epoch_detik: u64) -> Waktu`: Memecah detik epoch menjadi komponen waktu zona lokal sistem.
+  - `waktu_ke_epoch(w: Waktu) -> u64`: Mengonversi struktur `Waktu` kembali ke timestamp detik epoch.
+  - `waktu_format_iso(epoch_detik: u64) -> Teks`: Memformat detik epoch langsung ke teks ISO 8601.
+  - `waktu_format(epoch_detik: u64, pola: Teks) -> Teks`: Memformat detik epoch dengan pola format kustom.
+  - `waktu_hari_dalam_minggu(epoch_detik: u64) -> Teks`: Mengembalikan nama hari Indonesia untuk detik epoch tertentu.
+  - `waktu_adalah_kabisat(tahun: u64) -> Bool`: Memeriksa apakah suatu tahun adalah tahun kabisat (Leap Year).
+  - `tidur(milidetik: u64) -> Unit`: Menjeda eksekusi thread saat ini selama durasi milidetik tertentu.
+
+```dap
+fungsi utama() {
+    // 1. Ambil waktu lokal saat ini
+    kini := waktu_sekarang()
+    cetak("Tanggal: {kini.tahun}-{kini.bulan}-{kini.hari}")
+    cetak("Hari: {kini.hari_dalam_minggu()}")
+    cetak("ISO: {kini.ke_iso()}")
+
+    pola := "%A, %d %B %Y jam %H:%M:%S"
+    cetak("Format Cantik: {kini.format(pola)}")
+
+    // 2. Tahun kabisat
+    jika waktu_adalah_kabisat(2024) {
+        cetak("2024 adalah tahun kabisat!")
+    }
+
+    // 3. Mengukur durasi eksekusi (Benchmarking)
+    mulai := waktu_sekarang_ms()
+    tidur(50) // jeda 50 milidetik
+    durasi := waktu_sekarang_ms() - mulai
+    cetak("Waktu tunggu: {durasi} ms")
+}
+```
+
+---
+
 ## 🎨 Dukungan Editor & Ekstensi VS Code
 
-Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke paket biner **`.vsix`** siap pakai (Versi `0.7.1`):
-- **Paket Instalasi Mandiri (`.vsix`):** Tersedia di `editors/vscode/dapcode-lang-0.7.1.vsix`.
+Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke paket biner **`.vsix`** siap pakai (Versi `0.7.2`):
+- **Paket Instalasi Mandiri (`.vsix`):** Tersedia di `editors/vscode/dapcode-lang-0.7.2.vsix`.
   ```powershell
-  code --install-extension editors/vscode/dapcode-lang-0.7.1.vsix
+  code --install-extension editors/vscode/dapcode-lang-0.7.2.vsix
   ```
 - **Integrasi LSP Cerdas (`extension.js`):**
   - **Diagnostik Real-Time:** Pelaporan kesalahan sintaks, kepemilikan (*borrow check*), dan tipe secara langsung saat mengetik.
@@ -737,7 +792,7 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 33 modul test (118+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & Middleware, Static Files & MIME Asset Serving, Subsistem WebSocket RFC 6455 & Real-Time Communication, Embedded Database (BasisData & DapDb), Mesin Reguler Ekspresi Mandiri (Regex & Capturing Groups), Metode Kaya Koleksi & String (Fluent Teks & Daftar), Koleksi Asosiatif Kamus (In-Memory Map/Dictionary), Pemrograman Fungsional Koleksi & Closure Lambda (|x| ...), Audio Synthesis & WebAudio Mock, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 34 modul test (120+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & Middleware, Static Files & MIME Asset Serving, Subsistem WebSocket RFC 6455 & Real-Time Communication, Embedded Database (BasisData & DapDb), Mesin Reguler Ekspresi Mandiri (Regex & Capturing Groups), Metode Kaya Koleksi & String (Fluent Teks & Daftar), Koleksi Asosiatif Kamus (In-Memory Map/Dictionary), Pemrograman Fungsional Koleksi & Closure Lambda (|x| ...), Pustaka Standar Waktu & Kalender (Waktu, Tanggal & Durasi), Audio Synthesis & WebAudio Mock, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 
 
 

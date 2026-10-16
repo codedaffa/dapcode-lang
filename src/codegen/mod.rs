@@ -286,6 +286,18 @@ typedef struct {
 
 typedef struct { bool is_err; const char* err_msg; BasisData ok; } DapResult_BasisData;
 
+// Waktu & Kalender
+typedef struct {
+    u64 tahun;
+    u64 bulan;
+    u64 hari;
+    u64 jam;
+    u64 menit;
+    u64 detik;
+} Waktu;
+
+typedef struct { bool is_err; const char* err_msg; Waktu ok; } DapResult_Waktu;
+
 // Runtime Dynamic Collection: DapList
 typedef struct DapList {
     size_t len;
@@ -1137,6 +1149,128 @@ static inline f64 dap_ke_derajat(f64 rad) { return rad * (180.0 / 3.141592653589
 
 static inline u64 dap_waktu_sekarang_ms(void) {
     return (u64)time(NULL) * 1000;
+}
+static inline u64 dap_waktu_sekarang_detik(void) {
+    return (u64)time(NULL);
+}
+static inline bool dap_waktu_adalah_kabisat(u64 tahun) {
+    return (tahun % 4 == 0 && tahun % 100 != 0) || (tahun % 400 == 0);
+}
+static inline Waktu dap_waktu_komponen(u64 epoch) {
+    u64 sec = epoch % 60;
+    u64 min = (epoch / 60) % 60;
+    u64 hour = (epoch / 3600) % 24;
+    int64_t days = (int64_t)(epoch / 86400);
+
+    int64_t z = days + 719468;
+    int64_t era = (z >= 0 ? z : z - 146096) / 146097;
+    uint64_t doe = (uint64_t)(z - era * 146097);
+    uint64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    int64_t y = (int64_t)yoe + era * 400;
+    uint64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    uint64_t mp = (5 * doy + 2) / 153;
+    uint64_t d = doy - (153 * mp + 2) / 5 + 1;
+    uint64_t m = mp < 10 ? mp + 3 : mp - 9;
+    uint64_t yr = (uint64_t)(m <= 2 ? y + 1 : y);
+
+    return (Waktu){ .tahun = yr, .bulan = m, .hari = d, .jam = hour, .menit = min, .detik = sec };
+}
+static inline u64 dap_waktu_ke_epoch(Waktu w) {
+    int64_t y = (w.bulan <= 2) ? ((int64_t)w.tahun - 1) : (int64_t)w.tahun;
+    int64_t era = (y >= 0 ? y : y - 399) / 400;
+    uint64_t yoe = (uint64_t)(y - era * 400);
+    uint64_t mp = (w.bulan <= 2) ? (w.bulan + 9) : (w.bulan - 3);
+    uint64_t doy = (153 * mp + 2) / 5 + w.hari - 1;
+    uint64_t doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    int64_t days = era * 146097 + (int64_t)doe - 719468;
+    return (u64)(days * 86400 + w.jam * 3600 + w.menit * 60 + w.detik);
+}
+static inline Waktu dap_waktu_lokal_komponen(u64 epoch) {
+    time_t t = (time_t)epoch;
+    struct tm* lt = localtime(&t);
+    if (!lt) {
+        return dap_waktu_komponen(epoch);
+    }
+    return (Waktu){
+        .tahun = (u64)(lt->tm_year + 1900),
+        .bulan = (u64)(lt->tm_mon + 1),
+        .hari = (u64)lt->tm_mday,
+        .jam = (u64)lt->tm_hour,
+        .menit = (u64)lt->tm_min,
+        .detik = (u64)lt->tm_sec
+    };
+}
+static inline Waktu dap_waktu_sekarang(void) {
+    return dap_waktu_lokal_komponen(dap_waktu_sekarang_detik());
+}
+static inline const char* dap_waktu_hari_dalam_minggu(u64 epoch) {
+    static const char* hari[] = {
+        "Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"
+    };
+    int64_t days = (int64_t)(epoch / 86400);
+    int64_t idx = ((days + 4) % 7 + 7) % 7;
+    return hari[idx];
+}
+static inline const char* dap_waktu_format_iso(u64 epoch) {
+    Waktu w = dap_waktu_komponen(epoch);
+    char* buf = (char*)malloc(32);
+    snprintf(buf, 32, "%04llu-%02llu-%02lluT%02llu:%02llu:%02lluZ",
+             (unsigned long long)w.tahun,
+             (unsigned long long)w.bulan,
+             (unsigned long long)w.hari,
+             (unsigned long long)w.jam,
+             (unsigned long long)w.menit,
+             (unsigned long long)w.detik);
+    return buf;
+}
+static inline const char* dap_waktu_format(u64 epoch, const char* pola) {
+    static const char* bulan[] = {
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    };
+    Waktu w = dap_waktu_komponen(epoch);
+    size_t cap = strlen(pola) * 4 + 64;
+    char* out = (char*)malloc(cap);
+    size_t out_len = 0;
+    out[0] = '\0';
+    for (size_t i = 0; pola[i] != '\0'; i++) {
+        if (pola[i] == '%' && pola[i+1] != '\0') {
+            char spec = pola[i+1];
+            char tmp[32];
+            tmp[0] = '\0';
+            if (spec == 'Y') {
+                snprintf(tmp, sizeof(tmp), "%04llu", (unsigned long long)w.tahun);
+            } else if (spec == 'm') {
+                snprintf(tmp, sizeof(tmp), "%02llu", (unsigned long long)w.bulan);
+            } else if (spec == 'd') {
+                snprintf(tmp, sizeof(tmp), "%02llu", (unsigned long long)w.hari);
+            } else if (spec == 'H') {
+                snprintf(tmp, sizeof(tmp), "%02llu", (unsigned long long)w.jam);
+            } else if (spec == 'M') {
+                snprintf(tmp, sizeof(tmp), "%02llu", (unsigned long long)w.menit);
+            } else if (spec == 'S') {
+                snprintf(tmp, sizeof(tmp), "%02llu", (unsigned long long)w.detik);
+            } else if (spec == 'A') {
+                snprintf(tmp, sizeof(tmp), "%s", dap_waktu_hari_dalam_minggu(epoch));
+            } else if (spec == 'B') {
+                size_t b_idx = (w.bulan >= 1 && w.bulan <= 12) ? (size_t)(w.bulan - 1) : 0;
+                snprintf(tmp, sizeof(tmp), "%s", bulan[b_idx]);
+            } else if (spec == '%') {
+                tmp[0] = '%'; tmp[1] = '\0';
+            } else {
+                tmp[0] = '%'; tmp[1] = spec; tmp[2] = '\0';
+            }
+            size_t t_len = strlen(tmp);
+            memcpy(out + out_len, tmp, t_len);
+            out_len += t_len;
+            out[out_len] = '\0';
+            i++;
+        } else {
+            out[out_len++] = pola[i];
+            out[out_len] = '\0';
+        }
+    }
+    return out;
 }
 
 // Standard Library: HTML5 Canvas 2D Stubs (untuk kompilasi C native)
@@ -4358,6 +4492,19 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                         return format!("dap_ambil_elemen({}, {})", rec_str, arg_str);
                     }
                 }
+                if method == "ke_epoch" && args.is_empty() {
+                    return format!("dap_waktu_ke_epoch({})", rec_str);
+                }
+                if method == "ke_iso" && args.is_empty() {
+                    return format!("dap_waktu_format_iso(dap_waktu_ke_epoch({}))", rec_str);
+                }
+                if method == "format" && args.len() == 1 {
+                    let fmt_str = self.emit_expr(&args[0].value);
+                    return format!("dap_waktu_format(dap_waktu_ke_epoch({}), {})", rec_str, fmt_str);
+                }
+                if method == "hari_dalam_minggu" && args.is_empty() {
+                    return format!("dap_waktu_hari_dalam_minggu(dap_waktu_ke_epoch({}))", rec_str);
+                }
                 let mut all_args = vec![format!("&{}", rec_str)];
                 for a in args {
                     all_args.push(self.emit_expr(&a.value));
@@ -4520,7 +4667,25 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                     ret_c_ty, params_joined, body_code.trim_end()
                 )
             }
-            Expr::Block(_) => "((void)0)".to_string(),
+            Expr::Block(b) => {
+                let mut code = String::new();
+                code.push_str("({\n");
+                for s in &b.stmts {
+                    let mut stmt_out = String::new();
+                    std::mem::swap(&mut self.out, &mut stmt_out);
+                    self.emit_stmt(s, "void");
+                    std::mem::swap(&mut self.out, &mut stmt_out);
+                    code.push_str(&stmt_out);
+                }
+                if let Some(e) = &b.expr {
+                    let e_str = self.emit_expr(e);
+                    code.push_str(&format!("    {};\n", e_str));
+                } else {
+                    code.push_str("    (void)0;\n");
+                }
+                code.push_str("})");
+                code
+            }
         }
     }
 

@@ -6,7 +6,6 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Mengonversi notasi nada musik standar (contoh: "C4", "A4", "F#4") ke frekuensi Hertz (Hz).
 pub fn note_to_frequency(note: &str) -> f64 {
@@ -334,6 +333,20 @@ pub trait DebugHook: Send + Sync {
     ) -> DebugAction;
 
     fn on_output(&mut self, text: &str);
+}
+
+fn make_waktu_value(yr: u64, m: u64, d: u64, hr: u64, mn: u64, sc: u64) -> Value {
+    let mut fields = HashMap::new();
+    fields.insert("tahun".to_string(), Value::Int(yr));
+    fields.insert("bulan".to_string(), Value::Int(m));
+    fields.insert("hari".to_string(), Value::Int(d));
+    fields.insert("jam".to_string(), Value::Int(hr));
+    fields.insert("menit".to_string(), Value::Int(mn));
+    fields.insert("detik".to_string(), Value::Int(sc));
+    Value::Struct {
+        name: "Waktu".to_string(),
+        fields,
+    }
 }
 
 pub struct Evaluator {
@@ -1306,11 +1319,102 @@ impl Evaluator {
                         _ => {}
                     }
                     if name == "waktu_sekarang_ms" {
-                        let ms = SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .map(|d| d.as_millis() as u64)
-                            .unwrap_or(0);
-                        return Ok(Value::Int(ms));
+                        return Ok(Value::Int(crate::time::waktu_sekarang_ms()));
+                    }
+                    if name == "waktu_sekarang_detik" {
+                        return Ok(Value::Int(crate::time::waktu_sekarang_detik()));
+                    }
+                    if name == "waktu_sekarang" {
+                        let (yr, m, d, hr, mn, sc) = crate::time::waktu_sekarang_lokal();
+                        return Ok(make_waktu_value(yr, m, d, hr, mn, sc));
+                    }
+                    if name == "waktu_komponen" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'waktu_komponen' membutuhkan 1 argumen (epoch_detik: u64)").with_span(*span));
+                        }
+                        let epoch = match self.eval_expr(&args[0].value, env)? {
+                            Value::Int(n) => n,
+                            Value::Float(f) => f as u64,
+                            _ => return Err(Diagnostic::error("Argumen 'waktu_komponen' harus berupa angka epoch detik").with_span(*span)),
+                        };
+                        let (yr, m, d, hr, mn, sc) = crate::time::epoch_ke_komponen(epoch);
+                        return Ok(make_waktu_value(yr, m, d, hr, mn, sc));
+                    }
+                    if name == "waktu_lokal_komponen" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'waktu_lokal_komponen' membutuhkan 1 argumen (epoch_detik: u64)").with_span(*span));
+                        }
+                        let epoch = match self.eval_expr(&args[0].value, env)? {
+                            Value::Int(n) => n,
+                            Value::Float(f) => f as u64,
+                            _ => return Err(Diagnostic::error("Argumen 'waktu_lokal_komponen' harus berupa angka epoch detik").with_span(*span)),
+                        };
+                        let (yr, m, d, hr, mn, sc) = crate::time::epoch_ke_lokal_komponen(epoch);
+                        return Ok(make_waktu_value(yr, m, d, hr, mn, sc));
+                    }
+                    if name == "waktu_ke_epoch" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'waktu_ke_epoch' membutuhkan 1 argumen (waktu: Waktu)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        if let Value::Struct { name: s_name, fields } = val {
+                            if s_name == "Waktu" {
+                                let th = fields.get("tahun").and_then(|v| match v { Value::Int(i) => Some(*i), Value::Float(f) => Some(*f as u64), _ => None }).unwrap_or(0);
+                                let bl = fields.get("bulan").and_then(|v| match v { Value::Int(i) => Some(*i), Value::Float(f) => Some(*f as u64), _ => None }).unwrap_or(0);
+                                let hr = fields.get("hari").and_then(|v| match v { Value::Int(i) => Some(*i), Value::Float(f) => Some(*f as u64), _ => None }).unwrap_or(0);
+                                let jm = fields.get("jam").and_then(|v| match v { Value::Int(i) => Some(*i), Value::Float(f) => Some(*f as u64), _ => None }).unwrap_or(0);
+                                let mn = fields.get("menit").and_then(|v| match v { Value::Int(i) => Some(*i), Value::Float(f) => Some(*f as u64), _ => None }).unwrap_or(0);
+                                let dt = fields.get("detik").and_then(|v| match v { Value::Int(i) => Some(*i), Value::Float(f) => Some(*f as u64), _ => None }).unwrap_or(0);
+                                let ep = crate::time::komponen_ke_epoch(th, bl, hr, jm, mn, dt);
+                                return Ok(Value::Int(ep));
+                            }
+                        }
+                        return Err(Diagnostic::error("Argumen 'waktu_ke_epoch' harus berupa struktur Waktu").with_span(*span));
+                    }
+                    if name == "waktu_format_iso" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'waktu_format_iso' membutuhkan 1 argumen (epoch_detik: u64)").with_span(*span));
+                        }
+                        let epoch = match self.eval_expr(&args[0].value, env)? {
+                            Value::Int(n) => n,
+                            Value::Float(f) => f as u64,
+                            _ => return Err(Diagnostic::error("Argumen 'waktu_format_iso' harus berupa angka epoch detik").with_span(*span)),
+                        };
+                        return Ok(Value::String(crate::time::waktu_format_iso(epoch)));
+                    }
+                    if name == "waktu_format" {
+                        if args.len() != 2 {
+                            return Err(Diagnostic::error("'waktu_format' membutuhkan 2 argumen (epoch_detik: u64, pola: Teks)").with_span(*span));
+                        }
+                        let epoch = match self.eval_expr(&args[0].value, env)? {
+                            Value::Int(n) => n,
+                            Value::Float(f) => f as u64,
+                            _ => return Err(Diagnostic::error("Argumen 1 'waktu_format' harus berupa angka epoch detik").with_span(*span)),
+                        };
+                        let pola = self.eval_expr(&args[1].value, env)?.to_string();
+                        return Ok(Value::String(crate::time::waktu_format(epoch, &pola)));
+                    }
+                    if name == "waktu_hari_dalam_minggu" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'waktu_hari_dalam_minggu' membutuhkan 1 argumen (epoch_detik: u64)").with_span(*span));
+                        }
+                        let epoch = match self.eval_expr(&args[0].value, env)? {
+                            Value::Int(n) => n,
+                            Value::Float(f) => f as u64,
+                            _ => return Err(Diagnostic::error("Argumen 'waktu_hari_dalam_minggu' harus berupa angka epoch detik").with_span(*span)),
+                        };
+                        return Ok(Value::String(crate::time::waktu_hari_dalam_minggu(epoch).to_string()));
+                    }
+                    if name == "waktu_adalah_kabisat" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'waktu_adalah_kabisat' membutuhkan 1 argumen (tahun: u64)").with_span(*span));
+                        }
+                        let tahun = match self.eval_expr(&args[0].value, env)? {
+                            Value::Int(n) => n,
+                            Value::Float(f) => f as u64,
+                            _ => return Err(Diagnostic::error("Argumen 'waktu_adalah_kabisat' harus berupa angka tahun").with_span(*span)),
+                        };
+                        return Ok(Value::Bool(crate::time::waktu_adalah_kabisat(tahun)));
                     }
                     if name == "tidur" {
                         if args.len() != 1 {
@@ -3285,6 +3389,34 @@ impl Evaluator {
                                 return Ok(Value::String(crate::net::status_ke_teks(status).to_string()));
                             }
                             other => return Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada ResponsHttp", other)).with_span(*span)),
+                        }
+                    }
+                    if struct_name == "Waktu" {
+                        let th = fields.get("tahun").and_then(|v| match v { Value::Int(i) => Some(*i), Value::Float(f) => Some(*f as u64), _ => None }).unwrap_or(0);
+                        let bl = fields.get("bulan").and_then(|v| match v { Value::Int(i) => Some(*i), Value::Float(f) => Some(*f as u64), _ => None }).unwrap_or(0);
+                        let hr = fields.get("hari").and_then(|v| match v { Value::Int(i) => Some(*i), Value::Float(f) => Some(*f as u64), _ => None }).unwrap_or(0);
+                        let jm = fields.get("jam").and_then(|v| match v { Value::Int(i) => Some(*i), Value::Float(f) => Some(*f as u64), _ => None }).unwrap_or(0);
+                        let mn = fields.get("menit").and_then(|v| match v { Value::Int(i) => Some(*i), Value::Float(f) => Some(*f as u64), _ => None }).unwrap_or(0);
+                        let dt = fields.get("detik").and_then(|v| match v { Value::Int(i) => Some(*i), Value::Float(f) => Some(*f as u64), _ => None }).unwrap_or(0);
+                        let ep = crate::time::komponen_ke_epoch(th, bl, hr, jm, mn, dt);
+                        match method.as_str() {
+                            "ke_epoch" => {
+                                return Ok(Value::Int(ep));
+                            }
+                            "ke_iso" => {
+                                return Ok(Value::String(crate::time::waktu_format_iso(ep)));
+                            }
+                            "format" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'format' membutuhkan 1 argumen (format_teks: Teks)").with_span(*span));
+                                }
+                                let fmt_str = self.eval_expr(&args[0].value, env)?.to_string();
+                                return Ok(Value::String(crate::time::waktu_format(ep, &fmt_str)));
+                            }
+                            "hari_dalam_minggu" => {
+                                return Ok(Value::String(crate::time::waktu_hari_dalam_minggu(ep).to_string()));
+                            }
+                            other => return Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada Waktu", other)).with_span(*span)),
                         }
                     }
                     if let Some(struct_methods) = self.methods.get(struct_name) {

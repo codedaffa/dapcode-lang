@@ -1,0 +1,89 @@
+// ============================================================================
+// Demo Pustaka Standar Waktu & Kalender DapCode (Waktu, Tanggal & Durasi)
+// ============================================================================
+
+fungsi cetak_garis() {
+    cetak("-----------------------------------------------------------------")
+}
+
+fungsi utama() {
+    cetak("╔═══════════════════════════════════════════════════════════════╗")
+    cetak("║          🕒 DEMO PUSTAKA STANDAR WAKTU & KALENDER DAPCODE     ║")
+    cetak("╚═══════════════════════════════════════════════════════════════╝")
+    cetak("")
+
+    // 1. Waktu Sistem Saat Ini
+    cetak_garis()
+    cetak("1. WAKTU SISTEM SAAT INI")
+    cetak_garis()
+
+    detik_epoch := waktu_sekarang_detik()
+    ms_epoch := waktu_sekarang_ms()
+    kini := waktu_sekarang()
+
+    cetak("Epoch (detik) : {detik_epoch}")
+    cetak("Epoch (ms)    : {ms_epoch}")
+    cetak("Tanggal Lokal : {kini.tahun}-{kini.bulan}-{kini.hari}")
+    cetak("Jam Lokal     : {kini.jam}:{kini.menit}:{kini.detik}")
+    cetak("Hari          : {kini.hari_dalam_minggu()}")
+    cetak("Format ISO    : {kini.ke_iso()}")
+    pola := "%A, %d %B %Y - %H:%M:%S"
+    format_cantik := kini.format(pola)
+    cetak("Format Cantik : {format_cantik}")
+    cetak("")
+
+    // 2. Tahun Kabisat (Leap Year)
+    cetak_garis()
+    cetak("2. PEMERIKSAAN TAHUN KABISAT")
+    cetak_garis()
+
+    daftar_tahun := Daftar(2000, 1900, 2020, 2024, 2025, 2026, 2028)
+    daftar_tahun.setiap(|th| {
+        kabisat := waktu_adalah_kabisat(th)
+        status := "Bukan Kabisat (365 hari)"
+        jika kabisat {
+            status = "Kabisat (366 hari)"
+        }
+        cetak("Tahun {th}: {status}")
+    })
+    cetak("")
+
+    // 3. Konversi dan Kalender Sipil
+    cetak_garis()
+    cetak("3. KALENDER SIPIL & FORMAT TANGGAL")
+    cetak_garis()
+
+    // Hari Kemerdekaan RI 17 Agustus 1945 10:00:00 UTC
+    // Menghitung epoch detik secara manual atau menggunakan waktu_komponen
+    epoch_merdeka := 1786960800 // Contoh epoch masa depan: 2026-08-17 10:00:00
+    w_merdeka := waktu_komponen(epoch_merdeka)
+
+    pola_merdeka := "%A, %d %B %Y jam %H:%M:%S"
+    format_merdeka := w_merdeka.format(pola_merdeka)
+    cetak("Waktu Uji     : {format_merdeka}")
+    cetak("Kembali Epoch : {w_merdeka.ke_epoch()}")
+    cetak("")
+
+    // 4. Simulasi Pengukuran Durasi Eksekusi
+    cetak_garis()
+    cetak("4. PENGUKURAN DURASI EKSEKUSI (BENCHMARK)")
+    cetak_garis()
+
+    mulai := waktu_sekarang_ms()
+    
+    // Simulasi pekerjaan komputasi
+    total := 0
+    i := 0
+    selama i < 100000 {
+        total = total + i
+        i = i + 1
+    }
+
+    selesai := waktu_sekarang_ms()
+    durasi_ms := selesai - mulai
+
+    cetak("Hasil komputasi sum(0..100000): {total}")
+    cetak("Durasi eksekusi: {durasi_ms} milidetik")
+    cetak("")
+    cetak("Selesai! Seluruh modul waktu beroperasi dengan lancar.")
+}

@@ -801,6 +801,46 @@
             "${1:kamus}.setiap(|${2:k}, ${3:v}| ${4:cetak(\"{k}: {v}\")})"
         ],
         "description": "Jalankan aksi callback untuk setiap pasangan kunci-nilai Kamus (.setiap)"
+    },
+    "Waktu Sekarang": {
+        "prefix": "waktu_sekarang",
+        "body": [
+            "${1:kini} := waktu_sekarang()"
+        ],
+        "description": "Ambil objek struktur Waktu lokal saat ini (tahun, bulan, hari, jam, menit, detik)"
+    },
+    "Waktu Format": {
+        "prefix": "waktu_format",
+        "body": [
+            "${1:teks_waktu} := ${2:w}.format(\"${3:%A, %d %B %Y - %H:%M:%S}\")"
+        ],
+        "description": "Format objek Waktu dengan pola format kustom (%Y, %m, %d, %H, %M, %S, %A, %B)"
+    },
+    "Waktu ISO": {
+        "prefix": "waktu_iso",
+        "body": [
+            "${1:iso_str} := ${2:w}.ke_iso()"
+        ],
+        "description": "Format waktu ke standar ISO 8601 (YYYY-MM-DDTHH:MM:SSZ)"
+    },
+    "Waktu Kabisat": {
+        "prefix": "waktu_kabisat",
+        "body": [
+            "jika waktu_adalah_kabisat(${1:tahun}) {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Periksa apakah suatu tahun adalah tahun kabisat (leap year)"
+    },
+    "Waktu Benchmark": {
+        "prefix": "benchmark",
+        "body": [
+            "mulai := waktu_sekarang_ms()",
+            "$0",
+            "durasi := waktu_sekarang_ms() - mulai",
+            "cetak(\"Durasi eksekusi: {durasi} ms\")"
+        ],
+        "description": "Ukur durasi eksekusi blok kode dalam milidetik (benchmark)"
     }
 }
 

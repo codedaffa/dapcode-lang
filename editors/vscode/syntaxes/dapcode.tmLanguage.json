@@ -118,7 +118,7 @@
             "patterns": [
                 {
                     "name": "support.type.primitive.dap",
-                    "match": "\\b(u64|i64|f64|Teks|Bool|Unit|Tugas|Daftar|Kamus|bulat|desimal|teks|bool|unit|PermintaanHttp|ResponsHttp|BasisData)\\b"
+                    "match": "\\b(u64|i64|f64|Teks|Bool|Unit|Tugas|Daftar|Kamus|bulat|desimal|teks|bool|unit|PermintaanHttp|ResponsHttp|BasisData|Waktu)\\b"
                 },
                 {
                     "name": "entity.name.type.struct.dap",

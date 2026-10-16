@@ -10,7 +10,7 @@ Paket biner mandiri **`.vsix`** siap pakai tersedia di folder `editors/vscode/`:
 
 ### Cara 1: Melalui Command Line (PowerShell / Terminal)
 ```powershell
-code --install-extension editors/vscode/dapcode-lang-0.7.1.vsix
+code --install-extension editors/vscode/dapcode-lang-0.7.2.vsix
 ```
 
 ### Cara 2: Melalui Antarmuka VS Code
@@ -18,7 +18,7 @@ code --install-extension editors/vscode/dapcode-lang-0.7.1.vsix
 2. Buka panel **Extensions** (`Ctrl+Shift+X`).
 3. Klik ikon menu titik tiga (`...`) di pojok kanan atas panel Extensions.
 4. Pilih **"Install from VSIX..."**.
-5. Arahkan dan pilih berkas `dapcode-lang-0.7.1.vsix`.
+5. Arahkan dan pilih berkas `dapcode-lang-0.7.2.vsix`.
 
 ---
 

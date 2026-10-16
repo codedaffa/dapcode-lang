@@ -316,10 +316,46 @@ impl TypeChecker {
             (vec![Type::F64], Type::F64),
         );
 
-        // Standard Library: Time
+        // Standard Library: Time & DateTime
         self.functions.insert(
             "waktu_sekarang_ms".to_string(),
             (vec![], Type::U64),
+        );
+        self.functions.insert(
+            "waktu_sekarang_detik".to_string(),
+            (vec![], Type::U64),
+        );
+        self.functions.insert(
+            "waktu_sekarang".to_string(),
+            (vec![], Type::Struct("Waktu".to_string())),
+        );
+        self.functions.insert(
+            "waktu_komponen".to_string(),
+            (vec![Type::U64], Type::Struct("Waktu".to_string())),
+        );
+        self.functions.insert(
+            "waktu_lokal_komponen".to_string(),
+            (vec![Type::U64], Type::Struct("Waktu".to_string())),
+        );
+        self.functions.insert(
+            "waktu_ke_epoch".to_string(),
+            (vec![Type::Struct("Waktu".to_string())], Type::U64),
+        );
+        self.functions.insert(
+            "waktu_format_iso".to_string(),
+            (vec![Type::U64], Type::String),
+        );
+        self.functions.insert(
+            "waktu_format".to_string(),
+            (vec![Type::U64, Type::String], Type::String),
+        );
+        self.functions.insert(
+            "waktu_hari_dalam_minggu".to_string(),
+            (vec![Type::U64], Type::String),
+        );
+        self.functions.insert(
+            "waktu_adalah_kabisat".to_string(),
+            (vec![Type::U64], Type::Bool),
         );
         self.functions.insert(
             "tidur".to_string(),
@@ -489,6 +525,30 @@ impl TypeChecker {
                     "tipe_konten".to_string(),
                     "konten".to_string(),
                     "header".to_string(),
+                ],
+                span: Span::DUMMY,
+            },
+        );
+
+        let mut waktu_fields = HashMap::new();
+        waktu_fields.insert("tahun".to_string(), (0, Type::U64));
+        waktu_fields.insert("bulan".to_string(), (1, Type::U64));
+        waktu_fields.insert("hari".to_string(), (2, Type::U64));
+        waktu_fields.insert("jam".to_string(), (3, Type::U64));
+        waktu_fields.insert("menit".to_string(), (4, Type::U64));
+        waktu_fields.insert("detik".to_string(), (5, Type::U64));
+        self.structs.insert(
+            "Waktu".to_string(),
+            StructInfo {
+                name: "Waktu".to_string(),
+                fields: waktu_fields,
+                field_order: vec![
+                    "tahun".to_string(),
+                    "bulan".to_string(),
+                    "hari".to_string(),
+                    "jam".to_string(),
+                    "menit".to_string(),
+                    "detik".to_string(),
                 ],
                 span: Span::DUMMY,
             },
@@ -2408,6 +2468,37 @@ impl TypeChecker {
                                 Ok(Type::String)
                             }
                             other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada ResponsHttp", other)).with_span(span)),
+                        }
+                    }
+                    Type::Struct(s_name) if s_name == "Waktu" => {
+                        match method {
+                            "ke_epoch" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'ke_epoch' tidak menerima argumen").with_span(span));
+                                }
+                                Ok(Type::U64)
+                            }
+                            "ke_iso" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'ke_iso' tidak menerima argumen").with_span(span));
+                                }
+                                Ok(Type::String)
+                            }
+                            "format" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'format' membutuhkan 1 argumen: (format_teks: Teks)").with_span(span));
+                                }
+                                let f_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&f_ty, &Type::String, args[0].span)?;
+                                Ok(Type::String)
+                            }
+                            "hari_dalam_minggu" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'hari_dalam_minggu' tidak menerima argumen").with_span(span));
+                                }
+                                Ok(Type::String)
+                            }
+                            other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada Waktu", other)).with_span(span)),
                         }
                     }
                     Type::Struct(s_name) => {

@@ -19,6 +19,7 @@ pub mod ownership;
 pub mod parser;
 pub mod regex;
 pub mod span;
+pub mod time;
 pub mod types;
 pub mod wasm;
 
