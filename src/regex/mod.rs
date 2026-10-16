@@ -4,7 +4,7 @@
 //! mendukung:
 //! - Karakter harfiah & titik sembarang (.)
 //! - Kuantifier greedy: *, +, ?, {n}, {n,m}
-//! - Kelas karakter: [a-z], [0-9], [^...], \d, \D, \w, \W, \s, \S
+//! - Kelas karakter: `[a-z]`, `[0-9]`, `[^...]`, `\d`, `\D`, `\w`, `\W`, `\s`, `\S`
 //! - Penanda batas kata (\b, \B) dan jangkar (^, $)
 //! - Grup penangkapan: (...) dan non-capturing (?:...)
 //! - Karakter pelarian (escaped characters)

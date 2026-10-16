@@ -195,7 +195,7 @@ pub enum MobileCommands {
     Build {
         /// Berkas sumber .dap (opsional jika DapCode.toml ada di direktori saat ini)
         file: Option<PathBuf>,
-        /// Direktori keluaran bundel aplikasi mobile (default: "<nama>_mobile")
+        /// Direktori keluaran bundel aplikasi mobile (default: "`<nama>`_mobile")
         #[arg(short, long)]
         output: Option<PathBuf>,
         /// Nama tampilan aplikasi mobile (default: dari nama berkas)
@@ -2143,7 +2143,17 @@ pub fn cmd_doc(
         modules,
     };
 
-    let out_dir = out_opt.unwrap_or_else(|| Path::new("docs"));
+    let default_out = if Path::new("Cargo.toml").exists() && Path::new("docs/index.html").exists() {
+        let current_html = fs::read_to_string("docs/index.html").unwrap_or_default();
+        if current_html.contains("Compiler & Internals") || current_html.contains("Developer Portal") {
+            PathBuf::from("docs/api")
+        } else {
+            PathBuf::from("docs")
+        }
+    } else {
+        PathBuf::from("docs")
+    };
+    let out_dir = out_opt.unwrap_or(&default_out);
     fs::create_dir_all(out_dir)?;
 
     let generator = DocGenerator::new(&project_doc);
@@ -2174,7 +2184,19 @@ pub fn cmd_doc(
     }
 
     if open {
-        if let Some(html_file) = generated_files.iter().find(|p| p.extension().and_then(|e| e.to_str()) == Some("html")) {
+        let file_to_open = if out_opt.is_none() && Path::new("docs/index.html").exists() {
+            let html_content = fs::read_to_string("docs/index.html").unwrap_or_default();
+            if html_content.contains("Compiler & Internals") || html_content.contains("Developer Portal") {
+                Some(PathBuf::from("docs/index.html"))
+            } else {
+                generated_files.iter().find(|p| p.extension().and_then(|e| e.to_str()) == Some("html")).cloned()
+            }
+        } else {
+            generated_files.iter().find(|p| p.extension().and_then(|e| e.to_str()) == Some("html")).cloned()
+        };
+
+        if let Some(html_file) = file_to_open {
+            println!("info: Membuka dokumentasi di '{}'...", html_file.display());
             #[cfg(target_os = "windows")]
             {
                 let _ = std::process::Command::new("cmd")

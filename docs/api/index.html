@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proyek DapCode - Dokumentasi Resmi DapCode</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0b0f19;
+            --bg-surface: #111827;
+            --bg-surface-elevated: #1f2937;
+            --border-color: #374151;
+            --primary: #38bdf8;
+            --primary-glow: rgba(56, 189, 248, 0.2);
+            --accent: #818cf8;
+            --success: #34d399;
+            --warning: #fbbf24;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --code-bg: #030712;
+            --sidebar-width: 320px;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-base);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        /* Sidebar Navigation */
+        #sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-surface);
+            border-right: 1px solid var(--border-color);
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+        .sidebar-header {
+            padding: 24px 20px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+        .brand-logo {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #0b0f19;
+            font-size: 1.1rem;
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+        .brand-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .brand-version {
+            font-size: 0.75rem;
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--primary);
+            padding: 2px 8px;
+            border-radius: 12px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            margin-left: 6px;
+        }
+        .search-box {
+            padding: 16px 20px 8px;
+        }
+        .search-input {
+            width: 100%;
+            background: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+        .nav-tree {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 14px;
+        }
+        .nav-group-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin: 16px 8px 8px;
+            font-weight: 600;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border-radius: 6px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.15s ease;
+            margin-bottom: 2px;
+        }
+        .nav-item:hover {
+            color: var(--primary);
+            background: rgba(56, 189, 248, 0.08);
+            transform: translateX(3px);
+        }
+        .item-tag {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-surface-elevated);
+        }
+        .tag-fn { color: var(--primary); }
+        .tag-struct { color: var(--accent); }
+        .tag-trait { color: var(--warning); }
+        /* Main Content */
+        #content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 48px 64px;
+            max-width: 1100px;
+        }
+        .hero {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.05), rgba(129, 140, 248, 0.08));
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 36px 40px;
+            margin-bottom: 48px;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(90deg, #f9fafb, #93c5fd);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .stats-bar {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .stat-badge {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        .stat-num {
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 48px 0 24px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .section-header h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+        /* Item Card */
+        .item-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .item-card:hover {
+            border-color: rgba(56, 189, 248, 0.4);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+        .item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .item-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.35rem;
+            font-weight: 600;
+        }
+        .code-block {
+            background: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px 18px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            color: #7dd3fc;
+            overflow-x: auto;
+            position: relative;
+            margin-bottom: 16px;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--bg-surface-elevated);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .copy-btn:hover {
+            color: var(--text-main);
+            border-color: var(--primary);
+        }
+        .item-doc {
+            color: #d1d5db;
+            line-height: 1.65;
+            margin-bottom: 16px;
+            font-size: 0.98rem;
+            white-space: pre-wrap;
+        }
+        .params-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-size: 0.9rem;
+        }
+        .params-table th, .params-table td {
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .params-table th {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+        .param-name {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--primary);
+        }
+        .param-type {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent);
+        }
+        .return-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(52, 211, 153, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(52, 211, 153, 0.25);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+        footer {
+            margin-top: 64px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <a href='#' class="brand">
+                <div class="brand-logo">D</div>
+                <div>
+                    <span class="brand-title">Proyek DapCode</span>
+                    <span class="brand-version">v0.1.0</span>
+                </div>
+            </a>
+        </div>
+        <div class="search-box">
+            <input type="text" id="search-input" class="search-input" placeholder="Cari fungsi, tipe..." oninput="filterDocs()">
+        </div>
+        <nav class="nav-tree"><div class="nav-group-title">Modul: demo</div><a href="#struct-produk" class="nav-item doc-entry" data-name="produk">
+                        <span>Produk</span>
+                        <span class="item-tag tag-struct">struct</span>
+                    </a><a href="#trait-bisadidiskon" class="nav-item doc-entry" data-name="bisadidiskon">
+                        <span>BisaDidiskon</span>
+                        <span class="item-tag tag-trait">trait</span>
+                    </a><a href="#impl-terapkan-produk" class="nav-item doc-entry" data-name="terapkan produk">
+                        <span>terapkan Produk</span>
+                        <span class="item-tag ">impl</span>
+                    </a><a href="#fn-cari_produk" class="nav-item doc-entry" data-name="cari_produk">
+                        <span>cari_produk</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: demo_audio</div><a href="#fn-mainkan_melodi_arpegio" class="nav-item doc-entry" data-name="mainkan_melodi_arpegio">
+                        <span>mainkan_melodi_arpegio</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demo_bentuk_gelombang" class="nav-item doc-entry" data-name="demo_bentuk_gelombang">
+                        <span>demo_bentuk_gelombang</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demo_efek_suara_game" class="nav-item doc-entry" data-name="demo_efek_suara_game">
+                        <span>demo_efek_suara_game</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: demo_closure</div><a href="#fn-demo_closure_dasar" class="nav-item doc-entry" data-name="demo_closure_dasar">
+                        <span>demo_closure_dasar</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demo_transformasi_koleksi" class="nav-item doc-entry" data-name="demo_transformasi_koleksi">
+                        <span>demo_transformasi_koleksi</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demo_lipat_dan_chaining" class="nav-item doc-entry" data-name="demo_lipat_dan_chaining">
+                        <span>demo_lipat_dan_chaining</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: demo_kamus</div><a href="#fn-demo_kamus_dasar" class="nav-item doc-entry" data-name="demo_kamus_dasar">
+                        <span>demo_kamus_dasar</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demo_kamus_json_dan_kunci" class="nav-item doc-entry" data-name="demo_kamus_json_dan_kunci">
+                        <span>demo_kamus_json_dan_kunci</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demo_kamus_penghapusan" class="nav-item doc-entry" data-name="demo_kamus_penghapusan">
+                        <span>demo_kamus_penghapusan</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demo_kamus_fungsional" class="nav-item doc-entry" data-name="demo_kamus_fungsional">
+                        <span>demo_kamus_fungsional</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: demo_kanvas</div><a href="#fn-gambar_tata_surya" class="nav-item doc-entry" data-name="gambar_tata_surya">
+                        <span>gambar_tata_surya</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: demo_koleksi_teks</div><a href="#fn-demo_metode_teks" class="nav-item doc-entry" data-name="demo_metode_teks">
+                        <span>demo_metode_teks</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demo_metode_daftar" class="nav-item doc-entry" data-name="demo_metode_daftar">
+                        <span>demo_metode_daftar</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: demo_uji</div><a href="#fn-kali" class="nav-item doc-entry" data-name="kali">
+                        <span>kali</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-bagi" class="nav-item doc-entry" data-name="bagi">
+                        <span>bagi</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#uji-perhitungan-perkalian-dasar" class="nav-item doc-entry" data-name="perhitungan perkalian dasar">
+                        <span>perhitungan perkalian dasar</span>
+                        <span class="item-tag ">uji</span>
+                    </a><a href="#uji-pembagian-normal-dan-error-union" class="nav-item doc-entry" data-name="pembagian normal dan error union">
+                        <span>pembagian normal dan error union</span>
+                        <span class="item-tag ">uji</span>
+                    </a><a href="#uji-validasi-string-dan-boolean" class="nav-item doc-entry" data-name="validasi string dan boolean">
+                        <span>validasi string dan boolean</span>
+                        <span class="item-tag ">uji</span>
+                    </a><div class="nav-group-title">Modul: demo_waktu</div><a href="#fn-cetak_garis" class="nav-item doc-entry" data-name="cetak_garis">
+                        <span>cetak_garis</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: geometri</div><a href="#struct-titik" class="nav-item doc-entry" data-name="titik">
+                        <span>Titik</span>
+                        <span class="item-tag tag-struct">struct</span>
+                    </a><a href="#struct-lingkaran" class="nav-item doc-entry" data-name="lingkaran">
+                        <span>Lingkaran</span>
+                        <span class="item-tag tag-struct">struct</span>
+                    </a><a href="#fn-buat_titik" class="nav-item doc-entry" data-name="buat_titik">
+                        <span>buat_titik</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-buat_lingkaran" class="nav-item doc-entry" data-name="buat_lingkaran">
+                        <span>buat_lingkaran</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-luas_lingkaran" class="nav-item doc-entry" data-name="luas_lingkaran">
+                        <span>luas_lingkaran</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-keliling_lingkaran" class="nav-item doc-entry" data-name="keliling_lingkaran">
+                        <span>keliling_lingkaran</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: matematika</div><a href="#fn-pangkat_tiga" class="nav-item doc-entry" data-name="pangkat_tiga">
+                        <span>pangkat_tiga</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-jumlah_deret" class="nav-item doc-entry" data-name="jumlah_deret">
+                        <span>jumlah_deret</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: utama</div><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: uji_basis_data</div><a href="#fn-demo_database_dasar" class="nav-item doc-entry" data-name="demo_database_dasar">
+                        <span>demo_database_dasar</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demo_transaksi_acid" class="nav-item doc-entry" data-name="demo_transaksi_acid">
+                        <span>demo_transaksi_acid</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demo_prefix_dan_json" class="nav-item doc-entry" data-name="demo_prefix_dan_json">
+                        <span>demo_prefix_dan_json</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-tangani_api_db" class="nav-item doc-entry" data-name="tangani_api_db">
+                        <span>tangani_api_db</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: uji_matematika</div><a href="#fn-demo_trigonometri" class="nav-item doc-entry" data-name="demo_trigonometri">
+                        <span>demo_trigonometri</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demo_geometri_vektor" class="nav-item doc-entry" data-name="demo_geometri_vektor">
+                        <span>demo_geometri_vektor</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demo_logaritma_dan_eksponensial" class="nav-item doc-entry" data-name="demo_logaritma_dan_eksponensial">
+                        <span>demo_logaritma_dan_eksponensial</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demo_pembulatan_dan_statistik" class="nav-item doc-entry" data-name="demo_pembulatan_dan_statistik">
+                        <span>demo_pembulatan_dan_statistik</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#uji-trigonometri-identitas-dasar" class="nav-item doc-entry" data-name="trigonometri identitas dasar">
+                        <span>Trigonometri identitas dasar</span>
+                        <span class="item-tag ">uji</span>
+                    </a><a href="#uji-kalkulasi-akar-dan-pangkat" class="nav-item doc-entry" data-name="kalkulasi akar dan pangkat">
+                        <span>Kalkulasi akar dan pangkat</span>
+                        <span class="item-tag ">uji</span>
+                    </a><a href="#uji-pembulatan-dan-ekstremum" class="nav-item doc-entry" data-name="pembulatan dan ekstremum">
+                        <span>Pembulatan dan ekstremum</span>
+                        <span class="item-tag ">uji</span>
+                    </a><div class="nav-group-title">Modul: uji_regex</div><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: uji_router</div><a href="#fn-tangani_web" class="nav-item doc-entry" data-name="tangani_web">
+                        <span>tangani_web</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: uji_server_http</div><a href="#fn-tangani_permintaan" class="nav-item doc-entry" data-name="tangani_permintaan">
+                        <span>tangani_permintaan</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: uji_statis</div><a href="#fn-tangani_pesan_ws" class="nav-item doc-entry" data-name="tangani_pesan_ws">
+                        <span>tangani_pesan_ws</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-tangani_permintaan" class="nav-item doc-entry" data-name="tangani_permintaan">
+                        <span>tangani_permintaan</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: uji_stdlib</div><a href="#fn-demonstrasi_koleksi" class="nav-item doc-entry" data-name="demonstrasi_koleksi">
+                        <span>demonstrasi_koleksi</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demonstrasi_string_dan_matematika" class="nav-item doc-entry" data-name="demonstrasi_string_dan_matematika">
+                        <span>demonstrasi_string_dan_matematika</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demonstrasi_berkas_dan_waktu" class="nav-item doc-entry" data-name="demonstrasi_berkas_dan_waktu">
+                        <span>demonstrasi_berkas_dan_waktu</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#struct-akunpengguna" class="nav-item doc-entry" data-name="akunpengguna">
+                        <span>AkunPengguna</span>
+                        <span class="item-tag tag-struct">struct</span>
+                    </a><a href="#fn-demonstrasi_json" class="nav-item doc-entry" data-name="demonstrasi_json">
+                        <span>demonstrasi_json</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demonstrasi_jaringan" class="nav-item doc-entry" data-name="demonstrasi_jaringan">
+                        <span>demonstrasi_jaringan</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demonstrasi_lingkungan_dan_cli" class="nav-item doc-entry" data-name="demonstrasi_lingkungan_dan_cli">
+                        <span>demonstrasi_lingkungan_dan_cli</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-demonstrasi_kriptografi_dan_enkoding" class="nav-item doc-entry" data-name="demonstrasi_kriptografi_dan_enkoding">
+                        <span>demonstrasi_kriptografi_dan_enkoding</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><div class="nav-group-title">Modul: uji_wasm</div><a href="#fn-faktorial" class="nav-item doc-entry" data-name="faktorial">
+                        <span>faktorial</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-luas_lingkaran" class="nav-item doc-entry" data-name="luas_lingkaran">
+                        <span>luas_lingkaran</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-hitung_deret" class="nav-item doc-entry" data-name="hitung_deret">
+                        <span>hitung_deret</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a><a href="#fn-utama" class="nav-item doc-entry" data-name="utama">
+                        <span>utama</span>
+                        <span class="item-tag tag-fn">fn</span>
+                    </a>        </nav>
+    </aside>
+
+    <main id="content">
+        <div style="background: linear-gradient(90deg, #1e1b4b, #0f172a, #0c4a6e); border: 1px solid #38bdf8; border-radius: 12px; padding: 14px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.15); flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 1.5rem;">🗺️</span>
+                <div>
+                    <div style="font-weight: 700; color: #f8fafc; font-size: 0.95rem;">Mengembangkan Kompilator DapCode (Compiler Internals)?</div>
+                    <div style="font-size: 0.82rem; color: #94a3b8;">Lihat 4 Peta Visual Arsitektur Sistem, Pipeline Simulator, &amp; Resep Kontributor di Developer Portal.</div>
+                </div>
+            </div>
+            <a href="../index.html#visual-maps" style="display: inline-flex; align-items: center; gap: 6px; background: #38bdf8; color: #041324; font-weight: 700; font-size: 0.85rem; padding: 8px 14px; border-radius: 6px; text-decoration: none; white-space: nowrap;">
+                Buka Peta Arsitektur &rarr;
+            </a>
+        </div>
+
+        <div class="hero">
+            <h1>Proyek DapCode</h1>
+            <p>Dokumentasi kode sumber DapCode</p>
+            <div class="stats-bar">
+                <div class="stat-badge"><span class="stat-num">19</span> Modul</div>
+                <div class="stat-badge"><span class="stat-num">61</span> Fungsi</div>
+                <div class="stat-badge"><span class="stat-num">4</span> Struktur Data</div>
+                <div class="stat-badge"><span class="stat-num">1</span> Sifat / Trait</div>
+            </div>
+        </div><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul demo</h2>
+                </div><div id="struct-produk" class="item-card doc-card" data-name="produk">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>Produk</span>
+                            </div>
+                            <span class="item-tag tag-struct">STRUCT</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>struktur Produk {
+    id: u64,
+    nama: Teks,
+    harga: f64
+}</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Bidang (Field)</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">id</td><td class="param-type">u64</td></tr><tr><td class="param-name">nama</td><td class="param-type">Teks</td></tr><tr><td class="param-name">harga</td><td class="param-type">f64</td></tr></tbody></table></div><div id="trait-bisadidiskon" class="item-card doc-card" data-name="bisadidiskon">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>BisaDidiskon</span>
+                            </div>
+                            <span class="item-tag tag-trait">TRAIT</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>sifat BisaDidiskon { ... }</code>
+                        </div></div><div id="impl-terapkan-produk" class="item-card doc-card" data-name="terapkan produk">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>terapkan Produk</span>
+                            </div>
+                            <span class="item-tag tag-impl">IMPL</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>terapkan BisaDidiskon untuk Produk</code>
+                        </div></div><div id="fn-cari_produk" class="item-card doc-card" data-name="cari_produk">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>cari_produk</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi cari_produk(id: u64) -&gt; Produk ! Teks</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">id</td><td class="param-type">u64</td></tr></tbody></table><div class="return-badge">↳ Kembalian: Produk ! Teks</div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama()</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul demo_audio</h2>
+                </div><div id="fn-mainkan_melodi_arpegio" class="item-card doc-card" data-name="mainkan_melodi_arpegio">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>mainkan_melodi_arpegio</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi mainkan_melodi_arpegio() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div><div id="fn-demo_bentuk_gelombang" class="item-card doc-card" data-name="demo_bentuk_gelombang">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_bentuk_gelombang</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_bentuk_gelombang() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div><div id="fn-demo_efek_suara_game" class="item-card doc-card" data-name="demo_efek_suara_game">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_efek_suara_game</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_efek_suara_game() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama() -&gt; u64</code>
+                        </div><div class="return-badge">↳ Kembalian: u64</div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul demo_closure</h2>
+                </div><div id="fn-demo_closure_dasar" class="item-card doc-card" data-name="demo_closure_dasar">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_closure_dasar</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_closure_dasar() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div><div id="fn-demo_transformasi_koleksi" class="item-card doc-card" data-name="demo_transformasi_koleksi">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_transformasi_koleksi</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_transformasi_koleksi() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div><div id="fn-demo_lipat_dan_chaining" class="item-card doc-card" data-name="demo_lipat_dan_chaining">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_lipat_dan_chaining</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_lipat_dan_chaining() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama() -&gt; u64</code>
+                        </div><div class="return-badge">↳ Kembalian: u64</div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul demo_kamus</h2>
+                </div><div id="fn-demo_kamus_dasar" class="item-card doc-card" data-name="demo_kamus_dasar">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_kamus_dasar</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_kamus_dasar() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div><div id="fn-demo_kamus_json_dan_kunci" class="item-card doc-card" data-name="demo_kamus_json_dan_kunci">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_kamus_json_dan_kunci</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_kamus_json_dan_kunci() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div><div id="fn-demo_kamus_penghapusan" class="item-card doc-card" data-name="demo_kamus_penghapusan">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_kamus_penghapusan</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_kamus_penghapusan() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div><div id="fn-demo_kamus_fungsional" class="item-card doc-card" data-name="demo_kamus_fungsional">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_kamus_fungsional</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_kamus_fungsional() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul demo_kanvas</h2>
+                </div><div id="fn-gambar_tata_surya" class="item-card doc-card" data-name="gambar_tata_surya">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>gambar_tata_surya</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi gambar_tata_surya() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama() -&gt; u64</code>
+                        </div><div class="return-badge">↳ Kembalian: u64</div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul demo_koleksi_teks</h2>
+                </div><div id="fn-demo_metode_teks" class="item-card doc-card" data-name="demo_metode_teks">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_metode_teks</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_metode_teks() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div><div id="fn-demo_metode_daftar" class="item-card doc-card" data-name="demo_metode_daftar">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_metode_daftar</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_metode_daftar() -&gt; Unit</code>
+                        </div><div class="return-badge">↳ Kembalian: Unit</div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama() -&gt; u64</code>
+                        </div><div class="return-badge">↳ Kembalian: u64</div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul demo_uji</h2>
+                </div><div id="fn-kali" class="item-card doc-card" data-name="kali">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>kali</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi kali(a: bulat, b: bulat) -&gt; bulat</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">a</td><td class="param-type">bulat</td></tr><tr><td class="param-name">b</td><td class="param-type">bulat</td></tr></tbody></table><div class="return-badge">↳ Kembalian: bulat</div></div><div id="fn-bagi" class="item-card doc-card" data-name="bagi">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>bagi</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi bagi(a: bulat, b: bulat) -&gt; bulat ! teks</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">a</td><td class="param-type">bulat</td></tr><tr><td class="param-name">b</td><td class="param-type">bulat</td></tr></tbody></table><div class="return-badge">↳ Kembalian: bulat ! teks</div></div><div id="uji-perhitungan-perkalian-dasar" class="item-card doc-card" data-name="perhitungan perkalian dasar">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>perhitungan perkalian dasar</span>
+                            </div>
+                            <span class="item-tag tag-uji">UJI</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>uji &quot;perhitungan perkalian dasar&quot; { ... }</code>
+                        </div></div><div id="uji-pembagian-normal-dan-error-union" class="item-card doc-card" data-name="pembagian normal dan error union">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>pembagian normal dan error union</span>
+                            </div>
+                            <span class="item-tag tag-uji">UJI</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>uji &quot;pembagian normal dan error union&quot; { ... }</code>
+                        </div></div><div id="uji-validasi-string-dan-boolean" class="item-card doc-card" data-name="validasi string dan boolean">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>validasi string dan boolean</span>
+                            </div>
+                            <span class="item-tag tag-uji">UJI</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>uji &quot;validasi string dan boolean&quot; { ... }</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul demo_waktu</h2>
+                </div><div id="fn-cetak_garis" class="item-card doc-card" data-name="cetak_garis">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>cetak_garis</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi cetak_garis()</code>
+                        </div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama()</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul geometri</h2>
+                </div><div id="struct-titik" class="item-card doc-card" data-name="titik">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>Titik</span>
+                            </div>
+                            <span class="item-tag tag-struct">STRUCT</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>struktur Titik {
+    x: desimal,
+    y: desimal
+}</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Bidang (Field)</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">x</td><td class="param-type">desimal</td></tr><tr><td class="param-name">y</td><td class="param-type">desimal</td></tr></tbody></table></div><div id="struct-lingkaran" class="item-card doc-card" data-name="lingkaran">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>Lingkaran</span>
+                            </div>
+                            <span class="item-tag tag-struct">STRUCT</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>struktur Lingkaran {
+    pusat: Titik,
+    radius: desimal
+}</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Bidang (Field)</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">pusat</td><td class="param-type">Titik</td></tr><tr><td class="param-name">radius</td><td class="param-type">desimal</td></tr></tbody></table></div><div id="fn-buat_titik" class="item-card doc-card" data-name="buat_titik">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>buat_titik</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi buat_titik(x: desimal, y: desimal) -&gt; Titik</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">x</td><td class="param-type">desimal</td></tr><tr><td class="param-name">y</td><td class="param-type">desimal</td></tr></tbody></table><div class="return-badge">↳ Kembalian: Titik</div></div><div id="fn-buat_lingkaran" class="item-card doc-card" data-name="buat_lingkaran">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>buat_lingkaran</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi buat_lingkaran(px: desimal, py: desimal, r: desimal) -&gt; Lingkaran</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">px</td><td class="param-type">desimal</td></tr><tr><td class="param-name">py</td><td class="param-type">desimal</td></tr><tr><td class="param-name">r</td><td class="param-type">desimal</td></tr></tbody></table><div class="return-badge">↳ Kembalian: Lingkaran</div></div><div id="fn-luas_lingkaran" class="item-card doc-card" data-name="luas_lingkaran">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>luas_lingkaran</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi luas_lingkaran(l: Lingkaran) -&gt; desimal</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">l</td><td class="param-type">Lingkaran</td></tr></tbody></table><div class="return-badge">↳ Kembalian: desimal</div></div><div id="fn-keliling_lingkaran" class="item-card doc-card" data-name="keliling_lingkaran">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>keliling_lingkaran</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi keliling_lingkaran(l: Lingkaran) -&gt; desimal</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">l</td><td class="param-type">Lingkaran</td></tr></tbody></table><div class="return-badge">↳ Kembalian: desimal</div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul matematika</h2>
+                </div><div id="fn-pangkat_tiga" class="item-card doc-card" data-name="pangkat_tiga">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>pangkat_tiga</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi pangkat_tiga(n: u64) -&gt; u64</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">n</td><td class="param-type">u64</td></tr></tbody></table><div class="return-badge">↳ Kembalian: u64</div></div><div id="fn-jumlah_deret" class="item-card doc-card" data-name="jumlah_deret">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>jumlah_deret</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi jumlah_deret() -&gt; u64</code>
+                        </div><div class="return-badge">↳ Kembalian: u64</div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul utama</h2>
+                </div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama()</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul uji_basis_data</h2>
+                </div><div id="fn-demo_database_dasar" class="item-card doc-card" data-name="demo_database_dasar">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_database_dasar</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_database_dasar()</code>
+                        </div><div class="item-doc">Contoh Basis Data Mandiri &amp; Persistensi Data REST API Bawaan DapCode
+Menunjukkan penggunaan BasisData terstruktur lokal dengan Transaksi Atomik (ACID),
+Pencarian Awalan (Prefix Query), serta Ekspor &amp; Impor JSON tanpa dependensi eksternal.</div></div><div id="fn-demo_transaksi_acid" class="item-card doc-card" data-name="demo_transaksi_acid">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_transaksi_acid</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_transaksi_acid()</code>
+                        </div></div><div id="fn-demo_prefix_dan_json" class="item-card doc-card" data-name="demo_prefix_dan_json">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_prefix_dan_json</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_prefix_dan_json()</code>
+                        </div></div><div id="fn-tangani_api_db" class="item-card doc-card" data-name="tangani_api_db">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>tangani_api_db</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi tangani_api_db(req: PermintaanHttp) -&gt; ResponsHttp</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">req</td><td class="param-type">PermintaanHttp</td></tr></tbody></table><div class="return-badge">↳ Kembalian: ResponsHttp</div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama()</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul uji_matematika</h2>
+                </div><div id="fn-demo_trigonometri" class="item-card doc-card" data-name="demo_trigonometri">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_trigonometri</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_trigonometri()</code>
+                        </div></div><div id="fn-demo_geometri_vektor" class="item-card doc-card" data-name="demo_geometri_vektor">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_geometri_vektor</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_geometri_vektor()</code>
+                        </div></div><div id="fn-demo_logaritma_dan_eksponensial" class="item-card doc-card" data-name="demo_logaritma_dan_eksponensial">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_logaritma_dan_eksponensial</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_logaritma_dan_eksponensial()</code>
+                        </div></div><div id="fn-demo_pembulatan_dan_statistik" class="item-card doc-card" data-name="demo_pembulatan_dan_statistik">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demo_pembulatan_dan_statistik</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demo_pembulatan_dan_statistik()</code>
+                        </div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama()</code>
+                        </div></div><div id="uji-trigonometri-identitas-dasar" class="item-card doc-card" data-name="trigonometri identitas dasar">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>Trigonometri identitas dasar</span>
+                            </div>
+                            <span class="item-tag tag-uji">UJI</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>uji &quot;Trigonometri identitas dasar&quot; { ... }</code>
+                        </div></div><div id="uji-kalkulasi-akar-dan-pangkat" class="item-card doc-card" data-name="kalkulasi akar dan pangkat">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>Kalkulasi akar dan pangkat</span>
+                            </div>
+                            <span class="item-tag tag-uji">UJI</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>uji &quot;Kalkulasi akar dan pangkat&quot; { ... }</code>
+                        </div></div><div id="uji-pembulatan-dan-ekstremum" class="item-card doc-card" data-name="pembulatan dan ekstremum">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>Pembulatan dan ekstremum</span>
+                            </div>
+                            <span class="item-tag tag-uji">UJI</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>uji &quot;Pembulatan dan ekstremum&quot; { ... }</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul uji_regex</h2>
+                </div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama()</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul uji_router</h2>
+                </div><div id="fn-tangani_web" class="item-card doc-card" data-name="tangani_web">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>tangani_web</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi tangani_web(req: PermintaanHttp) -&gt; ResponsHttp</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">req</td><td class="param-type">PermintaanHttp</td></tr></tbody></table><div class="return-badge">↳ Kembalian: ResponsHttp</div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama()</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul uji_server_http</h2>
+                </div><div id="fn-tangani_permintaan" class="item-card doc-card" data-name="tangani_permintaan">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>tangani_permintaan</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi tangani_permintaan(req: PermintaanHttp) -&gt; ResponsHttp</code>
+                        </div><div class="item-doc">Contoh Server Web HTTP &amp; Backend REST API Bawaan DapCode
+Menjalankan server web mikroservis tanpa dependensi pustaka luar.</div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">req</td><td class="param-type">PermintaanHttp</td></tr></tbody></table><div class="return-badge">↳ Kembalian: ResponsHttp</div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama()</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul uji_statis</h2>
+                </div><div id="fn-tangani_pesan_ws" class="item-card doc-card" data-name="tangani_pesan_ws">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>tangani_pesan_ws</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi tangani_pesan_ws(pesan: Teks) -&gt; Teks</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">pesan</td><td class="param-type">Teks</td></tr></tbody></table><div class="return-badge">↳ Kembalian: Teks</div></div><div id="fn-tangani_permintaan" class="item-card doc-card" data-name="tangani_permintaan">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>tangani_permintaan</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi tangani_permintaan(req: PermintaanHttp) -&gt; ResponsHttp</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">req</td><td class="param-type">PermintaanHttp</td></tr></tbody></table><div class="return-badge">↳ Kembalian: ResponsHttp</div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama()</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul uji_stdlib</h2>
+                </div><div id="fn-demonstrasi_koleksi" class="item-card doc-card" data-name="demonstrasi_koleksi">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demonstrasi_koleksi</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demonstrasi_koleksi()</code>
+                        </div></div><div id="fn-demonstrasi_string_dan_matematika" class="item-card doc-card" data-name="demonstrasi_string_dan_matematika">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demonstrasi_string_dan_matematika</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demonstrasi_string_dan_matematika()</code>
+                        </div></div><div id="fn-demonstrasi_berkas_dan_waktu" class="item-card doc-card" data-name="demonstrasi_berkas_dan_waktu">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demonstrasi_berkas_dan_waktu</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demonstrasi_berkas_dan_waktu()</code>
+                        </div></div><div id="struct-akunpengguna" class="item-card doc-card" data-name="akunpengguna">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>AkunPengguna</span>
+                            </div>
+                            <span class="item-tag tag-struct">STRUCT</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>struktur AkunPengguna {
+    id: u64,
+    nama: Teks,
+    saldo: f64,
+    aktif: Bool
+}</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Bidang (Field)</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">id</td><td class="param-type">u64</td></tr><tr><td class="param-name">nama</td><td class="param-type">Teks</td></tr><tr><td class="param-name">saldo</td><td class="param-type">f64</td></tr><tr><td class="param-name">aktif</td><td class="param-type">Bool</td></tr></tbody></table></div><div id="fn-demonstrasi_json" class="item-card doc-card" data-name="demonstrasi_json">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demonstrasi_json</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demonstrasi_json()</code>
+                        </div></div><div id="fn-demonstrasi_jaringan" class="item-card doc-card" data-name="demonstrasi_jaringan">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demonstrasi_jaringan</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demonstrasi_jaringan()</code>
+                        </div></div><div id="fn-demonstrasi_lingkungan_dan_cli" class="item-card doc-card" data-name="demonstrasi_lingkungan_dan_cli">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demonstrasi_lingkungan_dan_cli</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demonstrasi_lingkungan_dan_cli()</code>
+                        </div></div><div id="fn-demonstrasi_kriptografi_dan_enkoding" class="item-card doc-card" data-name="demonstrasi_kriptografi_dan_enkoding">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>demonstrasi_kriptografi_dan_enkoding</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi demonstrasi_kriptografi_dan_enkoding()</code>
+                        </div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama()</code>
+                        </div></div></section><section class="module-section">
+                <div class="section-header">
+                    <h2>📦 Modul uji_wasm</h2>
+                </div><div id="fn-faktorial" class="item-card doc-card" data-name="faktorial">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>faktorial</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi faktorial(n: u64) -&gt; u64</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">n</td><td class="param-type">u64</td></tr></tbody></table><div class="return-badge">↳ Kembalian: u64</div></div><div id="fn-luas_lingkaran" class="item-card doc-card" data-name="luas_lingkaran">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>luas_lingkaran</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi luas_lingkaran(r: f64) -&gt; f64</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">r</td><td class="param-type">f64</td></tr></tbody></table><div class="return-badge">↳ Kembalian: f64</div></div><div id="fn-hitung_deret" class="item-card doc-card" data-name="hitung_deret">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>hitung_deret</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi hitung_deret(batas: u64) -&gt; u64</code>
+                        </div><table class="params-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Tipe Data</th></tr>
+                        </thead>
+                        <tbody><tr><td class="param-name">batas</td><td class="param-type">u64</td></tr></tbody></table><div class="return-badge">↳ Kembalian: u64</div></div><div id="fn-utama" class="item-card doc-card" data-name="utama">
+                        <div class="item-header">
+                            <div class="item-title">
+                                <span>utama</span>
+                            </div>
+                            <span class="item-tag tag-fn">FN</span>
+                        </div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copySignature(this)">Salin</button>
+                            <code>fungsi utama() -&gt; u64</code>
+                        </div><div class="return-badge">↳ Kembalian: u64</div></div></section>        <footer>
+            Dokumentasi dihasilkan secara otomatis oleh <strong>dapcodec doc</strong> &bull; Kompilator Resmi DapCode
+        </footer>
+    </main>
+
+    <script>
+        function filterDocs() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const cards = document.querySelectorAll('.doc-card');
+            const navEntries = document.querySelectorAll('.doc-entry');
+
+            cards.forEach(card => {
+                const name = card.getAttribute('data-name');
+                if (!query || name.includes(query)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            navEntries.forEach(entry => {
+                const name = entry.getAttribute('data-name');
+                if (!query || name.includes(query)) {
+                    entry.style.display = 'flex';
+                } else {
+                    entry.style.display = 'none';
+                }
+            });
+        }
+
+        function copySignature(btn) {
+            const code = btn.nextElementSibling.innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const orig = btn.innerText;
+                btn.innerText = 'Disalin!';
+                btn.style.borderColor = 'var(--primary)';
+                setTimeout(() => {
+                    btn.innerText = orig;
+                    btn.style.borderColor = '';
+                }, 1800);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -970,6 +970,19 @@ impl<'a> DocGenerator<'a> {
     </aside>
 
     <main id="content">
+        <div style="background: linear-gradient(90deg, #1e1b4b, #0f172a, #0c4a6e); border: 1px solid #38bdf8; border-radius: 12px; padding: 14px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.15); flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 1.5rem;">🗺️</span>
+                <div>
+                    <div style="font-weight: 700; color: #f8fafc; font-size: 0.95rem;">Mengembangkan Kompilator DapCode (Compiler Internals)?</div>
+                    <div style="font-size: 0.82rem; color: #94a3b8;">Lihat 4 Peta Visual Arsitektur Sistem, Pipeline Simulator, &amp; Resep Kontributor di Developer Portal.</div>
+                </div>
+            </div>
+            <a href="../index.html#visual-maps" style="display: inline-flex; align-items: center; gap: 6px; background: #38bdf8; color: #041324; font-weight: 700; font-size: 0.85rem; padding: 8px 14px; border-radius: 6px; text-decoration: none; white-space: nowrap;">
+                Buka Peta Arsitektur &rarr;
+            </a>
+        </div>
+
         <div class="hero">
             <h1>"##);
         html.push_str(&self.project.name);

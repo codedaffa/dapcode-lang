@@ -380,23 +380,40 @@ impl<'a> Lexer<'a> {
                     }
                 }
             } else if ch == '{' {
-                has_interpolation = true;
-                if !cur_literal.is_empty() {
-                    parts.push(InterpolatedPart::Literal(cur_literal));
-                    cur_literal = String::new();
-                }
                 self.cursor += 1; // skip '{'
                 let mut expr_buf = String::new();
                 let mut inner_braces = 0;
+                let mut in_inner_str = false;
+                let mut closed = false;
                 while self.cursor < self.bytes.len() {
                     let ic = self.bytes[self.cursor] as char;
-                    if ic == '{' {
+                    if ic == '\\' {
+                        self.cursor += 1;
+                        if self.cursor < self.bytes.len() {
+                            let esc = self.bytes[self.cursor] as char;
+                            self.cursor += 1;
+                            if esc == '"' {
+                                in_inner_str = !in_inner_str;
+                                expr_buf.push('"');
+                            } else if esc == '\\' {
+                                expr_buf.push('\\');
+                            } else {
+                                expr_buf.push('\\');
+                                expr_buf.push(esc);
+                            }
+                        }
+                    } else if ic == '"' {
+                        in_inner_str = !in_inner_str;
+                        expr_buf.push(ic);
+                        self.cursor += 1;
+                    } else if ic == '{' && !in_inner_str {
                         inner_braces += 1;
                         expr_buf.push(ic);
                         self.cursor += 1;
-                    } else if ic == '}' {
+                    } else if ic == '}' && !in_inner_str {
                         if inner_braces == 0 {
                             self.cursor += 1;
+                            closed = true;
                             break;
                         } else {
                             inner_braces -= 1;
@@ -408,7 +425,24 @@ impl<'a> Lexer<'a> {
                         self.cursor += 1;
                     }
                 }
-                parts.push(InterpolatedPart::Expression(expr_buf.trim().to_string()));
+
+                if closed && expr_buf.trim().is_empty() {
+                    // Kurung kurawal kosong seperti "{}" dianggap teks literal (misal objek JSON kosong)
+                    cur_literal.push('{');
+                    cur_literal.push_str(&expr_buf);
+                    cur_literal.push('}');
+                } else if closed {
+                    has_interpolation = true;
+                    if !cur_literal.is_empty() {
+                        parts.push(InterpolatedPart::Literal(cur_literal));
+                        cur_literal = String::new();
+                    }
+                    parts.push(InterpolatedPart::Expression(expr_buf.trim().to_string()));
+                } else {
+                    // Kurung kurawal tidak ditutup sebelum akhir string
+                    cur_literal.push('{');
+                    cur_literal.push_str(&expr_buf);
+                }
             } else {
                 cur_literal.push(ch);
                 self.cursor += 1;

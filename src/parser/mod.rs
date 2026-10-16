@@ -616,9 +616,17 @@ impl<'a> Parser<'a> {
                         }
                         InterpolatedPart::Expression(code) => {
                             let mut inner_lexer = Lexer::new(&code, self.file_id);
-                            let inner_tokens = inner_lexer.tokenize()?;
+                            let inner_tokens = inner_lexer.tokenize().map_err(|mut diag| {
+                                diag.message = format!("Di dalam interpolasi '{{{}}}': {}", code, diag.message);
+                                diag.span = Some(span);
+                                diag
+                            })?;
                             let mut inner_parser = Parser::new(inner_tokens, self.file_id);
-                            let parsed_expr = inner_parser.parse_expr(Precedence::Lowest)?;
+                            let parsed_expr = inner_parser.parse_expr(Precedence::Lowest).map_err(|mut diag| {
+                                diag.message = format!("Di dalam interpolasi '{{{}}}': {}", code, diag.message);
+                                diag.span = Some(span);
+                                diag
+                            })?;
                             expr_parts.push(InterpolatedExprPart::Expr(Box::new(parsed_expr)));
                         }
                     }

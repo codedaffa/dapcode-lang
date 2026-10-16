@@ -731,6 +731,736 @@
             color: #a7f3d0;
         }
 
+                /* ===== ARCHITECTURE SVG & DIAGRAM STYLES ===== */
+        .diagram-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: all 0.25s ease;
+        }
+
+        .diagram-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 25px var(--primary-glow);
+        }
+
+        .diagram-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        .diagram-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .svg-container {
+            width: 100%;
+            background: #080d1a;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 16px;
+            box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.45);
+            overflow-x: auto;
+        }
+
+        .arch-svg {
+            display: block;
+            width: 100%;
+            height: auto;
+            min-width: 680px;
+        }
+
+        .svg-node {
+            transition: transform 0.15s ease, filter 0.15s ease;
+        }
+
+        .svg-node:hover {
+            filter: brightness(1.22) drop-shadow(0 0 10px rgba(56, 189, 248, 0.6));
+        }
+
+        .mermaid-details {
+            margin-top: 6px;
+            font-size: 0.82rem;
+            color: var(--text-dim);
+        }
+
+        .mermaid-details summary {
+            cursor: pointer;
+            user-select: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            color: var(--text-muted);
+            transition: all 0.15s;
+        }
+
+        .mermaid-details summary:hover {
+            color: var(--primary);
+            border-color: var(--primary);
+            background: rgba(56, 189, 248, 0.08);
+        }
+
+        .map-mode-switcher {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 10px 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mode-btn:hover {
+            border-color: var(--primary);
+            color: var(--text-main);
+            background: var(--bg-card-hover);
+            transform: translateY(-1px);
+        }
+
+        .mode-btn.active {
+            background: rgba(56, 189, 248, 0.12);
+            border-color: var(--primary);
+            color: var(--primary);
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .map-tab-content {
+            display: none;
+            animation: fadeIn 0.25s ease-in-out;
+        }
+
+        .map-tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .filter-pill-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-pill {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-pill:hover, .filter-pill.active {
+            background: rgba(129, 140, 248, 0.15);
+            border-color: var(--secondary);
+            color: #c7d2fe;
+        }
+
+        .interactive-explorer {
+            display: grid;
+            grid-template-columns: 1.35fr 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        @media (max-width: 1100px) {
+            .interactive-explorer {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .subsystem-canvas {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .layer-box {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            position: relative;
+            transition: border-color 0.2s ease;
+        }
+
+        .layer-box:hover {
+            border-color: var(--border-hover);
+        }
+
+        .layer-header-tag {
+            font-size: 0.76rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+            font-weight: 700;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .node-cluster {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+        }
+
+        .imap-node {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            user-select: none;
+        }
+
+        .imap-node:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        .imap-node.active {
+            border-color: var(--primary);
+            background: rgba(56, 189, 248, 0.12);
+            box-shadow: 0 0 16px var(--primary-glow);
+        }
+
+        .imap-node .node-icon {
+            font-size: 1.25rem;
+            margin-bottom: 6px;
+        }
+
+        .imap-node .node-name {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-main);
+            margin-bottom: 2px;
+        }
+
+        .imap-node .node-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        .inspector-panel {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+            position: sticky;
+            top: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .inspector-header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+            margin-bottom: 18px;
+        }
+
+        .inspector-badge {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: rgba(56, 189, 248, 0.12);
+            color: var(--primary);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+
+        .inspector-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-bottom: 4px;
+        }
+
+        .inspector-file {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            color: var(--secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .inspector-section {
+            margin-bottom: 16px;
+        }
+
+        .inspector-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .inspector-val {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+        }
+
+        .inspector-io {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            background: var(--code-bg);
+            border: 1px solid var(--code-border);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+
+        .io-title {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+        }
+
+        .io-type {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            color: var(--primary);
+        }
+
+        .inspector-cli {
+            background: #030712;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .simulator-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .sim-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+        }
+
+        .sim-preset-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sim-preset-label {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .sim-preset-select {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .sim-preset-select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .sim-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sim-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sim-btn:hover {
+            border-color: var(--primary);
+            background: var(--bg-card-hover);
+        }
+
+        .sim-btn.primary {
+            background: var(--primary);
+            color: #030712;
+            border-color: var(--primary);
+        }
+
+        .sim-btn.primary:hover {
+            box-shadow: 0 0 16px var(--primary-glow);
+        }
+
+        .sim-track {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 24px;
+            position: relative;
+        }
+
+        @media (max-width: 900px) {
+            .sim-track {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .sim-step-dot {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .sim-step-dot:hover {
+            border-color: var(--secondary);
+        }
+
+        .sim-step-dot.active {
+            border-color: var(--primary);
+            background: rgba(56, 189, 248, 0.12);
+            box-shadow: 0 0 14px var(--primary-glow);
+        }
+
+        .sim-step-dot.completed {
+            border-color: var(--success);
+        }
+
+        .sim-step-num {
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .sim-step-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .sim-stage-banner {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .stage-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .stage-badge {
+            background: rgba(192, 132, 252, 0.15);
+            border: 1px solid rgba(192, 132, 252, 0.3);
+            color: var(--accent);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .stage-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .stage-latency {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            background: var(--bg-surface);
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .sim-dual-view {
+            display: grid;
+            grid-template-columns: 1fr 1.35fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .sim-dual-view {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .sim-pane {
+            background: var(--code-bg);
+            border: 1px solid var(--code-border);
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sim-pane-header {
+            background: #070d1a;
+            border-bottom: 1px solid var(--code-border);
+            padding: 10px 16px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sim-code-box {
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.84rem;
+            line-height: 1.6;
+            color: #e2e8f0;
+            overflow-x: auto;
+            max-height: 380px;
+            white-space: pre-wrap;
+            flex: 1;
+        }
+
+        .recipe-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+        }
+
+        .recipe-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .recipe-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .recipe-btn:hover, .recipe-btn.active {
+            background: rgba(52, 211, 153, 0.12);
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .recipe-progress-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+        }
+
+        .recipe-progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 10px;
+        }
+
+        .recipe-progress-track {
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .recipe-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--secondary), var(--success));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .recipe-step-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .recipe-step-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px 20px;
+            transition: all 0.2s ease;
+        }
+
+        .recipe-step-item.checked {
+            border-color: rgba(52, 211, 153, 0.4);
+            background: rgba(52, 211, 153, 0.04);
+        }
+
+        .recipe-step-head {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .recipe-checkbox {
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            border: 2px solid var(--border-hover);
+            background: var(--bg-surface);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .recipe-step-item.checked .recipe-checkbox {
+            background: var(--success);
+            border-color: var(--success);
+            color: #030712;
+            font-size: 0.8rem;
+            font-weight: 900;
+        }
+
+        .recipe-step-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-main);
+            flex: 1;
+        }
+
+        .recipe-step-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            color: var(--primary);
+            background: rgba(56, 189, 248, 0.08);
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(56, 189, 248, 0.15);
+        }
+
+        .recipe-step-body {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .diagram-toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             #sidebar {
@@ -879,6 +1609,1175 @@
                     </div>
                 </div>
             </div>
+
+                        <!-- SECTION 0: VISUAL MAPS & INTERACTIVE EXPLORER -->
+            <section id="visual-maps" class="section">
+                <div class="section-header">
+                    <h2>🗺️ Peta Visual Arsitektur & Rekayasa Kompilator</h2>
+                    <span class="badge" style="background: rgba(56, 189, 248, 0.15); border-color: var(--primary); color: var(--primary);">Architecture & Interactive Engine</span>
+                </div>
+                <p class="lead-text">Diagram pemetaan arsitektural terstruktur yang merangkum seluruh 30+ modul internal, alur transformasi data kompilasi, pohon keputusan kontribusi pengembang, dan siklus hidup memori Perceus.</p>
+
+                                                <!-- PETA 1: HIERARKI LAPISAN SISTEM -->
+                <div class="diagram-card">
+                    <div class="diagram-header">
+                        <div class="diagram-title">
+                            <span>🏗️</span> Peta 1: Hirarki Lapisan Sistem Kompilator (4-Layer System Map)
+                        </div>
+                        <span class="type-tag">Architecture</span>
+                    </div>
+                    <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 8px;">Memetakan bagaimana seluruh 30+ modul internal di <code>src/</code> dikelompokkan ke dalam 4 lapisan abstraksi. Klik modul apa pun untuk inspeksi cepat.</p>
+                    <div class="svg-container">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 630" width="100%" height="100%" class="arch-svg" style="background:#080d1a; border-radius:12px; font-family:'Outfit', sans-serif;">
+  <defs>
+    <linearGradient id="g-l4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="g-l3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b0764" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="g-l2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0c4a6e" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="g-l1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#064e3b" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.9"/>
+    </linearGradient>
+
+    <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#38bdf8" flood-opacity="0.25"/>
+    </filter>
+    <filter id="glow-purple" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#c084fc" flood-opacity="0.25"/>
+    </filter>
+    <filter id="glow-emerald" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#34d399" flood-opacity="0.25"/>
+    </filter>
+
+    <marker id="arr-cyan" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arr-emerald" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#34d399"/>
+    </marker>
+    <marker id="arr-purple" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#c084fc"/>
+    </marker>
+  </defs>
+
+  <!-- ================= LAPISAN 4: PERKAKAS & STDLIB ================= -->
+  <g class="svg-layer-group">
+    <rect x="30" y="25" width="900" height="120" rx="14" fill="url(#g-l4)" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.95"/>
+    <rect x="50" y="16" width="360" height="22" rx="6" fill="#4338ca"/>
+    <text x="60" y="32" fill="#e0e7ff" font-size="12" font-weight="700" letter-spacing="0.5">LAPISAN 4: PERKAKAS PENGEMBANG &amp; STDLIB</text>
+
+    <!-- Node CLI -->
+    <g class="svg-node" onclick="inspectModule('cli')" style="cursor:pointer;">
+      <rect x="50" y="50" width="132" height="78" rx="10" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.2"/>
+      <text x="62" y="74" fill="#a5b4fc" font-size="13" font-weight="700">CLI Router</text>
+      <text x="62" y="93" fill="#94a3b8" font-size="10.5" font-family="'JetBrains Mono', monospace">src/cli/</text>
+      <text x="62" y="112" fill="#64748b" font-size="10">Command dispatcher</text>
+    </g>
+
+    <!-- Node LSP -->
+    <g class="svg-node" onclick="inspectModule('lsp')" style="cursor:pointer;">
+      <rect x="195" y="50" width="132" height="78" rx="10" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.2"/>
+      <text x="207" y="74" fill="#a5b4fc" font-size="13" font-weight="700">LSP Server</text>
+      <text x="207" y="93" fill="#94a3b8" font-size="10.5" font-family="'JetBrains Mono', monospace">src/lsp/</text>
+      <text x="207" y="112" fill="#64748b" font-size="10">Auto-complete, diag</text>
+    </g>
+
+    <!-- Node DAP -->
+    <g class="svg-node" onclick="inspectModule('debug')" style="cursor:pointer;">
+      <rect x="340" y="50" width="132" height="78" rx="10" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.2"/>
+      <text x="352" y="74" fill="#a5b4fc" font-size="13" font-weight="700">Debugger DAP</text>
+      <text x="352" y="93" fill="#94a3b8" font-size="10.5" font-family="'JetBrains Mono', monospace">src/debug/</text>
+      <text x="352" y="112" fill="#64748b" font-size="10">Breakpoints, stack</text>
+    </g>
+
+    <!-- Node Package Manager -->
+    <g class="svg-node" onclick="inspectModule('modules')" style="cursor:pointer;">
+      <rect x="485" y="50" width="132" height="78" rx="10" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.2"/>
+      <text x="497" y="74" fill="#a5b4fc" font-size="13" font-weight="700">Paket (dappkg)</text>
+      <text x="497" y="93" fill="#94a3b8" font-size="10.5" font-family="'JetBrains Mono', monospace">src/modules/</text>
+      <text x="497" y="112" fill="#64748b" font-size="10">Resolusi paket</text>
+    </g>
+
+    <!-- Node Formatter & Doc -->
+    <g class="svg-node" onclick="inspectModule('fmt')" style="cursor:pointer;">
+      <rect x="630" y="50" width="132" height="78" rx="10" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.2"/>
+      <text x="642" y="74" fill="#a5b4fc" font-size="13" font-weight="700">Formatter &amp; Doc</text>
+      <text x="642" y="93" fill="#94a3b8" font-size="10.5" font-family="'JetBrains Mono', monospace">src/fmt, src/doc</text>
+      <text x="642" y="112" fill="#64748b" font-size="10">Format AST &amp; Portal</text>
+    </g>
+
+    <!-- Node Stdlib -->
+    <g class="svg-node" style="cursor:pointer;">
+      <rect x="775" y="50" width="140" height="78" rx="10" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.2"/>
+      <text x="787" y="74" fill="#a5b4fc" font-size="13" font-weight="700">Pustaka Stdlib</text>
+      <text x="787" y="93" fill="#94a3b8" font-size="10.5" font-family="'JetBrains Mono', monospace">db, net, regex</text>
+      <text x="787" y="112" fill="#64748b" font-size="10">time, json, crypto</text>
+    </g>
+  </g>
+
+  <!-- ================= LAPISAN 3: BACKEND TARGETS ================= -->
+  <g class="svg-layer-group">
+    <rect x="30" y="170" width="900" height="120" rx="14" fill="url(#g-l3)" stroke="#a855f7" stroke-width="1.5" opacity="0.95"/>
+    <rect x="50" y="161" width="360" height="22" rx="6" fill="#7e22ce"/>
+    <text x="60" y="177" fill="#f3e8ff" font-size="12" font-weight="700" letter-spacing="0.5">LAPISAN 3: MESIN EKSEKUSI &amp; CODEGEN (BACKENDS)</text>
+
+    <!-- Node Eval -->
+    <g class="svg-node" onclick="inspectModule('eval')" style="cursor:pointer;">
+      <rect x="50" y="195" width="202" height="78" rx="10" fill="#2e1065" stroke="#c084fc" stroke-width="1.2"/>
+      <text x="65" y="219" fill="#e9d5ff" font-size="13" font-weight="700">Tree-walk Interpreter</text>
+      <text x="65" y="238" fill="#c084fc" font-size="10.5" font-family="'JetBrains Mono', monospace">src/eval/ (Value, Env)</text>
+      <text x="65" y="257" fill="#a855f7" font-size="10">Eksekusi instan tanpa kompilasi C</text>
+    </g>
+
+    <!-- Node Codegen C11 -->
+    <g class="svg-node" onclick="inspectModule('codegen')" style="cursor:pointer;">
+      <rect x="272" y="195" width="202" height="78" rx="10" fill="#2e1065" stroke="#c084fc" stroke-width="1.2"/>
+      <text x="287" y="219" fill="#e9d5ff" font-size="13" font-weight="700">AOT C11 Transpiler</text>
+      <text x="287" y="238" fill="#c084fc" font-size="10.5" font-family="'JetBrains Mono', monospace">src/codegen/ (c_runtime.h)</text>
+      <text x="287" y="257" fill="#a855f7" font-size="10">Emit kode C native via GCC/Clang</text>
+    </g>
+
+    <!-- Node Wasm -->
+    <g class="svg-node" onclick="inspectModule('wasm')" style="cursor:pointer;">
+      <rect x="494" y="195" width="202" height="78" rx="10" fill="#2e1065" stroke="#c084fc" stroke-width="1.2"/>
+      <text x="509" y="219" fill="#e9d5ff" font-size="13" font-weight="700">Pure Rust Wasm32</text>
+      <text x="509" y="238" fill="#c084fc" font-size="10.5" font-family="'JetBrains Mono', monospace">src/wasm/ (Biner .wasm)</text>
+      <text x="509" y="257" fill="#a855f7" font-size="10">Bytecode emitter tanpa dependensi</text>
+    </g>
+
+    <!-- Node Mobile -->
+    <g class="svg-node" onclick="inspectModule('mobile')" style="cursor:pointer;">
+      <rect x="716" y="195" width="198" height="78" rx="10" fill="#2e1065" stroke="#c084fc" stroke-width="1.2"/>
+      <text x="731" y="219" fill="#e9d5ff" font-size="13" font-weight="700">Mobile Bundler</text>
+      <text x="731" y="238" fill="#c084fc" font-size="10.5" font-family="'JetBrains Mono', monospace">src/mobile/ (PWA &amp; APK)</text>
+      <text x="731" y="257" fill="#a855f7" font-size="10">Packaging Android WebView</text>
+    </g>
+  </g>
+
+  <!-- ================= LAPISAN 2: MIDDLE-END ================= -->
+  <g class="svg-layer-group">
+    <rect x="30" y="315" width="900" height="120" rx="14" fill="url(#g-l2)" stroke="#0284c7" stroke-width="1.5" opacity="0.95"/>
+    <rect x="50" y="306" width="360" height="22" rx="6" fill="#0369a1"/>
+    <text x="60" y="322" fill="#e0f2fe" font-size="12" font-weight="700" letter-spacing="0.5">LAPISAN 2: SEMANTIK, TIPE, &amp; MEMORI (MIDDLE-END)</text>
+
+    <!-- Node Comptime -->
+    <g class="svg-node" onclick="inspectModule('comptime')" style="cursor:pointer;">
+      <rect x="50" y="340" width="202" height="78" rx="10" fill="#082f49" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="65" y="364" fill="#bae6fd" font-size="13" font-weight="700">Comptime Folding</text>
+      <text x="65" y="383" fill="#38bdf8" font-size="10.5" font-family="'JetBrains Mono', monospace">src/comptime/</text>
+      <text x="65" y="402" fill="#7dd3fc" font-size="10">Evaluasi konstanta saat kompilasi</text>
+    </g>
+
+    <!-- Node Types -->
+    <g class="svg-node" onclick="inspectModule('types')" style="cursor:pointer;">
+      <rect x="272" y="340" width="202" height="78" rx="10" fill="#082f49" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="287" y="364" fill="#bae6fd" font-size="13" font-weight="700">HM Type Checker</text>
+      <text x="287" y="383" fill="#38bdf8" font-size="10.5" font-family="'JetBrains Mono', monospace">src/types/ (Algorithm W)</text>
+      <text x="287" y="402" fill="#7dd3fc" font-size="10">Inferensi tipe statis &amp; unifikasi</text>
+    </g>
+
+    <!-- Node Ownership -->
+    <g class="svg-node" onclick="inspectModule('ownership')" style="cursor:pointer;">
+      <rect x="494" y="340" width="202" height="78" rx="10" fill="#082f49" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="509" y="364" fill="#bae6fd" font-size="13" font-weight="700">Perceus Ownership</text>
+      <text x="509" y="383" fill="#38bdf8" font-size="10.5" font-family="'JetBrains Mono', monospace">src/ownership/</text>
+      <text x="509" y="402" fill="#7dd3fc" font-size="10">Analisis drop &amp; in-place reuse</text>
+    </g>
+
+    <!-- Node IR -->
+    <g class="svg-node" onclick="inspectModule('ir')" style="cursor:pointer;">
+      <rect x="716" y="340" width="198" height="78" rx="10" fill="#082f49" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="731" y="364" fill="#bae6fd" font-size="13" font-weight="700">Intermediate Repr (IR)</text>
+      <text x="731" y="383" fill="#38bdf8" font-size="10.5" font-family="'JetBrains Mono', monospace">src/ir/ (Linear TAC)</text>
+      <text x="731" y="402" fill="#7dd3fc" font-size="10">IR mandiri untuk semua target</text>
+    </g>
+  </g>
+
+  <!-- ================= LAPISAN 1: FRONTEND ================= -->
+  <g class="svg-layer-group">
+    <rect x="30" y="460" width="900" height="120" rx="14" fill="url(#g-l1)" stroke="#059669" stroke-width="1.5" opacity="0.95"/>
+    <rect x="50" y="451" width="360" height="22" rx="6" fill="#047857"/>
+    <text x="60" y="467" fill="#d1fae5" font-size="12" font-weight="700" letter-spacing="0.5">LAPISAN 1: ANALISIS LEKSIKAL &amp; SINTAKSIS (FRONTEND)</text>
+
+    <!-- Node Source Code -->
+    <g class="svg-node">
+      <rect x="50" y="485" width="202" height="78" rx="10" fill="#022c22" stroke="#34d399" stroke-width="1.2"/>
+      <text x="65" y="509" fill="#a7f3d0" font-size="13" font-weight="700">Kode Sumber .dap</text>
+      <text x="65" y="528" fill="#34d399" font-size="10.5" font-family="'JetBrains Mono', monospace">Input File / UTF-8</text>
+      <text x="65" y="547" fill="#6ee7b7" font-size="10">Karakter mentah berkas teks</text>
+    </g>
+
+    <!-- Node Span & Diag -->
+    <g class="svg-node">
+      <rect x="272" y="485" width="202" height="78" rx="10" fill="#022c22" stroke="#34d399" stroke-width="1.2"/>
+      <text x="287" y="509" fill="#a7f3d0" font-size="13" font-weight="700">SourceMap &amp; Span</text>
+      <text x="287" y="528" fill="#34d399" font-size="10.5" font-family="'JetBrains Mono', monospace">src/span.rs, diag.rs</text>
+      <text x="287" y="547" fill="#6ee7b7" font-size="10">Pelacakan baris, kolom, byte-offset</text>
+    </g>
+
+    <!-- Node Lexer -->
+    <g class="svg-node" onclick="inspectModule('lexer')" style="cursor:pointer;">
+      <rect x="494" y="485" width="202" height="78" rx="10" fill="#022c22" stroke="#34d399" stroke-width="1.2"/>
+      <text x="509" y="509" fill="#a7f3d0" font-size="13" font-weight="700">Lexer &amp; Tokenizer</text>
+      <text x="509" y="528" fill="#34d399" font-size="10.5" font-family="'JetBrains Mono', monospace">src/lexer/ (Vec&lt;Token&gt;)</text>
+      <text x="509" y="547" fill="#6ee7b7" font-size="10">Scanning token single-pass cepat</text>
+    </g>
+
+    <!-- Node Parser -->
+    <g class="svg-node" onclick="inspectModule('parser')" style="cursor:pointer;">
+      <rect x="716" y="485" width="198" height="78" rx="10" fill="#022c22" stroke="#34d399" stroke-width="1.2"/>
+      <text x="731" y="509" fill="#a7f3d0" font-size="13" font-weight="700">Pratt Parser &amp; AST</text>
+      <text x="731" y="528" fill="#34d399" font-size="10.5" font-family="'JetBrains Mono', monospace">src/parser/, src/ast/</text>
+      <text x="731" y="547" fill="#6ee7b7" font-size="10">Parsing presedensi operator Pratt</text>
+    </g>
+  </g>
+
+  <!-- Flow Arrows connecting layers (Right Side Conduit) -->
+  <path d="M 815 485 L 815 435 L 151 435 L 151 418" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#arr-cyan)"/>
+  <path d="M 815 340 L 815 305 L 151 305 L 151 273" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-purple)"/>
+
+  <!-- In-layer horizontal arrows for L1 -->
+  <path d="M 252 524 L 270 524" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#arr-emerald)"/>
+  <path d="M 474 524 L 492 524" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#arr-emerald)"/>
+  <path d="M 696 524 L 714 524" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#arr-emerald)"/>
+
+  <!-- In-layer horizontal arrows for L2 -->
+  <path d="M 252 379 L 270 379" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-cyan)"/>
+  <path d="M 474 379 L 492 379" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-cyan)"/>
+  <path d="M 696 379 L 714 379" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-cyan)"/>
+
+  <!-- Footer Tip -->
+  <text x="480" y="605" text-anchor="middle" fill="#94a3b8" font-size="11.5">
+    💡 <tspan fill="#38bdf8">Tip Interaktif:</tspan> Klik kotak modul di atas untuk langsung membuka detail teknis pada Inspektor Modul di bawah.
+  </text>
+</svg>
+                    </div>
+                    <details class="mermaid-details">
+                        <summary>📄 Lihat Definisi Diagram Mermaid (Salin untuk Markdown / GitHub)</summary>
+                        <div class="code-container" style="margin: 8px 0 0 0;">
+                            <div class="code-header">
+                                <span class="code-lang">Mermaid</span>
+                                <button class="code-copy-btn" onclick="copyCode(this)">Salin</button>
+                            </div>
+                            <pre><code>graph TD
+    subgraph L4 ["Lapisan 4: Perkakas Pengembang dan Pustaka Tersemat"]
+        CLI["CLI Command Router<br/>src/cli/"]
+        LSP["Language Server Protocol (LSP)<br/>src/lsp/"]
+        DAP["Debugger Interaktif dan DAP<br/>src/debug/"]
+        MOD["Manajer Paket dan Modul (dappkg)<br/>src/modules/"]
+        FMT["Formatter dan Doc Generator<br/>src/fmt/ dan src/doc/"]
+        STDLIB["Pustaka Bawaan (Stdlib)<br/>db, net, regex, time, crypto, json"]
+    end
+
+    subgraph L3 ["Lapisan 3: Mesin Eksekusi dan Pemancar Kode (Backend Targets)"]
+        EVAL["Runtime Tree-walk Interpreter<br/>src/eval/"]
+        CODEGEN["AOT C11 Transpiler dan c_runtime.h<br/>src/codegen/"]
+        WASM["Pure Rust Wasm32 Bytecode Emitter<br/>src/wasm/"]
+        MOBILE["Mobile PWA dan Android WebView Bundler<br/>src/mobile/"]
+    end
+
+    subgraph L2 ["Lapisan 2: Semantik, Tipe, dan Verifikasi Memori (Middle-End)"]
+        COMPTIME["Comptime Constant Folding<br/>src/comptime/"]
+        TYPES["Hindley-Milner Type Checker<br/>src/types/"]
+        OWNERSHIP["Perceus Memory dan Drop Analysis<br/>src/ownership/"]
+        IR["Intermediate Representation (IR)<br/>src/ir/"]
+    end
+
+    subgraph L1 ["Lapisan 1: Analisis Leksikal dan Sintaksis (Frontend)"]
+        SOURCE["Kode Sumber (.dap)"]
+        SPAN["SourceMap dan Span Tracking<br/>src/span.rs dan src/diag.rs"]
+        LEXER["Lexer dan Scanner UTF-8<br/>src/lexer/"]
+        PARSER["Pratt Parser dan Error Recovery<br/>src/parser/ dan src/ast/"]
+    end
+
+    SOURCE --> SPAN
+    SPAN --> LEXER
+    LEXER --> PARSER
+    PARSER --> COMPTIME
+    COMPTIME --> TYPES
+    TYPES --> OWNERSHIP
+    OWNERSHIP --> IR
+    IR --> EVAL
+    IR --> CODEGEN
+    IR --> WASM
+    IR --> MOBILE</code></pre>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- PETA 2: TRANSFORMASI DATA -->
+                <div class="diagram-card">
+                    <div class="diagram-header">
+                        <div class="diagram-title">
+                            <span>🔄</span> Peta 2: Alur Transformasi Data Kompilasi (End-to-End Pipeline Data Flow)
+                        </div>
+                        <span class="type-tag">Data Transformation</span>
+                    </div>
+                    <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 8px;">Struktur data spesifik yang dihasilkan dan ditransformasikan pada setiap langkah kompilasi dari kode sumber hingga biner.</p>
+                    <div class="svg-container">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1020 460" width="100%" height="100%" class="arch-svg" style="background:#080d1a; border-radius:12px; font-family:'Outfit', sans-serif;">
+  <defs>
+    <linearGradient id="g-stage" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <filter id="glow-card" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#38bdf8" flood-opacity="0.2"/>
+    </filter>
+    <marker id="arr2-cyan" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arr2-purple" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#c084fc"/>
+    </marker>
+  </defs>
+
+  <!-- Title Badge -->
+  <rect x="30" y="20" width="340" height="24" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="1"/>
+  <text x="42" y="36" fill="#38bdf8" font-size="12" font-weight="700">PIPELINE TRANSFORMASI DATA DARI KODE SUMBER HINGGA BINER</text>
+
+  <!-- Step 1: Raw Code -->
+  <g class="pipeline-step" transform="translate(30, 65)">
+    <rect width="180" height="105" rx="10" fill="#0b1329" stroke="#38bdf8" stroke-width="1.5"/>
+    <rect x="10" y="10" width="70" height="18" rx="4" fill="#0369a1"/>
+    <text x="18" y="23" fill="#e0f2fe" font-size="10" font-weight="700">TAHAP 1</text>
+    <text x="12" y="48" fill="#f8fafc" font-size="13" font-weight="700">Kode Sumber Mentah</text>
+    <text x="12" y="68" fill="#38bdf8" font-size="11" font-family="'JetBrains Mono', monospace">berkas.dap (UTF-8)</text>
+    <text x="12" y="88" fill="#64748b" font-size="10">String teks karakter mentah</text>
+  </g>
+
+  <!-- Arrow 1 -> 2 -->
+  <path d="M 210 117 L 244 117" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr2-cyan)"/>
+  <text x="227" y="108" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="'JetBrains Mono', monospace">Scanner</text>
+
+  <!-- Step 2: Tokens -->
+  <g class="pipeline-step svg-node" onclick="inspectModule('lexer')" style="cursor:pointer;" transform="translate(250, 65)">
+    <rect width="180" height="105" rx="10" fill="#0b1329" stroke="#38bdf8" stroke-width="1.5"/>
+    <rect x="10" y="10" width="70" height="18" rx="4" fill="#0369a1"/>
+    <text x="18" y="23" fill="#e0f2fe" font-size="10" font-weight="700">TAHAP 2</text>
+    <text x="12" y="48" fill="#f8fafc" font-size="13" font-weight="700">Aliran Token</text>
+    <text x="12" y="68" fill="#38bdf8" font-size="11" font-family="'JetBrains Mono', monospace">Vec&lt;Token&gt; + Span</text>
+    <text x="12" y="88" fill="#64748b" font-size="10">TokenKind, byte range, line</text>
+  </g>
+
+  <!-- Arrow 2 -> 3 -->
+  <path d="M 430 117 L 464 117" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr2-cyan)"/>
+  <text x="447" y="108" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="'JetBrains Mono', monospace">Parser</text>
+
+  <!-- Step 3: Raw AST -->
+  <g class="pipeline-step svg-node" onclick="inspectModule('parser')" style="cursor:pointer;" transform="translate(470, 65)">
+    <rect width="180" height="105" rx="10" fill="#0b1329" stroke="#38bdf8" stroke-width="1.5"/>
+    <rect x="10" y="10" width="70" height="18" rx="4" fill="#0369a1"/>
+    <text x="18" y="23" fill="#e0f2fe" font-size="10" font-weight="700">TAHAP 3</text>
+    <text x="12" y="48" fill="#f8fafc" font-size="13" font-weight="700">Pohon Sintaksis (AST)</text>
+    <text x="12" y="68" fill="#38bdf8" font-size="11" font-family="'JetBrains Mono', monospace">ast::Program</text>
+    <text x="12" y="88" fill="#64748b" font-size="10">Stmt, Expr, Span lengkap</text>
+  </g>
+
+  <!-- Arrow 3 -> 4 -->
+  <path d="M 650 117 L 684 117" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr2-cyan)"/>
+  <text x="667" y="108" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="'JetBrains Mono', monospace">Comptime</text>
+
+  <!-- Step 4: Comptime AST -->
+  <g class="pipeline-step svg-node" onclick="inspectModule('comptime')" style="cursor:pointer;" transform="translate(690, 65)">
+    <rect width="180" height="105" rx="10" fill="#0b1329" stroke="#38bdf8" stroke-width="1.5"/>
+    <rect x="10" y="10" width="70" height="18" rx="4" fill="#0369a1"/>
+    <text x="18" y="23" fill="#e0f2fe" font-size="10" font-weight="700">TAHAP 4</text>
+    <text x="12" y="48" fill="#f8fafc" font-size="13" font-weight="700">AST Teroptimasi</text>
+    <text x="12" y="68" fill="#38bdf8" font-size="11" font-family="'JetBrains Mono', monospace">Folded ast::Program</text>
+    <text x="12" y="88" fill="#64748b" font-size="10">Konstanta disederhanakan</text>
+  </g>
+
+  <!-- Bridge 4 to 5 (Curved Down) -->
+  <path d="M 870 117 L 910 117 L 910 205 L 876 205" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr2-cyan)"/>
+  <text x="915" y="165" fill="#94a3b8" font-size="9" font-family="'JetBrains Mono', monospace">Typecheck</text>
+
+  <!-- Step 5: Typed AST (Row 2, reversed or leftward) -->
+  <g class="pipeline-step svg-node" onclick="inspectModule('types')" style="cursor:pointer;" transform="translate(690, 185)">
+    <rect width="180" height="85" rx="10" fill="#131b2e" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="10" y="10" width="70" height="18" rx="4" fill="#3730a3"/>
+    <text x="18" y="23" fill="#e0e7ff" font-size="10" font-weight="700">TAHAP 5</text>
+    <text x="12" y="46" fill="#f8fafc" font-size="13" font-weight="700">AST Tervalidasi Tipe</text>
+    <text x="12" y="65" fill="#818cf8" font-size="11" font-family="'JetBrains Mono', monospace">TypeChecker::check()</text>
+  </g>
+
+  <!-- Arrow 5 -> 6 -->
+  <path d="M 690 227 L 656 227" fill="none" stroke="#818cf8" stroke-width="2" marker-end="url(#arr2-cyan)"/>
+  <text x="673" y="218" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="'JetBrains Mono', monospace">Perceus</text>
+
+  <!-- Step 6: Ownership Table -->
+  <g class="pipeline-step svg-node" onclick="inspectModule('ownership')" style="cursor:pointer;" transform="translate(470, 185)">
+    <rect width="180" height="85" rx="10" fill="#131b2e" stroke="#818cf8" stroke-width="1.5"/>
+    <rect x="10" y="10" width="70" height="18" rx="4" fill="#3730a3"/>
+    <text x="18" y="23" fill="#e0e7ff" font-size="10" font-weight="700">TAHAP 6</text>
+    <text x="12" y="46" fill="#f8fafc" font-size="13" font-weight="700">Tabel Kepemilikan</text>
+    <text x="12" y="65" fill="#818cf8" font-size="11" font-family="'JetBrains Mono', monospace">OwnershipTable (Drop)</text>
+  </g>
+
+  <!-- Arrow 6 -> 7 -->
+  <path d="M 470 227 L 436 227" fill="none" stroke="#818cf8" stroke-width="2" marker-end="url(#arr2-cyan)"/>
+  <text x="453" y="218" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="'JetBrains Mono', monospace">Lowering</text>
+
+  <!-- Step 7: IR Program -->
+  <g class="pipeline-step svg-node" onclick="inspectModule('ir')" style="cursor:pointer;" transform="translate(250, 185)">
+    <rect width="180" height="85" rx="10" fill="#1e1338" stroke="#c084fc" stroke-width="2"/>
+    <rect x="10" y="10" width="70" height="18" rx="4" fill="#581c87"/>
+    <text x="18" y="23" fill="#f3e8ff" font-size="10" font-weight="700">TAHAP 7</text>
+    <text x="12" y="46" fill="#f8fafc" font-size="13" font-weight="700">Representasi IR</text>
+    <text x="12" y="65" fill="#c084fc" font-size="11" font-family="'JetBrains Mono', monospace">ir::IRProgram (Linear)</text>
+  </g>
+
+  <!-- Split Conduit from IR to 4 Targets -->
+  <path d="M 250 227 L 160 227 L 160 330" fill="none" stroke="#c084fc" stroke-width="2"/>
+  
+  <!-- Target 1: Interpreter -->
+  <path d="M 160 330 L 160 360" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr2-cyan)"/>
+  <g class="target-node svg-node" onclick="inspectModule('eval')" style="cursor:pointer;" transform="translate(60, 365)">
+    <rect width="200" height="65" rx="8" fill="#082f49" stroke="#38bdf8" stroke-width="1.2"/>
+    <text x="14" y="26" fill="#bae6fd" font-size="12" font-weight="700">1. Tree-walk Eval</text>
+    <text x="14" y="46" fill="#38bdf8" font-size="10.5" font-family="'JetBrains Mono', monospace">eval::Value (REPL / Run)</text>
+  </g>
+
+  <!-- Target 2: Native Bin -->
+  <path d="M 160 330 L 390 330 L 390 360" fill="none" stroke="#a855f7" stroke-width="2" marker-end="url(#arr2-purple)"/>
+  <g class="target-node svg-node" onclick="inspectModule('codegen')" style="cursor:pointer;" transform="translate(290, 365)">
+    <rect width="200" height="65" rx="8" fill="#2e1065" stroke="#c084fc" stroke-width="1.2"/>
+    <text x="14" y="26" fill="#f3e8ff" font-size="12" font-weight="700">2. Biner Native AOT</text>
+    <text x="14" y="46" fill="#c084fc" font-size="10.5" font-family="'JetBrains Mono', monospace">.exe / ELF (C11 + Clang)</text>
+  </g>
+
+  <!-- Target 3: Wasm -->
+  <path d="M 390 330 L 620 330 L 620 360" fill="none" stroke="#a855f7" stroke-width="2" marker-end="url(#arr2-purple)"/>
+  <g class="target-node svg-node" onclick="inspectModule('wasm')" style="cursor:pointer;" transform="translate(520, 365)">
+    <rect width="200" height="65" rx="8" fill="#2e1065" stroke="#c084fc" stroke-width="1.2"/>
+    <text x="14" y="26" fill="#f3e8ff" font-size="12" font-weight="700">3. WebAssembly</text>
+    <text x="14" y="46" fill="#c084fc" font-size="10.5" font-family="'JetBrains Mono', monospace">.wasm Bytecode murni</text>
+  </g>
+
+  <!-- Target 4: Mobile Bundler -->
+  <path d="M 620 330 L 850 330 L 850 360" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#arr2-cyan)"/>
+  <g class="target-node svg-node" onclick="inspectModule('mobile')" style="cursor:pointer;" transform="translate(750, 365)">
+    <rect width="200" height="65" rx="8" fill="#064e3b" stroke="#34d399" stroke-width="1.2"/>
+    <text x="14" y="26" fill="#a7f3d0" font-size="12" font-weight="700">4. Bundel Mobile</text>
+    <text x="14" y="46" fill="#34d399" font-size="10.5" font-family="'JetBrains Mono', monospace">PWA + Android APK</text>
+  </g>
+</svg>
+                    </div>
+                    <details class="mermaid-details">
+                        <summary>📄 Lihat Definisi Diagram Mermaid (Salin untuk Markdown / GitHub)</summary>
+                        <div class="code-container" style="margin: 8px 0 0 0;">
+                            <div class="code-header">
+                                <span class="code-lang">Mermaid</span>
+                                <button class="code-copy-btn" onclick="copyCode(this)">Salin</button>
+                            </div>
+                            <pre><code>flowchart LR
+    A["Kode Sumber Mentah (.dap)"] -->|Scanner UTF-8| B["Aliran Token Vec(Token)"]
+    B -->|Pratt Parser| C["Pohon Sintaksis ast::Program"]
+    C -->|Comptime Folding| D["AST Teroptimasi"]
+    D -->|Algorithm W| E["AST Tervalidasi Tipe"]
+    E -->|Perceus Analysis| F["Tabel Kepemilikan Memori"]
+    F -->|IR Lowering| G["Representasi Perantara ir::IRProgram"]
+    
+    G --> H1["Interpreter (eval::Value)"]
+    G --> H2["Biner Native (.exe / ELF)"]
+    G --> H3["Biner WebAssembly (.wasm)"]
+    G --> H4["Bundel Mobile PWA / APK"]</code></pre>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- PETA 3: POHON KEPUTUSAN KONTRIBUTOR -->
+                <div class="diagram-card">
+                    <div class="diagram-header">
+                        <div class="diagram-title">
+                            <span>🧭</span> Peta 3: Alur Kerja Kontributor dan Penambahan Fitur Baru (Developer Decision Map)
+                        </div>
+                        <span class="type-tag">Decision Tree</span>
+                    </div>
+                    <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 8px;">Pohon keputusan alur kerja saat menambahkan kata kunci baru, fungsi bawaan stdlib, metode koleksi, atau perbaikan LSP.</p>
+                    <div class="svg-container">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 580" width="100%" height="100%" class="arch-svg" style="background:#080d1a; border-radius:12px; font-family:'Outfit', sans-serif;">
+  <defs>
+    <marker id="arr3-cyan" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arr3-pink" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#f472b6"/>
+    </marker>
+    <marker id="arr3-emerald" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#34d399"/>
+    </marker>
+    <marker id="arr3-purple" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#c084fc"/>
+    </marker>
+  </defs>
+
+  <!-- Start Node -->
+  <g transform="translate(365, 20)">
+    <rect width="250" height="46" rx="23" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+    <text x="125" y="28" text-anchor="middle" fill="#f8fafc" font-size="13" font-weight="700">🎯 Pengembang Ingin Menambah Fitur</text>
+  </g>
+
+  <!-- Down line to Decision Diamond -->
+  <path d="M 490 66 L 490 95" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr3-cyan)"/>
+
+  <!-- Decision Point -->
+  <g transform="translate(390, 95)">
+    <polygon points="100,0 200,32 100,64 0,32" fill="#0f172a" stroke="#fbbf24" stroke-width="2"/>
+    <text x="100" y="36" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">Pilih Jenis Fitur?</text>
+  </g>
+
+  <!-- Branch Conduits -->
+  <path d="M 390 127 L 130 127 L 130 180" fill="none" stroke="#f472b6" stroke-width="2" marker-end="url(#arr3-pink)"/>
+  <path d="M 450 159 L 370 159 L 370 180" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#arr3-emerald)"/>
+  <path d="M 530 159 L 610 159 L 610 180" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr3-cyan)"/>
+  <path d="M 590 127 L 850 127 L 850 180" fill="none" stroke="#c084fc" stroke-width="2" marker-end="url(#arr3-purple)"/>
+
+  <!-- Column 1: Kata Kunci Baru -->
+  <g transform="translate(25, 185)" class="svg-node" onclick="jumpToRecipe('keyword')" style="cursor:pointer;">
+    <rect width="210" height="300" rx="12" fill="#1f1124" stroke="#f472b6" stroke-width="1.5"/>
+    <rect x="12" y="10" width="186" height="24" rx="6" fill="#831843"/>
+    <text x="105" y="26" text-anchor="middle" fill="#fbcfe8" font-size="11.5" font-weight="700">1. KATA KUNCI BARU</text>
+
+    <g transform="translate(12, 45)">
+      <rect width="186" height="36" rx="6" fill="#2d1532" stroke="#db2777" stroke-width="1"/>
+      <text x="8" y="17" fill="#f472b6" font-size="10.5" font-weight="700">src/lexer/token.rs</text>
+      <text x="8" y="30" fill="#94a3b8" font-size="9.5">Tambah varian TokenKind</text>
+    </g>
+    <g transform="translate(12, 88)">
+      <rect width="186" height="36" rx="6" fill="#2d1532" stroke="#db2777" stroke-width="1"/>
+      <text x="8" y="17" fill="#f472b6" font-size="10.5" font-weight="700">src/lexer/mod.rs</text>
+      <text x="8" y="30" fill="#94a3b8" font-size="9.5">Daftarkan di match keyword</text>
+    </g>
+    <g transform="translate(12, 131)">
+      <rect width="186" height="36" rx="6" fill="#2d1532" stroke="#db2777" stroke-width="1"/>
+      <text x="8" y="17" fill="#f472b6" font-size="10.5" font-weight="700">src/ast/mod.rs</text>
+      <text x="8" y="30" fill="#94a3b8" font-size="9.5">Buat simpul Stmt atau Expr</text>
+    </g>
+    <g transform="translate(12, 174)">
+      <rect width="186" height="36" rx="6" fill="#2d1532" stroke="#db2777" stroke-width="1"/>
+      <text x="8" y="17" fill="#f472b6" font-size="10.5" font-weight="700">src/parser/mod.rs</text>
+      <text x="8" y="30" fill="#94a3b8" font-size="9.5">Parsing presedensi Pratt</text>
+    </g>
+    <g transform="translate(12, 217)">
+      <rect width="186" height="36" rx="6" fill="#2d1532" stroke="#db2777" stroke-width="1"/>
+      <text x="8" y="17" fill="#f472b6" font-size="10.5" font-weight="700">src/types/mod.rs</text>
+      <text x="8" y="30" fill="#94a3b8" font-size="9.5">Validasi tipe data</text>
+    </g>
+    <g transform="translate(12, 260)">
+      <rect width="186" height="32" rx="6" fill="#2d1532" stroke="#db2777" stroke-width="1"/>
+      <text x="8" y="20" fill="#f472b6" font-size="10.5" font-weight="700">src/eval &amp; codegen</text>
+    </g>
+  </g>
+
+  <!-- Column 2: Fungsi Bawaan Stdlib -->
+  <g transform="translate(265, 185)" class="svg-node" onclick="jumpToRecipe('stdlib')" style="cursor:pointer;">
+    <rect width="210" height="300" rx="12" fill="#0b241b" stroke="#34d399" stroke-width="1.5"/>
+    <rect x="12" y="10" width="186" height="24" rx="6" fill="#065f46"/>
+    <text x="105" y="26" text-anchor="middle" fill="#a7f3d0" font-size="11.5" font-weight="700">2. FUNGSI STDLIB BARU</text>
+
+    <g transform="translate(12, 50)">
+      <rect width="186" height="42" rx="6" fill="#064e3b" stroke="#059669" stroke-width="1"/>
+      <text x="8" y="18" fill="#34d399" font-size="10.5" font-weight="700">src/types/mod.rs</text>
+      <text x="8" y="33" fill="#94a3b8" font-size="9.5">lookup_builtin_type()</text>
+    </g>
+    <g transform="translate(12, 105)">
+      <rect width="186" height="42" rx="6" fill="#064e3b" stroke="#059669" stroke-width="1"/>
+      <text x="8" y="18" fill="#34d399" font-size="10.5" font-weight="700">src/eval/mod.rs</text>
+      <text x="8" y="33" fill="#94a3b8" font-size="9.5">Implementasi di eval_call()</text>
+    </g>
+    <g transform="translate(12, 160)">
+      <rect width="186" height="42" rx="6" fill="#064e3b" stroke="#059669" stroke-width="1"/>
+      <text x="8" y="18" fill="#34d399" font-size="10.5" font-weight="700">src/codegen/c_runtime.h</text>
+      <text x="8" y="33" fill="#94a3b8" font-size="9.5">Fungsi C runtime helper</text>
+    </g>
+    <g transform="translate(12, 215)">
+      <rect width="186" height="42" rx="6" fill="#064e3b" stroke="#059669" stroke-width="1"/>
+      <text x="8" y="18" fill="#34d399" font-size="10.5" font-weight="700">src/lsp/mod.rs</text>
+      <text x="8" y="33" fill="#94a3b8" font-size="9.5">Hover tooltip dokumentasi</text>
+    </g>
+  </g>
+
+  <!-- Column 3: Metode Koleksi Baru -->
+  <g transform="translate(505, 185)" class="svg-node" onclick="jumpToRecipe('method')" style="cursor:pointer;">
+    <rect width="210" height="300" rx="12" fill="#0c2233" stroke="#38bdf8" stroke-width="1.5"/>
+    <rect x="12" y="10" width="186" height="24" rx="6" fill="#075985"/>
+    <text x="105" y="26" text-anchor="middle" fill="#bae6fd" font-size="11.5" font-weight="700">3. METODE KOLEKSI BARU</text>
+
+    <g transform="translate(12, 50)">
+      <rect width="186" height="42" rx="6" fill="#082f49" stroke="#0284c7" stroke-width="1"/>
+      <text x="8" y="18" fill="#38bdf8" font-size="10.5" font-weight="700">src/types/mod.rs</text>
+      <text x="8" y="33" fill="#94a3b8" font-size="9.5">check_method_call()</text>
+    </g>
+    <g transform="translate(12, 105)">
+      <rect width="186" height="42" rx="6" fill="#082f49" stroke="#0284c7" stroke-width="1"/>
+      <text x="8" y="18" fill="#38bdf8" font-size="10.5" font-weight="700">src/eval/mod.rs</text>
+      <text x="8" y="33" fill="#94a3b8" font-size="9.5">eval_method_call()</text>
+    </g>
+    <g transform="translate(12, 160)">
+      <rect width="186" height="42" rx="6" fill="#082f49" stroke="#0284c7" stroke-width="1"/>
+      <text x="8" y="18" fill="#38bdf8" font-size="10.5" font-weight="700">src/ownership/mod.rs</text>
+      <text x="8" y="33" fill="#94a3b8" font-size="9.5">Perceus In-place reuse check</text>
+    </g>
+    <g transform="translate(12, 215)">
+      <rect width="186" height="42" rx="6" fill="#082f49" stroke="#0284c7" stroke-width="1"/>
+      <text x="8" y="18" fill="#38bdf8" font-size="10.5" font-weight="700">src/codegen/c_runtime.h</text>
+      <text x="8" y="33" fill="#94a3b8" font-size="9.5">C runtime helper collection</text>
+    </g>
+  </g>
+
+  <!-- Column 4: Quick-Fix LSP -->
+  <g transform="translate(745, 185)" class="svg-node" onclick="jumpToRecipe('lsp')" style="cursor:pointer;">
+    <rect width="210" height="300" rx="12" fill="#201133" stroke="#c084fc" stroke-width="1.5"/>
+    <rect x="12" y="10" width="186" height="24" rx="6" fill="#6b21a8"/>
+    <text x="105" y="26" text-anchor="middle" fill="#f3e8ff" font-size="11.5" font-weight="700">4. DIAGNOSTIK LSP</text>
+
+    <g transform="translate(12, 50)">
+      <rect width="186" height="42" rx="6" fill="#3b0764" stroke="#9333ea" stroke-width="1"/>
+      <text x="8" y="18" fill="#c084fc" font-size="10.5" font-weight="700">src/lsp/mod.rs</text>
+      <text x="8" y="33" fill="#94a3b8" font-size="9.5">generate_diagnostics()</text>
+    </g>
+    <g transform="translate(12, 105)">
+      <rect width="186" height="42" rx="6" fill="#3b0764" stroke="#9333ea" stroke-width="1"/>
+      <text x="8" y="18" fill="#c084fc" font-size="10.5" font-weight="700">src/lsp/mod.rs</text>
+      <text x="8" y="33" fill="#94a3b8" font-size="9.5">CodeAction (QuickFix)</text>
+    </g>
+    <g transform="translate(12, 160)">
+      <rect width="186" height="42" rx="6" fill="#3b0764" stroke="#9333ea" stroke-width="1"/>
+      <text x="8" y="18" fill="#c084fc" font-size="10.5" font-weight="700">src/lsp/mod.rs</text>
+      <text x="8" y="33" fill="#94a3b8" font-size="9.5">WorkspaceEdit &amp; TextEdit</text>
+    </g>
+    <g transform="translate(12, 215)">
+      <rect width="186" height="42" rx="6" fill="#3b0764" stroke="#9333ea" stroke-width="1"/>
+      <text x="8" y="18" fill="#c084fc" font-size="10.5" font-weight="700">tests/lsp_test.rs</text>
+      <text x="8" y="33" fill="#94a3b8" font-size="9.5">Simulasi request JSON-RPC</text>
+    </g>
+  </g>
+
+  <!-- Convergence to Bottom Target -->
+  <path d="M 130 485 L 130 520 L 490 520" fill="none" stroke="#f472b6" stroke-width="1.5"/>
+  <path d="M 370 485 L 370 520 L 490 520" fill="none" stroke="#34d399" stroke-width="1.5"/>
+  <path d="M 610 485 L 610 520 L 490 520" fill="none" stroke="#38bdf8" stroke-width="1.5"/>
+  <path d="M 850 485 L 850 520 L 490 520" fill="none" stroke="#c084fc" stroke-width="1.5"/>
+
+  <!-- Final Node -->
+  <g transform="translate(340, 508)">
+    <rect width="300" height="46" rx="23" fill="#064e3b" stroke="#34d399" stroke-width="2"/>
+    <text x="150" y="28" text-anchor="middle" fill="#a7f3d0" font-size="12.5" font-weight="700">✅ cargo test --all Lolos (Fitur Siap Di-Merge)</text>
+  </g>
+</svg>
+                    </div>
+                    <details class="mermaid-details">
+                        <summary>📄 Lihat Definisi Diagram Mermaid (Salin untuk Markdown / GitHub)</summary>
+                        <div class="code-container" style="margin: 8px 0 0 0;">
+                            <div class="code-header">
+                                <span class="code-lang">Mermaid</span>
+                                <button class="code-copy-btn" onclick="copyCode(this)">Salin</button>
+                            </div>
+                            <pre><code>flowchart TD
+    Start([Pengembang Ingin Menambahkan Fitur]) --> Q1{Pilih Jenis Fitur}
+
+    Q1 -->|1. Kata Kunci Baru| SYN1["src/lexer/token.rs<br/>Tambah TokenKind dan Display"]
+    SYN1 --> SYN2["src/lexer/mod.rs<br/>Daftarkan kata kunci di lexer"]
+    SYN2 --> SYN3["src/ast/mod.rs<br/>Buat simpul Stmt atau Expr"]
+    SYN3 --> SYN4["src/parser/mod.rs<br/>Tulis parsing Pratt di parse_stmt/expr"]
+    SYN4 --> SYN5["src/types/mod.rs<br/>Tambahkan validasi tipe di check_stmt/expr"]
+    SYN5 --> SYN6["src/eval/ dan src/codegen/<br/>Implementasikan eksekusi dan emisi C11"]
+    SYN6 --> TEST["tests/<br/>Tulis pengujian unit dan integrasi"]
+
+    Q1 -->|2. Fungsi Bawaan Stdlib Baru| LIB1["src/types/mod.rs<br/>Daftarkan tipe di lookup_builtin_type"]
+    LIB1 --> LIB2["src/eval/mod.rs<br/>Tambahkan logika di eval_call"]
+    LIB2 --> LIB3["src/codegen/mod.rs<br/>Buat helper C di c_runtime.h"]
+    LIB3 --> LIB4["src/lsp/mod.rs<br/>Tambahkan petunjuk hover di LSP"]
+    LIB4 --> TEST
+
+    Q1 -->|3. Metode Baru pada Koleksi| METH1["src/types/mod.rs<br/>Kenali metode di check_method_call"]
+    METH1 --> METH2["src/eval/mod.rs<br/>Implementasikan di eval_method_call"]
+    METH2 --> METH3["src/codegen/mod.rs<br/>Emit pemanggilan C runtime helper"]
+    METH3 --> TEST
+
+    Q1 -->|4. Diagnostik / Quick Fix LSP| LSP1["src/lsp/mod.rs<br/>Buat deteksi di generate_diagnostics"]
+    LSP1 --> LSP2["src/lsp/mod.rs<br/>Buat CodeAction dengan WorkspaceEdit"]
+    LSP2 --> TEST
+
+    TEST --> Done([Fitur Selesai dan Lolos Pengujian])</code></pre>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- PETA 4: SIKLUS HIDUP MEMORI PERCEUS -->
+                <div class="diagram-card">
+                    <div class="diagram-header">
+                        <div class="diagram-title">
+                            <span>🛡️</span> Peta 4: Siklus Hidup Memori Deterministik Perceus (Memory Lifecycle Map)
+                        </div>
+                        <span class="type-tag">Perceus Lifecycle</span>
+                    </div>
+                    <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 8px;">Alokasi, peminjaman referensi, mutasi in-place, dan pelepasan memori deterministik tanpa jeda stop-the-world GC.</p>
+                    <div class="svg-container">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 490" width="100%" height="100%" class="arch-svg" style="background:#080d1a; border-radius:12px; font-family:'Outfit', sans-serif;">
+  <defs>
+    <linearGradient id="g-node" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <marker id="arr4-cyan" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arr4-amber" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#fbbf24"/>
+    </marker>
+    <marker id="arr4-emerald" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#34d399"/>
+    </marker>
+  </defs>
+
+  <!-- Title Badge -->
+  <rect x="30" y="20" width="410" height="24" rx="6" fill="#1e293b" stroke="#34d399" stroke-width="1"/>
+  <text x="42" y="36" fill="#34d399" font-size="12" font-weight="700">SIKLUS HIDUP MEMORI DETERMINISTIK PERCEUS (0 MS STOP-THE-WORLD GC)</text>
+
+  <!-- Node 1: Objek Dibuat -->
+  <g transform="translate(30, 80)">
+    <rect width="190" height="90" rx="12" fill="#082f49" stroke="#38bdf8" stroke-width="2"/>
+    <text x="16" y="32" fill="#bae6fd" font-size="13" font-weight="700">1. Objek Dibuat</text>
+    <rect x="16" y="44" width="158" height="22" rx="4" fill="#0369a1"/>
+    <text x="24" y="59" fill="#f8fafc" font-size="11" font-weight="700" font-family="'JetBrains Mono', monospace">RefCount = 1</text>
+    <text x="16" y="80" fill="#7dd3fc" font-size="10">Alokasi memori heap baru</text>
+  </g>
+
+  <!-- Arrow to Central Runtime Node -->
+  <path d="M 220 125 L 285 125" fill="none" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arr4-cyan)"/>
+
+  <!-- Node 2: Central Runtime State -->
+  <g transform="translate(290, 80)">
+    <rect width="210" height="90" rx="12" fill="#1e293b" stroke="#818cf8" stroke-width="2"/>
+    <text x="16" y="32" fill="#e0e7ff" font-size="13" font-weight="700">2. Operasi Objek</text>
+    <text x="16" y="55" fill="#94a3b8" font-size="10.5">Runtime program berjalan,</text>
+    <text x="16" y="72" fill="#94a3b8" font-size="10.5">membaca &amp; memutasi nilai</text>
+  </g>
+
+  <!-- LOOP A: Peminjaman (Top Loop) -->
+  <path d="M 370 80 C 370 30, 480 30, 480 80" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr4-cyan)"/>
+  <rect x="375" y="22" width="120" height="20" rx="4" fill="#082f49" stroke="#0284c7" stroke-width="1"/>
+  <text x="382" y="36" fill="#7dd3fc" font-size="9.5" font-weight="700">&amp;x Peminjaman</text>
+  <text x="395" y="60" text-anchor="middle" fill="#64748b" font-size="9">Zero-copy, RefCount tetap</text>
+
+  <!-- LOOP B: Mutasi In-Place (Bottom Loop via Condition) -->
+  <path d="M 395 170 L 395 240" fill="none" stroke="#fbbf24" stroke-width="2" marker-end="url(#arr4-amber)"/>
+
+  <!-- Decision Diamond: RefCount == 1? -->
+  <g transform="translate(330, 240)">
+    <polygon points="65,0 130,35 65,70 0,35" fill="#1a1805" stroke="#fbbf24" stroke-width="2"/>
+    <text x="65" y="33" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="700">RefCount == 1?</text>
+    <text x="65" y="47" text-anchor="middle" fill="#fde68a" font-size="9">(Pemilik Tunggal)</text>
+  </g>
+
+  <!-- Yes branch: In-place reuse -->
+  <path d="M 330 275 L 210 275 L 210 155 L 285 155" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#arr4-emerald)"/>
+  <rect x="150" y="200" width="115" height="36" rx="6" fill="#064e3b" stroke="#059669" stroke-width="1"/>
+  <text x="158" y="215" fill="#a7f3d0" font-size="10" font-weight="700">✓ YA: In-Place Reuse</text>
+  <text x="158" y="228" fill="#6ee7b7" font-size="9">Buffer dipakai ulang!</text>
+
+  <!-- No branch: Copy-on-Write -->
+  <path d="M 460 275 L 560 275 L 560 155 L 505 155" fill="none" stroke="#fbbf24" stroke-width="2" marker-end="url(#arr4-amber)"/>
+  <rect x="490" y="200" width="135" height="36" rx="6" fill="#2d2207" stroke="#d97706" stroke-width="1"/>
+  <text x="498" y="215" fill="#fde68a" font-size="10" font-weight="700">✕ TIDAK: Kloning Buffer</text>
+  <text x="498" y="228" fill="#fcd34d" font-size="9">Copy-on-write (Ref &gt; 1)</text>
+
+  <!-- PATH C: Last-Use & Drop (Rightward) -->
+  <path d="M 500 125 L 585 125" fill="none" stroke="#34d399" stroke-width="2.5" marker-end="url(#arr4-emerald)"/>
+
+  <!-- Node 3: Last-Use Detected -->
+  <g transform="translate(590, 80)">
+    <rect width="180" height="90" rx="12" fill="#064e3b" stroke="#34d399" stroke-width="2"/>
+    <text x="14" y="32" fill="#a7f3d0" font-size="13" font-weight="700">3. Titik Last-Use</text>
+    <text x="14" y="53" fill="#6ee7b7" font-size="10.5">Analisis Liveness kompilator</text>
+    <text x="14" y="70" fill="#6ee7b7" font-size="10.5">mendeteksi variabel selesai</text>
+  </g>
+
+  <!-- Arrow to Automatic Drop Injection -->
+  <path d="M 680 170 L 680 235" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#arr4-emerald)"/>
+
+  <!-- Node 4: Injeksi Otomatis dap_drop -->
+  <g transform="translate(590, 240)">
+    <rect width="180" height="90" rx="12" fill="#022c22" stroke="#10b981" stroke-width="2"/>
+    <text x="14" y="30" fill="#a7f3d0" font-size="12" font-weight="700">4. Injeksi dap_drop()</text>
+    <rect x="14" y="42" width="152" height="20" rx="4" fill="#065f46"/>
+    <text x="22" y="56" fill="#f8fafc" font-size="10" font-weight="700" font-family="'JetBrains Mono', monospace">RefCount == 0</text>
+    <text x="14" y="76" fill="#34d399" font-size="10">Disisipkan otomatis di IR/C</text>
+  </g>
+
+  <!-- Arrow to Free Memory -->
+  <path d="M 680 330 L 680 380" fill="none" stroke="#34d399" stroke-width="2.5" marker-end="url(#arr4-emerald)"/>
+
+  <!-- Node 5: Terminal Free -->
+  <g transform="translate(550, 385)">
+    <rect width="260" height="75" rx="14" fill="#064e3b" stroke="#34d399" stroke-width="2.5"/>
+    <text x="130" y="30" text-anchor="middle" fill="#f8fafc" font-size="13.5" font-weight="700">🧹 Memori Heap Bebas Seketika</text>
+    <text x="130" y="52" text-anchor="middle" fill="#6ee7b7" font-size="11" font-weight="600">⚡ 0 ms Jeda GC • Tanpa Stop-the-World</text>
+  </g>
+</svg>
+                    </div>
+                    <details class="mermaid-details">
+                        <summary>📄 Lihat Definisi Diagram Mermaid (Salin untuk Markdown / GitHub)</summary>
+                        <div class="code-container" style="margin: 8px 0 0 0;">
+                            <div class="code-header">
+                                <span class="code-lang">Mermaid</span>
+                                <button class="code-copy-btn" onclick="copyCode(this)">Salin</button>
+                            </div>
+                            <pre><code>flowchart TD
+    S([Mulai: Objek Dibuat]) --> A["Alokasi Memori Heap<br/><b>RefCount = 1</b>"]
+    A --> B{"Operasi Objek"}
+    
+    B -->|Peminjaman Referensi| C["Dipinjam Sebagai &amp;x<br/><b>Zero Copy, Tanpa Kloning</b>"]
+    C -->|Selesai Pinjam| B
+    
+    B -->|Mutasi In-Place| D["Optimasi Perceus Reuse<br/><b>RefCount == 1: Buffer Dipakai Ulang</b>"]
+    D --> B
+    
+    B -->|Pembacaan Terakhir / Last-Use| E["Titik Terakhir Terdeteksi<br/><b>Analisis Liveness Kompilator</b>"]
+    E --> F["Injeksi Otomatis dap_drop<br/><b>Sisipkan Pembebasan Memori</b>"]
+    F --> G["Memori Heap Dibebaskan Seketika<br/><b>0 ms GC Pause Tanpa Stop-The-World</b>"]
+    G --> EndNode([Selesai])</code></pre>
+                        </div>
+                    </details>
+                </div>
+
+
+
+
+
+                <div class="section-header" style="margin-top: 40px;">
+                    <h2>⚡ Eksplorasi & Perkakas Interaktif</h2>
+                    <span class="badge" style="background: rgba(52, 211, 153, 0.15); border-color: var(--success); color: var(--success);">Live Widgets</span>
+                </div>
+                <p class="lead-text">Gunakan alat interaktif berikut untuk menginspeksi modul Rust internal, menjalankan simulasi alur kompilasi, dan mengikuti checklist penambahan fitur baru.</p>
+
+                <!-- Navigation Mode Switcher -->
+                <div class="map-mode-switcher">
+                    <button class="mode-btn active" onclick="switchMapTab('tab-subsystems', this)">
+                        <span>⚡</span> Peta Modul & Inspektor Interaktif
+                    </button>
+                    <button class="mode-btn" onclick="switchMapTab('tab-simulator', this)">
+                        <span>▶️</span> Simulator Pipeline Kompilasi
+                    </button>
+                    <button class="mode-btn" onclick="switchMapTab('tab-recipes', this)">
+                        <span>🧭</span> Panduan Resep Kontributor
+                    </button>
+                </div>
+
+                <!-- TAB 1: INTERACTIVE SUBSYSTEM MAP & INSPECTOR -->
+                <div id="tab-subsystems" class="map-tab-content active">
+                    <div class="filter-pill-bar">
+                        <span style="font-size: 0.82rem; color: var(--text-dim); display: flex; align-items: center; margin-right: 6px;">Filter Lapisan:</span>
+                        <button class="filter-pill active" onclick="filterLayers('all', this)">Semua Modul</button>
+                        <button class="filter-pill" onclick="filterLayers('l1', this)">Lapisan 1: Frontend</button>
+                        <button class="filter-pill" onclick="filterLayers('l2', this)">Lapisan 2: Middle-End</button>
+                        <button class="filter-pill" onclick="filterLayers('l3', this)">Lapisan 3: Backend</button>
+                        <button class="filter-pill" onclick="filterLayers('l4', this)">Lapisan 4: Perkakas & Stdlib</button>
+                    </div>
+
+                    <div class="interactive-explorer">
+                        <div class="subsystem-canvas">
+                            <!-- Layer 4 -->
+                            <div class="layer-box" data-layer="l4">
+                                <div class="layer-header-tag">
+                                    <span>Lapisan 4: Perkakas Pengembang & Pustaka Tersemat</span>
+                                    <span>Ecosystem & Tooling</span>
+                                </div>
+                                <div class="node-cluster">
+                                    <div class="imap-node" onclick="inspectModule('cli', this)">
+                                        <div class="node-icon">💻</div>
+                                        <div class="node-name">CLI Router</div>
+                                        <div class="node-path">src/cli/mod.rs</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('lsp', this)">
+                                        <div class="node-icon">💡</div>
+                                        <div class="node-name">LSP Server</div>
+                                        <div class="node-path">src/lsp/mod.rs</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('debug', this)">
+                                        <div class="node-icon">🐞</div>
+                                        <div class="node-name">DAP Debugger</div>
+                                        <div class="node-path">src/debug/mod.rs</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('modules', this)">
+                                        <div class="node-icon">📦</div>
+                                        <div class="node-name">Paket (dappkg)</div>
+                                        <div class="node-path">src/modules/mod.rs</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('stdlib', this)">
+                                        <div class="node-icon">📚</div>
+                                        <div class="node-name">Stdlib Builtins</div>
+                                        <div class="node-path">db, net, regex, time</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('doc', this)">
+                                        <div class="node-icon">📖</div>
+                                        <div class="node-name">Doc Generator</div>
+                                        <div class="node-path">src/doc/mod.rs</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Layer 3 -->
+                            <div class="layer-box" data-layer="l3">
+                                <div class="layer-header-tag">
+                                    <span>Lapisan 3: Mesin Eksekusi & Pemancar Kode</span>
+                                    <span>Backend Targets</span>
+                                </div>
+                                <div class="node-cluster">
+                                    <div class="imap-node" onclick="inspectModule('eval', this)">
+                                        <div class="node-icon">🏃</div>
+                                        <div class="node-name">Interpreter</div>
+                                        <div class="node-path">src/eval/mod.rs</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('codegen', this)">
+                                        <div class="node-icon">🔨</div>
+                                        <div class="node-name">AOT C11 Codegen</div>
+                                        <div class="node-path">src/codegen/mod.rs</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('wasm', this)">
+                                        <div class="node-icon">🌐</div>
+                                        <div class="node-name">Pure Wasm32</div>
+                                        <div class="node-path">src/wasm/mod.rs</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('mobile', this)">
+                                        <div class="node-icon">📱</div>
+                                        <div class="node-name">Mobile PWA</div>
+                                        <div class="node-path">src/mobile/mod.rs</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Layer 2 -->
+                            <div class="layer-box" data-layer="l2">
+                                <div class="layer-header-tag">
+                                    <span>Lapisan 2: Semantik, Tipe, & Verifikasi Memori</span>
+                                    <span>Middle-End</span>
+                                </div>
+                                <div class="node-cluster">
+                                    <div class="imap-node" onclick="inspectModule('comptime', this)">
+                                        <div class="node-icon">⚡</div>
+                                        <div class="node-name">Comptime Folder</div>
+                                        <div class="node-path">src/comptime/mod.rs</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('types', this)">
+                                        <div class="node-icon">🛡️</div>
+                                        <div class="node-name">Type Checker</div>
+                                        <div class="node-path">src/types/mod.rs</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('ownership', this)">
+                                        <div class="node-icon">📦</div>
+                                        <div class="node-name">Perceus Memory</div>
+                                        <div class="node-path">src/ownership/mod.rs</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('ir', this)">
+                                        <div class="node-icon">⚙️</div>
+                                        <div class="node-name">IR Lowering</div>
+                                        <div class="node-path">src/ir/mod.rs</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Layer 1 -->
+                            <div class="layer-box" data-layer="l1">
+                                <div class="layer-header-tag">
+                                    <span>Lapisan 1: Analisis Leksikal & Sintaksis</span>
+                                    <span>Frontend</span>
+                                </div>
+                                <div class="node-cluster">
+                                    <div class="imap-node active" onclick="inspectModule('lexer', this)">
+                                        <div class="node-icon">🔤</div>
+                                        <div class="node-name">Lexer / Scanner</div>
+                                        <div class="node-path">src/lexer/mod.rs</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('parser', this)">
+                                        <div class="node-icon">🌳</div>
+                                        <div class="node-name">Pratt Parser</div>
+                                        <div class="node-path">src/parser/mod.rs</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('ast', this)">
+                                        <div class="node-icon">📄</div>
+                                        <div class="node-name">AST Definition</div>
+                                        <div class="node-path">src/ast/mod.rs</div>
+                                    </div>
+                                    <div class="imap-node" onclick="inspectModule('span', this)">
+                                        <div class="node-icon">📍</div>
+                                        <div class="node-name">Span & Diagnostic</div>
+                                        <div class="node-path">src/span.rs & diag.rs</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Inspector Panel -->
+                        <div class="inspector-panel" id="module-inspector">
+                            <div class="inspector-header">
+                                <span class="inspector-badge" id="insp-layer">Lapisan 1: Frontend</span>
+                                <div class="inspector-title" id="insp-title">Lexer & Scanner UTF-8</div>
+                                <div class="inspector-file" id="insp-file">
+                                    <span>📁</span> src/lexer/mod.rs & src/lexer/token.rs
+                                </div>
+                            </div>
+
+                            <div class="inspector-io">
+                                <div>
+                                    <div class="io-title">📥 Masukan (Input)</div>
+                                    <div class="io-type" id="insp-input">&amp;str (Kode UTF-8)</div>
+                                </div>
+                                <div>
+                                    <div class="io-title">📤 Keluaran (Output)</div>
+                                    <div class="io-type" id="insp-output">Vec&lt;Token&gt;</div>
+                                </div>
+                            </div>
+
+                            <div class="inspector-section">
+                                <div class="inspector-label">🔑 Struktur Data Utama</div>
+                                <div class="inspector-val" id="insp-structs">
+                                    <code>Token</code> <code>TokenKind</code> <code>Span</code> <code>Position</code>
+                                </div>
+                            </div>
+
+                            <div class="inspector-section">
+                                <div class="inspector-label">⚙️ Algoritma & Mekanisme Internal</div>
+                                <div class="inspector-val" id="insp-algo">
+                                    Scanning single-pass berkecepatan tinggi dengan tracking byte-offset, penanganan interpolasi string <code>${expr}</code> tanpa alokasi berlebih, dan desugaring newline otomatis berdasarkan token penutup baris.
+                                </div>
+                            </div>
+
+                            <div class="inspector-section">
+                                <div class="inspector-label">🧪 Pengujian Otomatis Terkait</div>
+                                <div class="inspector-cli" id="insp-test">
+                                    cargo test --test lexer_test
+                                </div>
+                            </div>
+
+                            <div class="inspector-section" style="margin-bottom: 0;">
+                                <div class="inspector-label">🛠️ Flag Debug CLI</div>
+                                <div class="inspector-cli" style="color: var(--primary);" id="insp-cli">
+                                    dapcodec berkas.dap --debug-tokens
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: LIVE COMPILATION SIMULATOR -->
+                <div id="tab-simulator" class="map-tab-content">
+                    <div class="simulator-card">
+                        <div class="sim-topbar">
+                            <div class="sim-preset-group">
+                                <span class="sim-preset-label">Pilih Sampel Kode DapCode:</span>
+                                <select class="sim-preset-select" id="sim-preset-selector" onchange="loadSimulatorPreset(this.value)">
+                                    <option value="arithmetic">1. Variabel & Aritmatika [ (10 + 20) * 3 ]</option>
+                                    <option value="error_union">2. Error Union & Tangkap [ bagi(100, x) tangkap 0 ]</option>
+                                    <option value="perceus_buffer">3. Perceus In-Place Reuse [ data.tambah(4) ]</option>
+                                    <option value="coroutine">4. Coroutine Async [ async { fetch() } ]</option>
+                                </select>
+                            </div>
+                            <div class="sim-controls">
+                                <button class="sim-btn" onclick="simReset()" title="Kembali ke awal">⏮️ Reset</button>
+                                <button class="sim-btn" onclick="simPrev()" title="Langkah sebelumnya">◀ Mundur</button>
+                                <button class="sim-btn primary" onclick="simNext()" title="Langkah berikutnya">Lanjut ▶</button>
+                                <button class="sim-btn" id="sim-play-btn" onclick="simTogglePlay()">▶️ Putar Otomatis</button>
+                            </div>
+                        </div>
+
+                        <!-- 7-Stage Progress Beads -->
+                        <div class="sim-track">
+                            <div class="sim-step-dot active" onclick="simGoTo(0)" id="sim-dot-0">
+                                <div class="sim-step-num">Langkah 1</div>
+                                <div class="sim-step-title">Kode .dap</div>
+                            </div>
+                            <div class="sim-step-dot" onclick="simGoTo(1)" id="sim-dot-1">
+                                <div class="sim-step-num">Langkah 2</div>
+                                <div class="sim-step-title">Lexer</div>
+                            </div>
+                            <div class="sim-step-dot" onclick="simGoTo(2)" id="sim-dot-2">
+                                <div class="sim-step-num">Langkah 3</div>
+                                <div class="sim-step-title">Parser AST</div>
+                            </div>
+                            <div class="sim-step-dot" onclick="simGoTo(3)" id="sim-dot-3">
+                                <div class="sim-step-num">Langkah 4</div>
+                                <div class="sim-step-title">Type Check</div>
+                            </div>
+                            <div class="sim-step-dot" onclick="simGoTo(4)" id="sim-dot-4">
+                                <div class="sim-step-num">Langkah 5</div>
+                                <div class="sim-step-title">Perceus Drops</div>
+                            </div>
+                            <div class="sim-step-dot" onclick="simGoTo(5)" id="sim-dot-5">
+                                <div class="sim-step-num">Langkah 6</div>
+                                <div class="sim-step-title">IR Lowering</div>
+                            </div>
+                            <div class="sim-step-dot" onclick="simGoTo(6)" id="sim-dot-6">
+                                <div class="sim-step-num">Langkah 7</div>
+                                <div class="sim-step-title">Codegen C11</div>
+                            </div>
+                        </div>
+
+                        <!-- Stage Metadata Banner -->
+                        <div class="sim-stage-banner">
+                            <div class="stage-meta">
+                                <span class="stage-badge" id="sim-stage-badge">Frontend Pass</span>
+                                <div class="stage-title" id="sim-stage-title">Tahap 1: Kode Sumber Mentah (.dap)</div>
+                            </div>
+                            <div class="stage-latency" id="sim-stage-latency">Modul: Pengembang DapCode • Masukan Teks</div>
+                        </div>
+
+                        <!-- Dual Code View -->
+                        <div class="sim-dual-view">
+                            <div class="sim-pane">
+                                <div class="sim-pane-header">
+                                    <span>📥 Masukan Tahap Ini</span>
+                                    <span id="sim-input-type" style="color: var(--primary);">String UTF-8</span>
+                                </div>
+                                <div class="sim-code-box" id="sim-input-box">// Kode sumber DapCode</div>
+                            </div>
+                            <div class="sim-pane">
+                                <div class="sim-pane-header">
+                                    <span>📤 Struktur Data Transformasi</span>
+                                    <span id="sim-output-type" style="color: var(--success);">Token Stream / AST</span>
+                                </div>
+                                <div class="sim-code-box" id="sim-output-box">// Keluaran kompilator</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: CONTRIBUTOR RECIPE STEPPER -->
+                <div id="tab-recipes" class="map-tab-content">
+                    <div class="recipe-card">
+                        <div class="recipe-nav">
+                            <button class="recipe-btn active" onclick="loadRecipe('keyword', this)">1. Kata Kunci Baru</button>
+                            <button class="recipe-btn" onclick="loadRecipe('builtin', this)">2. Fungsi Stdlib Baru</button>
+                            <button class="recipe-btn" onclick="loadRecipe('method', this)">3. Metode Koleksi Baru</button>
+                            <button class="recipe-btn" onclick="loadRecipe('lsp', this)">4. Quick-Fix LSP Baru</button>
+                        </div>
+
+                        <div class="recipe-progress-wrap">
+                            <div class="recipe-progress-header">
+                                <span id="recipe-name-title">Resep: Menambahkan Kata Kunci Baru (misal: 'ulangi')</span>
+                                <span id="recipe-progress-text" style="color: var(--success);">0 / 5 Langkah Selesai (0%)</span>
+                            </div>
+                            <div class="recipe-progress-track">
+                                <div class="recipe-progress-fill" id="recipe-progress-bar"></div>
+                            </div>
+                        </div>
+
+                        <div class="recipe-step-list" id="recipe-step-container">
+                            <!-- Populated dynamically by JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
 
             <!-- SECTION 1: PIPELINE -->
             <section id="pipeline" class="section">
@@ -1331,5 +3230,994 @@ dapcodec dump-ownership program.dap</code></pre>
             });
         });
     </script>
+    <!-- ===== DAPCODE COMPILER INTERACTIVE VISUAL ENGINE ===== -->
+    <script>
+        let mermaidInitializedForTab = false;
+
+        function switchMapTab(tabId, btn) {
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.map-tab-content').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            const target = document.getElementById(tabId);
+            if (target) {
+                target.classList.add('active');
+            }
+
+            if (tabId === 'tab-mermaid' && window.mermaid && !mermaidInitializedForTab) {
+                mermaidInitializedForTab = true;
+                setTimeout(async () => {
+                    try {
+                        if (typeof mermaid.run === 'function') {
+                            await mermaid.run({
+                                querySelector: '#tab-mermaid .mermaid',
+                                suppressErrors: true
+                            });
+                        } else if (typeof mermaid.init === 'function') {
+                            mermaid.init(undefined, '#tab-mermaid .mermaid');
+                        }
+                    } catch (err) {
+                        console.warn("Mermaid notice:", err);
+                    }
+                }, 80);
+            }
+        }
+
+        function filterLayers(layer, btn) {
+            document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            const layerBoxes = document.querySelectorAll('.layer-box');
+            layerBoxes.forEach(box => {
+                if (layer === 'all' || box.getAttribute('data-layer') === layer) {
+                    box.style.display = 'block';
+                } else {
+                    box.style.display = 'none';
+                }
+            });
+        }
+
+        const moduleDatabase = {
+            lexer: {
+                title: "Lexer & Scanner UTF-8",
+                layer: "Lapisan 1: Frontend",
+                file: "src/lexer/mod.rs & src/lexer/token.rs",
+                input: "&str (Kode UTF-8 Mentah)",
+                output: "Vec<Token>",
+                structs: "Token, TokenKind, Span, Position",
+                algo: "Scanning single-pass berkecepatan tinggi dengan tracking byte-offset, penanganan interpolasi string ${expr} tanpa alokasi berlebih, dan desugaring newline otomatis berdasarkan token penutup baris.",
+                test: "cargo test --test lexer_test",
+                cli: "dapcodec berkas.dap --debug-tokens"
+            },
+            parser: {
+                title: "Pratt Parser & Error Recovery",
+                layer: "Lapisan 1: Frontend",
+                file: "src/parser/mod.rs & src/ast/mod.rs",
+                input: "Vec<Token>",
+                output: "ast::Program (Pohon AST)",
+                structs: "Program, Stmt, Expr, Precedence",
+                algo: "Top-Down Operator Precedence (Pratt Parsing) untuk ekspresi matematika dan operator perbandingan; recursive descent untuk percabangan/perulangan; panic-mode synchronization untuk mengumpulkan semua error leksikal tanpa henti.",
+                test: "cargo test --test parser_test",
+                cli: "dapcodec berkas.dap --debug-ast"
+            },
+            ast: {
+                title: "Definisi Pohon Sintaksis (AST)",
+                layer: "Lapisan 1: Frontend",
+                file: "src/ast/mod.rs",
+                input: "Struktur Gramatika DapCode",
+                output: "Hirarki Tipe Node AST",
+                structs: "StmtKind, ExprKind, Literal, Pattern",
+                algo: "Representasi data murni (pure algebraic data types) tanpa logika semantik. Dilengkapi turunan Clone, Debug, dan Serialize untuk inspeksi JSON.",
+                test: "cargo test --test parser_test",
+                cli: "dapcodec berkas.dap --ast-json"
+            },
+            span: {
+                title: "SourceMap & Diagnostik Visual",
+                layer: "Lapisan 1: Frontend",
+                file: "src/span.rs & src/diag.rs",
+                input: "Byte Offsets & Nama Berkas",
+                output: "Pesan Galat Visual Terminal",
+                structs: "Span, Diagnostic, Level, Label",
+                algo: "Menghitung baris dan kolom secara efisien menggunakan tabel offset newline; mencetak garis panah merah/kuning dengan cuplikan baris kode yang tepat.",
+                test: "cargo test --test error_report_test",
+                cli: "dapcodec check berkas.dap"
+            },
+            comptime: {
+                title: "Comptime Constant Folder",
+                layer: "Lapisan 2: Middle-End",
+                file: "src/comptime/mod.rs",
+                input: "ast::Program",
+                output: "ast::Program (Teroptimasi)",
+                structs: "ComptimeEvaluator, ConstValue",
+                algo: "Melakukan evaluasi dini terhadap ekspresi literal murni (10 + 20 -> 30) dan blok comptime { ... } sebelum pemeriksaan tipe agar cabang buntu (dead code) dapat dibuang.",
+                test: "cargo test --test comptime_test",
+                cli: "dapcodec berkas.dap --debug-comptime"
+            },
+            types: {
+                title: "Hindley-Milner Type Checker",
+                layer: "Lapisan 2: Middle-End",
+                file: "src/types/mod.rs",
+                input: "ast::Program",
+                output: "TypedProgram & SymbolTable",
+                structs: "Type, TypeScheme, TypeVar, TypeEnv",
+                algo: "Algoritma W dengan unifikasi substitusi tipe; inferensi dua arah (bidirectional type checking) untuk lambda dan error-union T ! E; pemeriksaan kepatuhan trait tanpa alokasi tipe dinamis.",
+                test: "cargo test --test type_test",
+                cli: "dapcodec berkas.dap --debug-types"
+            },
+            ownership: {
+                title: "Perceus Memory & Drop Insertion",
+                layer: "Lapisan 2: Middle-End",
+                file: "src/ownership/mod.rs",
+                input: "TypedProgram",
+                output: "OwnershipTable & AnnotatedAST",
+                structs: "OwnershipTable, LivenessTracker, DropSite",
+                algo: "Analisis liveness mundur (backward liveness analysis) untuk menemukan titik pembacaan terakhir (last-use), menyisipkan instruksi pelepasan deterministik tepat waktu, dan mendeteksi peluang mutasi in-place saat refcount == 1.",
+                test: "cargo test --test ownership_test",
+                cli: "dapcodec berkas.dap --trace-perceus"
+            },
+            ir: {
+                title: "Intermediate Representation (IR / CFG)",
+                layer: "Lapisan 2: Middle-End",
+                file: "src/ir/mod.rs",
+                input: "AnnotatedAST",
+                output: "ir::IRProgram (Linear CFG)",
+                structs: "IRProgram, BasicBlock, Instruction, Operand",
+                algo: "Mendatarkan ekspresi bersarang menjadi instruksi linear berbasis 3-Address Code; membentuk graf alur kontrol (Control Flow Graph) dan menjamin blok pembersihan drop terpanggil di setiap jalur keluar.",
+                test: "cargo test --test ir_test",
+                cli: "dapcodec berkas.dap --debug-ir"
+            },
+            eval: {
+                title: "Tree-walk & Coroutines Interpreter",
+                layer: "Lapisan 3: Backend",
+                file: "src/eval/mod.rs",
+                input: "ast::Program / ir::IRProgram",
+                output: "eval::Value (Eksekusi Langsung)",
+                structs: "Interpreter, Environment, Value, Fiber",
+                algo: "Eksekusi runtime langsung tanpa kompilasi biner; mendukung colorless coroutines di mana fungsi sinkron dan asinkron dapat saling memanggil secara transparan dengan scheduler kooperatif.",
+                test: "cargo test --test eval_test",
+                cli: "dapcodec run berkas.dap"
+            },
+            codegen: {
+                title: "AOT C11 Transpiler & Runtime",
+                layer: "Lapisan 3: Backend",
+                file: "src/codegen/mod.rs & src/codegen/c_runtime.h",
+                input: "ir::IRProgram",
+                output: "Kode Sumber C11 (.c) & Biner Native",
+                structs: "CCodegen, CHeaderEmitter",
+                algo: "Menghasilkan kode C11 murni bebas dependensi eksternal, digabungkan dengan runtime mini c_runtime.h (ref-counting Perceus, coroutine setjmp/longjmp, alokator buffer efisien).",
+                test: "cargo test --test codegen_test",
+                cli: "dapcodec build berkas.dap -o program.exe"
+            },
+            wasm: {
+                title: "Pure Rust Wasm32 Bytecode Emitter",
+                layer: "Lapisan 3: Backend",
+                file: "src/wasm/mod.rs",
+                input: "ir::IRProgram",
+                output: "Biner WebAssembly (.wasm LEB128)",
+                structs: "WasmModule, Section, Opcode",
+                algo: "Menghasilkan biner Wasm32 murni tanpa perantara LLVM atau Emscripten; mengelola linear memory heap sendiri dan menyediakan binding JS instan.",
+                test: "cargo test --test wasm_test",
+                cli: "dapcodec build berkas.dap --target wasm32"
+            },
+            mobile: {
+                title: "Mobile PWA & Android WebView Bundler",
+                layer: "Lapisan 3: Backend",
+                file: "src/mobile/mod.rs",
+                input: "Biner Wasm + Aset Web",
+                output: "Bundel PWA Offline & Proyek Android Gradle",
+                structs: "MobileBundler, ManifestGenerator",
+                algo: "Mengemas biner Wasm ke dalam struktur aplikasi web progresif dengan Service Worker offline-first atau proyek Android Studio lengkap siap 'gradlew assembleRelease'.",
+                test: "cargo test --test mobile_test",
+                cli: "dapcodec mobile bundle --android"
+            },
+            cli: {
+                title: "CLI Command Router & Orchestrator",
+                layer: "Lapisan 4: Perkakas",
+                file: "src/cli/mod.rs",
+                input: "Argumen Baris Perintah (std::env::args)",
+                output: "Eksekusi Sub-perintah Kompilator",
+                structs: "CliApp, Subcommand",
+                algo: "Routing sub-perintah (run, build, check, fmt, doc, repl, test, mobile, mod) dan orkestrasi pipeline kompilator.",
+                test: "cargo test --test cli_test",
+                cli: "dapcodec --help"
+            },
+            lsp: {
+                title: "Language Server Protocol (LSP)",
+                layer: "Lapisan 4: Perkakas",
+                file: "src/lsp/mod.rs",
+                input: "JSON-RPC via Stdin",
+                output: "Diagnostik, Hover, Completion, CodeAction",
+                structs: "LspServer, DocumentCache, QuickFix",
+                algo: "Server editor non-blocking berbasis JSON-RPC; menyediakan hover tipe hasil inferensi Hindley-Milner dan perbaikan sintaks otomatis (Quick-Fix).",
+                test: "cargo test --test lsp_test",
+                cli: "dapcodec lsp"
+            },
+            debug: {
+                title: "DAP Interactive Debugger",
+                layer: "Lapisan 4: Perkakas",
+                file: "src/debug/mod.rs",
+                input: "DAP Protocol via Stdin/Socket",
+                output: "Breakpoint, Stack Frames, Variable Inspect",
+                structs: "DapServer, Breakpoint, DebugSession",
+                algo: "Integrasi visual debugging dengan protokol Debug Adapter Protocol (DAP) standar VS Code.",
+                test: "cargo test --test debug_test",
+                cli: "dapcodec debug berkas.dap"
+            },
+            modules: {
+                title: "Manajer Paket & Modul (dappkg)",
+                layer: "Lapisan 4: Perkakas",
+                file: "src/modules/mod.rs",
+                input: "Berkas modul.dap & Registry Git",
+                output: "Resolusi Dependensi Proyek",
+                structs: "PackageManifest, DependencyGraph",
+                algo: "Resolusi dependensi semver dan pengunduhan modul git terisolasi tanpa global pollution.",
+                test: "cargo test --test module_test",
+                cli: "dapcodec mod pasang <url>"
+            },
+            stdlib: {
+                title: "Pustaka Bawaan Mandiri (Stdlib)",
+                layer: "Lapisan 4: Perkakas & Stdlib",
+                file: "db, net, regex, time, crypto, json",
+                input: "Pemanggilan Modul Bawaan",
+                output: "Fungsi Runtime Tanpa Dependensi Eksternal",
+                structs: "DapDbEngine, HttpClient, RegexMatcher",
+                algo: "Kumpulan modul mandiri yang ditulis langsung dalam Rust dan runtime C11, mencakup basis data KV tertanam dan klien HTTP murni.",
+                test: "cargo test --test stdlib_test",
+                cli: "dapcodec run examples/uji_basis_data.dap"
+            },
+            doc: {
+                title: "Generator Dokumentasi Otomatis",
+                layer: "Lapisan 4: Perkakas",
+                file: "src/doc/mod.rs",
+                input: "Komentar Dokumen /// pada Berkas .dap",
+                output: "README.md & Portal Web index.html",
+                structs: "DocExtractor, DocItem, MarkdownRenderer",
+                algo: "Mengekstrak komentar triple-slash /// dan tipe fungsi untuk membuat dokumentasi Markdown dan HTML modern.",
+                test: "cargo test --test doc_test",
+                cli: "dapcodec doc --open"
+            }
+        };
+
+        function jumpToRecipe(key) {
+            const modeBtns = document.querySelectorAll('.mode-btn');
+            if (modeBtns[2]) switchMapTab('tab-recipes', modeBtns[2]);
+            const recipeBtn = document.querySelector(`.recipe-btn[onclick*="${key}"]`);
+            loadRecipe(key, recipeBtn);
+            const target = document.getElementById('tab-recipes');
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function inspectModule(key, el) {
+            document.querySelectorAll('.imap-node').forEach(n => {
+                n.classList.remove('active');
+                if (n.getAttribute('onclick') && n.getAttribute('onclick').includes(`'${key}'`)) {
+                    n.classList.add('active');
+                }
+            });
+            if (el && el.classList && el.classList.contains('imap-node')) {
+                el.classList.add('active');
+            }
+            
+            const data = moduleDatabase[key];
+            if (!data) return;
+
+            document.getElementById('insp-layer').innerText = data.layer;
+            document.getElementById('insp-title').innerText = data.title;
+            document.getElementById('insp-file').innerHTML = '<span>📁</span> ' + data.file;
+            document.getElementById('insp-input').innerText = data.input;
+            document.getElementById('insp-output').innerText = data.output;
+            document.getElementById('insp-structs').innerHTML = data.structs.split(', ').map(s => '<code>' + s + '</code>').join(' ');
+            document.getElementById('insp-algo').innerText = data.algo;
+            document.getElementById('insp-test').innerText = data.test;
+            document.getElementById('insp-cli').innerText = data.cli;
+
+            // Ensure tab-subsystems is active if clicked from SVG
+            const tabSub = document.getElementById('tab-subsystems');
+            if (tabSub && !tabSub.classList.contains('active')) {
+                const firstModeBtn = document.querySelector('.mode-btn');
+                if (firstModeBtn) switchMapTab('tab-subsystems', firstModeBtn);
+            }
+
+            if (!el || !el.classList || !el.classList.contains('imap-node')) {
+                const inspCard = document.querySelector('.inspector-card');
+                if (inspCard) {
+                    inspCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }
+        }
+
+        const simulatorData = {
+            arithmetic: [
+                {
+                    title: "Tahap 1: Kode Sumber Mentah (.dap)",
+                    badge: "Input Teks",
+                    latency: "Masukan Pengembang • 1 baris kode",
+                    inputType: "Berkas .dap",
+                    input: "nilai := (10 + 20) * 3;\ncetak(nilai);",
+                    outputType: "String UTF-8",
+                    output: "nilai := (10 + 20) * 3;\ncetak(nilai);\n// Menghitung ekspresi aritmatika bertingkat"
+                },
+                {
+                    title: "Tahap 2: Analisis Leksikal (Lexer)",
+                    badge: "Frontend Pass",
+                    latency: "src/lexer/mod.rs • ~0.12 ms",
+                    inputType: "String UTF-8",
+                    input: "nilai := (10 + 20) * 3;\ncetak(nilai);",
+                    outputType: "Aliran Token (Vec<Token>)",
+                    output: `[
+  Token { kind: Ident("nilai"), span: 0..5 },
+  Token { kind: Assign, span: 6..8 },
+  Token { kind: LParen, span: 9..10 },
+  Token { kind: Int(10), span: 10..12 },
+  Token { kind: Plus, span: 13..14 },
+  Token { kind: Int(20), span: 15..17 },
+  Token { kind: RParen, span: 17..18 },
+  Token { kind: Star, span: 19..20 },
+  Token { kind: Int(3), span: 21..22 },
+  Token { kind: Semicolon, span: 22..23 },
+  Token { kind: Ident("cetak"), span: 24..29 },
+  Token { kind: LParen, span: 29..30 },
+  Token { kind: Ident("nilai"), span: 30..35 },
+  Token { kind: RParen, span: 35..36 }
+]`
+                },
+                {
+                    title: "Tahap 3: Parsing Sintaksis (Pratt Parser)",
+                    badge: "Frontend Pass",
+                    latency: "src/parser/mod.rs • ~0.35 ms",
+                    inputType: "Aliran Token",
+                    input: '[IDENT("nilai"), ASSIGN, LPAREN, INT(10), PLUS, INT(20), RPAREN, STAR, INT(3)]',
+                    outputType: "Pohon Sintaksis Abstrak (ast::Program)",
+                    output: `Program {
+  statements: [
+    Stmt::Assign {
+      name: "nilai",
+      value: Expr::Binary {
+        op: BinOp::Mul,
+        left: Expr::Binary {
+          op: BinOp::Add,
+          left: Expr::Literal(Lit::Int(10)),
+          right: Expr::Literal(Lit::Int(20))
+        },
+        right: Expr::Literal(Lit::Int(3))
+      }
+    },
+    Stmt::Expr(Expr::Call {
+      callee: "cetak",
+      args: [Expr::Variable("nilai")]
+    })
+  ]
+}`
+                },
+                {
+                    title: "Tahap 4: Pemeriksaan Tipe (Hindley-Milner)",
+                    badge: "Middle-End Pass",
+                    latency: "src/types/mod.rs • ~0.24 ms",
+                    inputType: "ast::Program (Untyped)",
+                    input: 'Stmt::Assign { name: "nilai", value: Mul(Add(10, 20), 3) }',
+                    outputType: "Tabel Tipe Simbol & AST Bertipe",
+                    output: `SymbolTable {
+  "nilai": Type::Int (diinferensikan dari perkalian Int * Int),
+  "cetak": Type::Fn(Type::Any) -> Type::Void
+}
+
+TypeCheckResult: OK (0 Galat Tipe, 0 Ambiguitas)`
+                },
+                {
+                    title: "Tahap 5: Analisis Memori Perceus (Deterministic Drop)",
+                    badge: "Middle-End Pass",
+                    latency: "src/ownership/mod.rs • ~0.15 ms",
+                    inputType: "AST Bertipe",
+                    input: "nilai: Int = 90; cetak(nilai);",
+                    outputType: "Anotasi Kepemilikan & Drop Sites",
+                    output: `// Variabel 'nilai' bertipe Int64 skalar (disimpan di register CPU)
+// Tidak ada alokasi heap dinamis yang perlu di-drop.
+OwnershipAnalysis: 0 Heap Allocations, 0 RefCount Overhead`
+                },
+                {
+                    title: "Tahap 6: Intermediate Representation (IR / CFG)",
+                    badge: "Middle-End Pass",
+                    latency: "src/ir/mod.rs • ~0.28 ms",
+                    inputType: "Annotated AST",
+                    input: "nilai := (10 + 20) * 3; cetak(nilai);",
+                    outputType: "ir::IRProgram (3-Address Code BasicBlocks)",
+                    output: `function main() {
+  bb0:
+    _t0 = 10
+    _t1 = 20
+    _t2 = Add _t0, _t1        ; _t2 = 30
+    _t3 = 3
+    _t4 = Mul _t2, _t3        ; _t4 = 90
+    nilai = _t4
+    call @cetak(nilai)
+    return
+}`
+                },
+                {
+                    title: "Tahap 7: Emisi Kode Akhir (C11 AOT / Native)",
+                    badge: "Backend Pass",
+                    latency: "src/codegen/mod.rs • ~0.50 ms",
+                    inputType: "ir::IRProgram",
+                    input: "bb0: _t4 = Mul(Add(10, 20), 3); call cetak(_t4);",
+                    outputType: "Biner Native / C11 Code",
+                    output: `#include "c_runtime.h"
+
+int main(void) {
+    int64_t _t2 = 10 + 20;
+    int64_t nilai = _t2 * 3;
+    dap_cetak_int(nilai); // Output: 90
+    return 0;
+}`
+                }
+            ],
+            error_union: [
+                {
+                    title: "Tahap 1: Kode Sumber Mentah (.dap)",
+                    badge: "Input Teks",
+                    latency: "Error Handling Union",
+                    inputType: "Berkas .dap",
+                    input: `fungsi bagi(a: Desimal, b: Desimal) -> Desimal ! Galat {
+    jika b == 0 { kembalikan galat("BagiNol"); }
+    kembalikan a / b;
+}
+hasil := bagi(100.0, 0.0) tangkap 0.0;
+cetak(hasil);`,
+                    outputType: "String UTF-8",
+                    output: `fungsi bagi(a: Desimal, b: Desimal) -> Desimal ! Galat {
+    jika b == 0 { kembalikan galat("BagiNol"); }
+    kembalikan a / b;
+}
+hasil := bagi(100.0, 0.0) tangkap 0.0;`
+                },
+                {
+                    title: "Tahap 2: Analisis Leksikal (Lexer)",
+                    badge: "Frontend Pass",
+                    latency: "src/lexer/mod.rs • ~0.15 ms",
+                    inputType: "String UTF-8",
+                    input: "fungsi bagi(...) -> Desimal ! Galat ... tangkap 0.0",
+                    outputType: "Aliran Token",
+                    output: '[FN, IDENT("bagi"), ..., ARROW, IDENT("Desimal"), BANG, IDENT("Galat"), ..., IDENT("tangkap"), FLOAT(0.0)]'
+                },
+                {
+                    title: "Tahap 3: Parsing Sintaksis (Pratt Parser)",
+                    badge: "Frontend Pass",
+                    latency: "src/parser/mod.rs • ~0.40 ms",
+                    inputType: "Aliran Token",
+                    input: "bagi(100.0, 0.0) tangkap 0.0",
+                    outputType: "Pohon Sintaksis AST",
+                    output: `Stmt::Assign {
+  name: "hasil",
+  value: Expr::Catch {
+    try_expr: Expr::Call { callee: "bagi", args: [100.0, 0.0] },
+    fallback_expr: Expr::Literal(0.0)
+  }
+}`
+                },
+                {
+                    title: "Tahap 4: Pemeriksaan Tipe (Hindley-Milner)",
+                    badge: "Middle-End Pass",
+                    latency: "src/types/mod.rs • ~0.30 ms",
+                    inputType: "AST",
+                    input: "Expr::Catch { try_expr, fallback_expr }",
+                    outputType: "Unifikasi Tipe Error Union",
+                    output: `Unifikasi Tipe:
+  try_expr: Type::ErrorUnion(Ok = Float, Err = Galat)
+  fallback_expr: Type::Float
+  Hasil Unifikasi 'tangkap': Type::Float (Galat di-unwrap dengan fallback)
+TypeCheck: SUKSES`
+                },
+                {
+                    title: "Tahap 5: Analisis Memori Perceus",
+                    badge: "Middle-End Pass",
+                    latency: "src/ownership/mod.rs • ~0.20 ms",
+                    inputType: "Typed AST",
+                    input: 'jika b == 0 { kembalikan galat("BagiNol"); }',
+                    outputType: "Drop Injection",
+                    output: `// String "BagiNol" pada galat dialokasikan ke struktur Galat;
+// Blok tangkap mengonsumsi dan melepaskan struct Galat seketika:
+Injeksi: dap_drop_error(err) tepat di akhir blok tangkap.`
+                },
+                {
+                    title: "Tahap 6: Intermediate Representation (IR / CFG)",
+                    badge: "Middle-End Pass",
+                    latency: "src/ir/mod.rs • ~0.35 ms",
+                    inputType: "Annotated AST",
+                    input: "hasil := bagi(...) tangkap 0.0",
+                    outputType: "Control Flow Graph dengan Percabangan Galat",
+                    output: `bb0:
+  _res = call @bagi(100.0, 0.0)
+  br_if_error _res, bb_catch, bb_success
+
+bb_catch:
+  dap_drop_error(_res.err)
+  hasil = 0.0
+  goto bb_done
+
+bb_success:
+  hasil = _res.value
+  goto bb_done
+
+bb_done:
+  call @cetak(hasil)`
+                },
+                {
+                    title: "Tahap 7: Emisi Kode Akhir (C11 AOT)",
+                    badge: "Backend Pass",
+                    latency: "src/codegen/mod.rs • ~0.55 ms",
+                    inputType: "IR Program",
+                    input: "br_if_error _res, bb_catch, bb_success",
+                    outputType: "C11 Code dengan Tagged Union",
+                    output: `dap_res_f64 _res = dap_fn_bagi(100.0, 0.0);
+double hasil = _res.is_err ? 0.0 : _res.val;
+if (_res.is_err) dap_drop_val(_res.err);
+dap_cetak_f64(hasil); // Output: 0.000000`
+                }
+            ],
+            perceus_buffer: [
+                {
+                    title: "Tahap 1: Kode Sumber Mentah (.dap)",
+                    badge: "Input Teks",
+                    latency: "Buffer In-Place Mutation",
+                    inputType: "Berkas .dap",
+                    input: "data := [1, 2, 3];\ndata = data.tambah(4);\ncetak(data);",
+                    outputType: "String UTF-8",
+                    output: "data := [1, 2, 3];\ndata = data.tambah(4);\ncetak(data);"
+                },
+                {
+                    title: "Tahap 2: Analisis Leksikal (Lexer)",
+                    badge: "Frontend Pass",
+                    latency: "src/lexer/mod.rs • ~0.10 ms",
+                    inputType: "String UTF-8",
+                    input: "data := [1, 2, 3]; data = data.tambah(4);",
+                    outputType: "Aliran Token",
+                    output: '[IDENT("data"), ASSIGN, LBRACKET, INT(1), COMMA, INT(2), COMMA, INT(3), RBRACKET, ...]'
+                },
+                {
+                    title: "Tahap 3: Parsing Sintaksis (Pratt Parser)",
+                    badge: "Frontend Pass",
+                    latency: "src/parser/mod.rs • ~0.30 ms",
+                    inputType: "Aliran Token",
+                    input: "data = data.tambah(4)",
+                    outputType: "AST",
+                    output: `Stmt::Reassign {
+  target: "data",
+  value: Expr::MethodCall {
+    receiver: Expr::Variable("data"),
+    method: "tambah",
+    args: [Expr::Literal(4)]
+  }
+}`
+                },
+                {
+                    title: "Tahap 4: Pemeriksaan Tipe (Hindley-Milner)",
+                    badge: "Middle-End Pass",
+                    latency: "src/types/mod.rs • ~0.25 ms",
+                    inputType: "AST",
+                    input: "data: List[Int].tambah(Int)",
+                    outputType: "Typed AST",
+                    output: `Resolusi Metode: List[T]::tambah(self, item: T) -> List[T]
+Tipe Variabel data: List[Int]`
+                },
+                {
+                    title: "Tahap 5: Analisis Memori Perceus (Zero-Copy Reuse)",
+                    badge: "Middle-End Pass",
+                    latency: "src/ownership/mod.rs • ~0.18 ms",
+                    inputType: "Typed AST",
+                    input: "data = data.tambah(4)",
+                    outputType: "In-Place Reuse Annotation",
+                    output: `🔥 PERCEUS INVARIANT DETECTED:
+  Variabel 'data' dikonsumsi terakhir kali pada pemanggilan ini (Last-Use).
+  Ref-Count pemegang objek == 1.
+  TIDAK DILAKUKAN DUPLIKASI MEMORI (ZERO-COPY CLONE).
+  Buffer kapasitas array yang ada langsung dipakai ulang (In-place buffer reuse)!`
+                },
+                {
+                    title: "Tahap 6: Intermediate Representation (IR / CFG)",
+                    badge: "Middle-End Pass",
+                    latency: "src/ir/mod.rs • ~0.25 ms",
+                    inputType: "Annotated AST",
+                    input: "data.tambah(4) [Reuse Token]",
+                    outputType: "IR Program",
+                    output: `bb0:
+  _arr = dap_alloc_list([1, 2, 3])
+  ; Reuse token disisipkan ke pemanggilan metode:
+  _new_arr = dap_list_append_inplace(_arr, 4)
+  call @cetak(_new_arr)
+  dap_drop(_new_arr) ; Terakhir dilepaskan di sini`
+                },
+                {
+                    title: "Tahap 7: Emisi Kode Akhir (C11 AOT)",
+                    badge: "Backend Pass",
+                    latency: "src/codegen/mod.rs • ~0.45 ms",
+                    inputType: "IR Program",
+                    input: "dap_list_append_inplace(_arr, 4)",
+                    outputType: "C11 Native Runtime",
+                    output: `dap_list_t* data = dap_list_new_3(1, 2, 3);
+// Perceus fast-path: refcount == 1, realloc buffer in-place
+data = dap_list_push_inplace(data, 4);
+dap_cetak_list(data); // Output: [1, 2, 3, 4]
+dap_drop_list(data); // Bebas seketika tanpa jeda GC`
+                }
+            ],
+            coroutine: [
+                {
+                    title: "Tahap 1: Kode Sumber Mentah (.dap)",
+                    badge: "Input Teks",
+                    latency: "Colorless Coroutine",
+                    inputType: "Berkas .dap",
+                    input: `tugas := async {
+    tidur(100); // ms
+    kembalikan 42;
+};
+hasil := tunggu tugas;
+cetak(hasil);`,
+                    outputType: "String UTF-8",
+                    output: `tugas := async { tidur(100); kembalikan 42; };
+hasil := tunggu tugas;
+cetak(hasil);`
+                },
+                {
+                    title: "Tahap 2: Analisis Leksikal (Lexer)",
+                    badge: "Frontend Pass",
+                    latency: "src/lexer/mod.rs • ~0.10 ms",
+                    inputType: "String UTF-8",
+                    input: "async { ... }; tunggu tugas",
+                    outputType: "Aliran Token",
+                    output: '[ASYNC, LBRACE, ..., RBRACE, SEMICOLON, IDENT("hasil"), ASSIGN, AWAIT, IDENT("tugas")]'
+                },
+                {
+                    title: "Tahap 3: Parsing Sintaksis (Pratt Parser)",
+                    badge: "Frontend Pass",
+                    latency: "src/parser/mod.rs • ~0.32 ms",
+                    inputType: "Aliran Token",
+                    input: "Expr::AsyncBlock, Expr::Await",
+                    outputType: "AST",
+                    output: `Expr::AsyncBlock { body: Block([Stmt::Sleep(100), Stmt::Return(42)]) }
+Expr::Await { task: Expr::Variable("tugas") }`
+                },
+                {
+                    title: "Tahap 4: Pemeriksaan Tipe (Hindley-Milner)",
+                    badge: "Middle-End Pass",
+                    latency: "src/types/mod.rs • ~0.22 ms",
+                    inputType: "AST",
+                    input: "async block -> Task[T]",
+                    outputType: "Typed AST",
+                    output: `tugas: Type::Task(Type::Int)
+hasil: Type::Int (di-unwrap dari Task via 'tunggu')`
+                },
+                {
+                    title: "Tahap 5: Analisis Memori Perceus",
+                    badge: "Middle-End Pass",
+                    latency: "src/ownership/mod.rs • ~0.16 ms",
+                    inputType: "Typed AST",
+                    input: "Task Fiber Context",
+                    outputType: "Fiber Lifetime Tracking",
+                    output: "Stack bingkai coroutine dibungkus dalam referensi Rc terkelola; drop context terjadi otomatis saat task selesai."
+                },
+                {
+                    title: "Tahap 6: Intermediate Representation (IR / CFG)",
+                    badge: "Middle-End Pass",
+                    latency: "src/ir/mod.rs • ~0.30 ms",
+                    inputType: "Annotated AST",
+                    input: "Coroutine State Machine",
+                    outputType: "Generator State Machine CFG",
+                    output: `struct FiberContext {
+  state: u32,
+  result: i64
+}
+
+state 0 -> jalankan timer
+state 1 -> resume saat siap & isi result = 42`
+                },
+                {
+                    title: "Tahap 7: Emisi Kode Akhir (C11 AOT)",
+                    badge: "Backend Pass",
+                    latency: "src/codegen/mod.rs • ~0.48 ms",
+                    inputType: "IR Program",
+                    input: "Fiber state machine",
+                    outputType: "C11 Runtime Setjmp/Longjmp Fiber",
+                    output: `dap_fiber_t* tugas = dap_spawn_fiber(fiber_worker_fn);
+int64_t hasil = dap_await_fiber(tugas);
+dap_cetak_int(hasil); // Output: 42`
+                }
+            ]
+        };
+
+        let currentSimPreset = 'arithmetic';
+        let currentSimStep = 0;
+        let simInterval = null;
+
+        function updateSimView() {
+            const steps = simulatorData[currentSimPreset];
+            const stepData = steps[currentSimStep];
+
+            for (let i = 0; i < 7; i++) {
+                const dot = document.getElementById(`sim-dot-${i}`);
+                if (!dot) continue;
+                dot.classList.remove('active', 'completed');
+                if (i === currentSimStep) {
+                    dot.classList.add('active');
+                } else if (i < currentSimStep) {
+                    dot.classList.add('completed');
+                }
+            }
+
+            document.getElementById('sim-stage-badge').innerText = stepData.badge;
+            document.getElementById('sim-stage-title').innerText = stepData.title;
+            document.getElementById('sim-stage-latency').innerText = stepData.latency;
+
+            document.getElementById('sim-input-type').innerText = stepData.inputType;
+            document.getElementById('sim-input-box').innerText = stepData.input;
+
+            document.getElementById('sim-output-type').innerText = stepData.outputType;
+            document.getElementById('sim-output-box').innerText = stepData.output;
+        }
+
+        function loadSimulatorPreset(val) {
+            currentSimPreset = val;
+            currentSimStep = 0;
+            if (simInterval) simStopPlay();
+            updateSimView();
+        }
+
+        function simNext() {
+            if (currentSimStep < 6) {
+                currentSimStep++;
+                updateSimView();
+            } else {
+                if (simInterval) simStopPlay();
+            }
+        }
+
+        function simPrev() {
+            if (currentSimStep > 0) {
+                currentSimStep--;
+                updateSimView();
+            }
+        }
+
+        function simReset() {
+            currentSimStep = 0;
+            if (simInterval) simStopPlay();
+            updateSimView();
+        }
+
+        function simGoTo(stepIndex) {
+            currentSimStep = stepIndex;
+            updateSimView();
+        }
+
+        function simTogglePlay() {
+            if (simInterval) {
+                simStopPlay();
+            } else {
+                document.getElementById('sim-play-btn').innerText = '⏸️ Jeda';
+                simInterval = setInterval(() => {
+                    if (currentSimStep < 6) {
+                        simNext();
+                    } else {
+                        currentSimStep = 0;
+                        updateSimView();
+                    }
+                }, 2000);
+            }
+        }
+
+        function simStopPlay() {
+            clearInterval(simInterval);
+            simInterval = null;
+            const btn = document.getElementById('sim-play-btn');
+            if (btn) btn.innerText = '▶️ Putar Otomatis';
+        }
+
+        const contributorRecipes = {
+            keyword: {
+                title: "Resep 1: Menambahkan Kata Kunci Baru (misal: 'ulangi')",
+                steps: [
+                    {
+                        title: "1. Daftarkan Varian Token di TokenKind",
+                        path: "src/lexer/token.rs",
+                        body: "Buka <code>src/lexer/token.rs</code>, tambahkan varian baru pada enum <code>TokenKind</code> dan implementasi <code>Display</code>.",
+                        code: "pub enum TokenKind {\n    // ...\n    Ulangi, // Kata kunci baru\n}\n\nimpl fmt::Display for TokenKind {\n    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {\n        match self {\n            TokenKind::Ulangi => write!(f, \"ulangi\"),\n            // ...\n        }\n    }\n}"
+                    },
+                    {
+                        title: "2. Kenali String Kata Kunci di Lexer",
+                        path: "src/lexer/mod.rs",
+                        body: "Buka <code>src/lexer/mod.rs</code> pada pemetaan kata kunci (identifier lookup):",
+                        code: "match ident.as_str() {\n    \"ulangi\" => TokenKind::Ulangi,\n    // kata kunci lainnya...\n    _ => TokenKind::Ident(ident),\n}"
+                    },
+                    {
+                        title: "3. Definisikan Simpul Sintaksis di AST",
+                        path: "src/ast/mod.rs",
+                        body: "Tambahkan varian baru pada <code>Stmt</code> atau <code>Expr</code>:",
+                        code: "pub enum Stmt {\n    // ...\n    Ulangi {\n        count: Expr,\n        body: Vec<Stmt>,\n        span: Span,\n    },\n}"
+                    },
+                    {
+                        title: "4. Tulis Parsing di Parser Pratt / Recursive Descent",
+                        path: "src/parser/mod.rs",
+                        body: "Di <code>parse_stmt()</code>, tambahkan pencocokan token:",
+                        code: "if self.match_token(&TokenKind::Ulangi) {\n    let count = self.parse_expr(Precedence::Lowest)?;\n    self.consume(&TokenKind::LBrace, \"Diharapkan '{' setelah jumlah ulangi\")?;\n    let body = self.parse_block()?;\n    return Ok(Stmt::Ulangi { count, body, span });\n}"
+                    },
+                    {
+                        title: "5. Validasi Tipe & Eksekusi di Evaluator / Codegen",
+                        path: "src/types/mod.rs & src/eval/mod.rs",
+                        body: "Pastikan ekspresi <code>count</code> memiliki tipe <code>Type::Int</code>, lalu eksekusi perulangan di <code>eval_stmt()</code> atau hasilkan perulangan <code>for</code> C11 di <code>src/codegen/mod.rs</code>.",
+                        code: "// src/types/mod.rs:\nlet count_ty = self.check_expr(count, env)?;\nself.unify(&count_ty, &Type::Int, count.span())?;\n\n// Validasi via tes:\ncargo test --test parser_test"
+                    }
+                ]
+            },
+            builtin: {
+                title: "Resep 2: Menambahkan Fungsi Bawaan Stdlib Baru",
+                steps: [
+                    {
+                        title: "1. Daftarkan Tipe Fungsi di Type Checker",
+                        path: "src/types/mod.rs",
+                        body: "Tambahkan signature tipe fungsi pada <code>lookup_builtin_type()</code>:",
+                        code: "match name {\n    \"matematika::akar\" => Some(Type::Fn(\n        vec![Type::Float],\n        Box::new(Type::Float)\n    )),\n    // ...\n}"
+                    },
+                    {
+                        title: "2. Implementasikan Logika Eksekusi di Interpreter",
+                        path: "src/eval/mod.rs",
+                        body: "Di dalam <code>eval_call()</code>, tangani pemanggilan fungsi:",
+                        code: "match callee_name {\n    \"matematika::akar\" => {\n        let val = args[0].as_float()?;\n        Ok(Value::Float(val.sqrt()))\n    },\n    // ...\n}"
+                    },
+                    {
+                        title: "3. Sediakan Implementasi C di Runtime Helper",
+                        path: "src/codegen/c_runtime.h & src/codegen/mod.rs",
+                        body: "Tulis fungsi pembantu ANSI C11 di <code>c_runtime.h</code>:",
+                        code: "static inline double dap_matematika_akar(double x) {\n    return sqrt(x);\n}"
+                    },
+                    {
+                        title: "4. Tambahkan Dokumentasi Hover di LSP",
+                        path: "src/lsp/mod.rs",
+                        body: "Tambahkan entri markdown dokumentasi agar pengembang mendapatkan hover penjelasan di VS Code:",
+                        code: "pub fn get_builtin_hover(name: &str) -> Option<&'static str> {\n    match name {\n        \"matematika::akar\" => Some(\"**matematika::akar(x: Desimal) -> Desimal**\\n\\nMenghitung akar kuadrat dari bilangan desimal non-negatif.\"),\n        // ...\n    }\n}"
+                    },
+                    {
+                        title: "5. Tulis Pengujian Otomatis",
+                        path: "tests/stdlib_test.rs",
+                        body: "Jalankan pengujian untuk memastikan fungsi bekerja di REPL dan mode C11:",
+                        code: "cargo test --test stdlib_test"
+                    }
+                ]
+            },
+            method: {
+                title: "Resep 3: Menambahkan Metode Baru pada Tipe Koleksi (List/Map/String)",
+                steps: [
+                    {
+                        title: "1. Kenali Metode pada Type Checker",
+                        path: "src/types/mod.rs",
+                        body: "Di <code>check_method_call()</code>, tambahkan pengenalan metode:",
+                        code: "match (receiver_ty, method_name) {\n    (Type::List(elem_ty), \"balikkan\") => {\n        // Mengembalikan list baru dengan tipe elemen yang sama\n        Ok(Type::List(elem_ty.clone()))\n    },\n    // ...\n}"
+                    },
+                    {
+                        title: "2. Anotasi Perceus untuk In-Place Mutation",
+                        path: "src/ownership/mod.rs",
+                        body: "Tentukan apakah metode ini dapat memodifikasi buffer langsung jika refcount == 1:",
+                        code: "if method == \"balikkan\" && is_last_use(receiver) {\n    mark_as_inplace_reuse(node);\n}"
+                    },
+                    {
+                        title: "3. Implementasikan Logika di Interpreter",
+                        path: "src/eval/mod.rs",
+                        body: "Buka <code>eval_method_call()</code> dan balikkan elemen array:",
+                        code: "let mut list = receiver.as_list()?.clone();\nlist.reverse();\nOk(Value::List(list))"
+                    },
+                    {
+                        title: "4. Emit Runtime Helper C11",
+                        path: "src/codegen/c_runtime.h",
+                        body: "Sediakan fungsi pembalik array di C runtime:",
+                        code: "dap_list_t* dap_list_reverse(dap_list_t* list);"
+                    },
+                    {
+                        title: "5. Uji Mutasi & Pencegahan Kebocoran Memori",
+                        path: "tests/ownership_test.rs",
+                        body: "Jalankan test suite ownership dan interpreter:",
+                        code: "cargo test --test ownership_test && cargo test --test eval_test"
+                    }
+                ]
+            },
+            lsp: {
+                title: "Resep 4: Menambahkan Diagnostik & Quick-Fix LSP Baru",
+                steps: [
+                    {
+                        title: "1. Deteksi Pola Kesalahan di generate_diagnostics",
+                        path: "src/lsp/mod.rs",
+                        body: "Periksa pola AST yang tidak optimal atau berpotensi galat:",
+                        code: "if let Stmt::VarDecl { name, used: false, span, .. } = stmt {\n    diagnostics.push(Diagnostic {\n        range: span_to_range(span),\n        message: format!(\"Variabel '{}' tidak pernah digunakan\", name),\n        severity: DiagnosticSeverity::WARNING,\n        code: Some(\"W001\".into()),\n    });\n}"
+                    },
+                    {
+                        title: "2. Definisikan Tindakan Kode (CodeAction / QuickFix)",
+                        path: "src/lsp/mod.rs",
+                        body: "Buat CodeAction dengan rekomendasi perbaikan:",
+                        code: "let action = CodeAction {\n    title: format!(\"Tambahkan awalan '_' pada _{}\", name),\n    kind: CodeActionKind::QUICKFIX,\n    edit: Some(WorkspaceEdit { ... }),\n};"
+                    },
+                    {
+                        title: "3. Terapkan WorkspaceEdit",
+                        path: "src/lsp/mod.rs",
+                        body: "Ganti identifier di teks dokumen secara otomatis.",
+                        code: "TextEdit { range: span_to_range(span), new_text: format!(\"_{}\", name) }"
+                    },
+                    {
+                        title: "4. Verifikasi dengan Unit Test LSP",
+                        path: "tests/lsp_test.rs",
+                        body: "Pastikan simulasi request JSON-RPC menghasilkan diagnostik yang tepat:",
+                        code: "cargo test --test lsp_test"
+                    }
+                ]
+            }
+        };
+
+        let currentRecipeKey = 'keyword';
+        let recipeCompletedSteps = {};
+
+        function loadRecipe(key, btn) {
+            currentRecipeKey = key;
+            document.querySelectorAll('.recipe-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+
+            const recipe = contributorRecipes[key];
+            document.getElementById('recipe-name-title').innerText = recipe.title;
+
+            if (!recipeCompletedSteps[key]) {
+                recipeCompletedSteps[key] = new Set();
+            }
+
+            renderRecipeSteps();
+        }
+
+        function toggleRecipeStep(stepIndex) {
+            const set = recipeCompletedSteps[currentRecipeKey];
+            if (set.has(stepIndex)) {
+                set.delete(stepIndex);
+            } else {
+                set.add(stepIndex);
+            }
+            renderRecipeSteps();
+        }
+
+        function renderRecipeSteps() {
+            const recipe = contributorRecipes[currentRecipeKey];
+            const container = document.getElementById('recipe-step-container');
+            const set = recipeCompletedSteps[currentRecipeKey];
+            const total = recipe.steps.length;
+            const completed = set.size;
+            const pct = Math.round((completed / total) * 100);
+
+            document.getElementById('recipe-progress-text').innerText = `${completed} / ${total} Langkah Selesai (${pct}%)`;
+            document.getElementById('recipe-progress-bar').style.width = `${pct}%`;
+
+            let html = '';
+            recipe.steps.forEach((step, idx) => {
+                const isChecked = set.has(idx);
+                html += `
+                <div class="recipe-step-item ${isChecked ? 'checked' : ''}">
+                    <div class="recipe-step-head" onclick="toggleRecipeStep(${idx})">
+                        <div class="recipe-checkbox">${isChecked ? '✓' : ''}</div>
+                        <div class="recipe-step-title" style="${isChecked ? 'text-decoration: line-through; opacity: 0.7;' : ''}">${step.title}</div>
+                        <span class="recipe-step-path">${step.path}</span>
+                    </div>
+                    <div class="recipe-step-body">
+                        <p style="margin-bottom: 10px;">${step.body}</p>
+                        <div class="code-container" style="margin: 0;">
+                            <div class="code-header">
+                                <span class="code-lang">Rust</span>
+                                <button class="copy-btn" onclick="copyCode(this)">Salin</button>
+                            </div>
+                            <pre><code class="language-rust">${step.code}</code></pre>
+                        </div>
+                    </div>
+                </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSimView();
+            const firstRecipeBtn = document.querySelector('.recipe-btn');
+            if (firstRecipeBtn) {
+                loadRecipe('keyword', firstRecipeBtn);
+            }
+        });
+    </script>
+
 </body>
 </html>

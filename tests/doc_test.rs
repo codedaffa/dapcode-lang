@@ -136,3 +136,22 @@ fn test_cli_cmd_doc_execution() {
     // Cleanup
     let _ = fs::remove_dir_all(out_dir);
 }
+
+#[test]
+fn test_doc_uji_basis_data_escaped_strings_and_interpolation() {
+    let out_dir = Path::new("target/uji_doc_basis_data");
+    let _ = fs::remove_dir_all(out_dir);
+
+    let res = cmd_doc(Some(Path::new("examples/uji_basis_data.dap")), Some(out_dir), "semua", false);
+    assert!(res.is_ok(), "cmd_doc on uji_basis_data.dap failed: {:?}", res);
+
+    assert!(out_dir.join("README.md").exists(), "README.md not created");
+    assert!(out_dir.join("index.html").exists(), "index.html not created");
+
+    let md_content = fs::read_to_string(out_dir.join("README.md")).unwrap();
+    assert!(md_content.contains("demo_database_dasar"));
+    assert!(md_content.contains("demo_transaksi_acid"));
+
+    // Cleanup
+    let _ = fs::remove_dir_all(out_dir);
+}
