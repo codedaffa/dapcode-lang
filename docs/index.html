@@ -791,7 +791,7 @@
             </div>
 
             <div class="nav-group">
-                <div class="nav-group-title">Tiga Backend Kompilasi</div>
+                <div class="nav-group-title">Empat Target Kompilasi</div>
                 <a href="#backend-interpreter" class="nav-item">
                     <span>• Interpreter Runtime</span>
                     <span class="nav-badge">eval</span>
@@ -803,6 +803,10 @@
                 <a href="#backend-wasm" class="nav-item">
                     <span>• WebAssembly Wasm32</span>
                     <span class="nav-badge">wasm</span>
+                </a>
+                <a href="#backend-mobile" class="nav-item">
+                    <span>• Mobile PWA & Android</span>
+                    <span class="nav-badge">mobile</span>
                 </a>
             </div>
 
@@ -968,6 +972,10 @@
                                     <h4><span>🌐</span> WebAssembly Wasm32</h4>
                                     <p><strong>src/wasm/mod.rs</strong><br>Generator biner Wasm32 mandiri tanpa dependensi LLVM. Menghasilkan berkas <code>.wasm</code> siap browser.</p>
                                 </div>
+                                <div class="backend-box">
+                                    <h4><span>📱</span> Mobile PWA & Android</h4>
+                                    <p><strong>src/mobile/mod.rs</strong><br>Bundler Progressive Web App & template Android Studio/Gradle. Dilengkapi QR Code Wi-Fi untuk uji coba di ponsel.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1094,6 +1102,19 @@
                             <span class="type-tag">ModuleLoader</span>
                             <span class="type-tag">Lockfile</span>
                             <span class="type-tag">Manifest</span>
+                        </div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-header">
+                            <span class="module-name">src/mobile/</span>
+                            <span class="module-size">48.5 KB</span>
+                        </div>
+                        <p class="module-desc">Bundler aplikasi mobile PWA & Android WebView mandiri. Menghasilkan manifest, service worker offline, ikon resolusi tinggi, QR code terminal, dan template Android Studio.</p>
+                        <div class="module-types">
+                            <span class="type-tag">PwaBundler</span>
+                            <span class="type-tag">QrEncoder</span>
+                            <span class="type-tag">AndroidTemplate</span>
                         </div>
                     </div>
                 </div>

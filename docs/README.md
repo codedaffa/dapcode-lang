@@ -15,7 +15,7 @@ Versi HTML interaktif yang dilengkapi pencarian instan dan diagram visual dapat 
 3. [Peta & Anatomi Modul Internal (`src/`)](#3-peta--anatomi-modul-internal-src)
 4. [Sistem Tipe & Inferensi Hindley-Milner (`src/types/`)](#4-sistem-tipe--inferensi-hindley-milner-srctypes)
 5. [Manajemen Memori Deterministik Perceus (`src/ownership/`)](#5-manajemen-memori-deterministik-perceus-srcownership)
-6. [Tiga Backend Kompilasi (Interpreter, C11 AOT, Wasm32)](#6-tiga-backend-kompilasi-interpreter-c11-aot-wasm32)
+6. [Empat Target Kompilasi & Mobile Bundler (Interpreter, C11 AOT, Wasm32, Mobile PWA)](#6-empat-target-kompilasi--mobile-bundler)
 7. [Pustaka Standar Bawaan (*Standard Library Batteries*)](#7-pustaka-standar-bawaan-standard-library-batteries)
 8. [Language Server Protocol (LSP) & Debug Adapter Protocol (DAP)](#8-language-server-protocol-lsp--debug-adapter-protocol-dap)
 9. [Manajer Paket `dappkg` & Sistem Modul Multi-Berkas](#9-manajer-paket-dappkg--sistem-modul-multi-berkas)
@@ -32,10 +32,11 @@ DapCode dirancang dengan prinsip:
 * **Keamanan Memori 100% Tanpa Garbage Collector (GC):** Memanfaatkan analisis kepemilikan kompilasi (*compile-time ownership*) dan *Perceus reference counting* deterministik, menyisipkan pelepasan memori (*drop*) secara otomatis pada titik penggunaan terakhir (*last-use*).
 * **Zero Null Pointer Exception:** Nilai tidak pernah bernilai `null` / `nil`. Hasil yang dapat gagal dimodelkan secara matematis dengan *Error Union* (`T ! E`).
 * **Sintaksis Alami Bahasa Indonesia:** Menggantikan kata kunci tradisional dengan ekspresi bahasa Indonesia yang ergonomis (`fungsi`, `jika`, `selama`, `untuk`, `struktur`, `sifat`, `terapkan`, `kembali`, `gagal`, `tangkap`, `uji`, `pastikan`).
-* **Portabilitas Tiga Target Eksekusi:**
+* **Portabilitas Empat Target Eksekusi:**
   1. *Runtime Tree-walk Interpreter*: Eksekusi instan tanpa waktu kompilasi (`dapcodec run`).
   2. *Ahead-Of-Time (AOT) C11 Transpiler*: Menghasilkan biner mesin mandiri berperforma tinggi (`dapcodec build`).
   3. *Standalone Wasm32 Bytecode Generator*: Menghasilkan biner WebAssembly tanpa ketergantungan pada LLVM (`dapcodec build --wasm`).
+  4. *Mobile PWA & Hybrid Android WebView Bundler*: Menghasilkan aplikasi mobile mandiri lengkap dengan Web App Manifest, Service Worker offline, dan template proyek Android Studio siap rilis APK (`dapcodec mobile build` / `dapcodec build --pwa`).
 
 ---
 
@@ -117,7 +118,8 @@ Berikut adalah pemetaan berkas-berkas Rust di dalam `src/` beserta tanggung jawa
 | [`src/modules/`](../src/modules/) | ~33.9 KB | Resolusi modul multi-berkas (`impor`), siklus pencegahan impor, manifes `DapCode.toml`, manajer paket `dappkg`, penguncian integritas SHA-256 `DapCode.lock`. |
 | [`src/fmt/`](../src/fmt/) | ~14.9 KB | Pemformat kode sumber otomatis (`dapcodec fmt`). |
 | [`src/doc/`](../src/doc/) | ~42.0 KB | Generator dokumentasi API proyek (`dapcodec doc`). |
-| [`src/cli/`](../src/cli/) | ~92.5 KB | Penangan baris perintah (*subcommands*), dashboard selamat datang konsol penuh warna, verifikasi lingkungan. |
+| [`src/cli/`](../src/cli/) | ~97.5 KB | Penangan baris perintah (*subcommands*), dashboard konsol interaktif, verifikasi lingkungan. |
+| [`src/mobile/`](../src/mobile/) | ~48.5 KB | Bundler PWA Mobile, generator Web App Manifest, offline Service Worker, terminal QR Code Wi-Fi dev-server, dan template Android WebView. |
 
 ---
 
@@ -158,7 +160,7 @@ DapCode tidak menggunakan Garbage Collector (GC) yang menghentikan eksekusi prog
 
 ---
 
-## 6. Tiga Backend Kompilasi (Interpreter, C11 AOT, Wasm32)
+## 6. Empat Target Kompilasi & Mobile Bundler
 
 ### A. Runtime Interpreter (`src/eval/mod.rs`)
 * Menggunakan representasi runtime `Value` yang ramah evaluasi cepat.
@@ -174,6 +176,12 @@ DapCode tidak menggunakan Garbage Collector (GC) yang menghentikan eksekusi prog
 * Mengkodekan modul biner Wasm32 langsung menggunakan encoder LEB128 internal tanpa bantuan LLVM.
 * Menghasilkan seksi Type, Function, Table, Memory, Global, Export, Code, dan Data.
 * Menghasilkan berkas `.wasm` mandiri yang siap dijalankan di browser, Node.js, atau runtime Wasmtime/Wasmer.
+
+### D. Mobile PWA & Hybrid Android WebView Bundler (`src/mobile/mod.rs`)
+* Mengintegrasikan biner WebAssembly ke dalam shell Progressive Web App (PWA) layar penuh yang dioptimalkan untuk perangkat layar sentuh ponsel Android dan iOS.
+* Otomatis menghasilkan `manifest.webmanifest`, `sw.js` (offline caching), dan ikon resolusi tinggi (SVG, 192px PNG, 512px PNG).
+* Menyertakan template proyek Android Studio mandiri (`android/`) dengan akselerasi perangkat keras WebView yang siap dirakit ke berkas biner `.apk` via Gradle.
+* Menyediakan dev-server lokal Wi-Fi dengan tampilan **QR Code langsung di terminal** (`dapcodec mobile serve`) untuk pengujian instan pada ponsel fisik.
 
 ---
 

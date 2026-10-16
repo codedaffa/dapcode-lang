@@ -203,9 +203,12 @@ dapcodec check examples/demo.dap
 dapcodec check
 ```
 
-### 4. Mengompilasi ke Native Executable (`build`)
+### 4. Mengompilasi Program (`build`)
+Perintah `build` mendukung tiga target kompilasi:
+
 ```powershell
-# Kompilasi berkas tunggal
+# A. Mode Native Biner Mesin (.exe di Windows / binary di Linux/macOS)
+# Menghasilkan biner mandiri teroptimasi -O2 tanpa dependensi runtime
 dapcodec build examples/demo.dap -o demo.exe
 ./demo.exe
 
@@ -213,6 +216,15 @@ dapcodec build examples/demo.dap -o demo.exe
 cd examples/proyek_multiberkas
 dapcodec build -o kalkulator.exe
 ./kalkulator.exe
+
+# B. Mode WebAssembly (--wasm)
+# Menghasilkan trio berkas: .wasm (bytecode), .html (peluncur web), dan .js (peluncur Node.js)
+dapcodec build examples/demo_kanvas.dap --wasm
+node examples/demo_kanvas.js
+
+# C. Mode Mobile & PWA (--pwa / --mobile)
+# Menghasilkan bundel lengkap aplikasi mobile (PWA Offline, ikon resolusi tinggi, & template Android Studio)
+dapcodec build examples/demo_kanvas.dap --pwa
 ```
 
 ### 5. Menampilkan Representasi Perantara (IR) & Perceus Drops (`dump-ir`)
@@ -763,26 +775,70 @@ fungsi utama() {
 
 ---
 
-## 🎨 Dukungan Editor & Ekstensi VS Code
+### 24. Grafis Interaktif Canvas 2D & WebAssembly Live Playground
+DapCode memiliki kompilator WebAssembly murni tanpa dependensi LLVM yang terintegrasi dengan akselerasi perangkat keras Canvas 2D dan Web Audio synthesizer:
+- **Primitif Grafis:** `kanvas_bersihkan`, `kanvas_warna_isi`, `kanvas_warna_garis`, `kanvas_tebal_garis`, `kanvas_persegi`, `kanvas_lingkaran`, `kanvas_garis`, `kanvas_titik`, `kanvas_teks`.
+- **Dimensi & Input Interaktif:** `kanvas_lebar()`, `kanvas_tinggi()`, `kanvas_mouse_x()`, `kanvas_mouse_y()`, `kanvas_mouse_klik()`, `kanvas_delta_waktu()`.
+- **Sintesis Audio 8-Bit & Melodi:** `audio_mainkan_nada`, `audio_efek_suara(tipe)`, `audio_mainkan_gelombang`, `audio_frekuensi_nada`.
 
-Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke paket biner **`.vsix`** siap pakai (Versi `0.7.2`):
-- **Paket Instalasi Mandiri (`.vsix`):** Tersedia di `editors/vscode/dapcode-lang-0.7.2.vsix`.
+```powershell
+# Jalankan web server playground interaktif
+dapcodec playground --open
+```
+
+---
+
+### 25. Membangun Aplikasi Mobile & PWA (`dapcodec mobile`)
+DapCode mengadopsi arsitektur **WebAssembly + PWA / Hybrid Android WebView Bundler** untuk menghasilkan aplikasi mobile mandiri:
+
+```powershell
+# 1. Inisialisasi proyek mobile baru dengan template layar sentuh (touch screen)
+dapcodec mobile init aplikasi_saya
+cd aplikasi_saya
+
+# 2. Uji langsung di ponsel via Wi-Fi & Terminal QR Code (Sangat Praktis!)
+dapcodec mobile serve src/utama.dap --open
+
+# 3. Ekspor bundel aplikasi mobile lengkap (PWA + Proyek Android Studio siap rakit APK)
+dapcodec mobile build src/utama.dap
+```
+
+**Berkas yang Dihasilkan di Direktori `<nama>_mobile/`:**
+- `index.html`: Shell PWA layar penuh (*fullscreen*) dengan penangan *multitouch* dan tombol otomatis *Install App*.
+- `app.wasm`: Modul biner WebAssembly ringan (~2 KB).
+- `manifest.webmanifest`: Konfigurasi PWA *standalone* untuk Android & iOS.
+- `sw.js`: Service Worker untuk eksekusi 100% offline tanpa internet.
+- `icon-192.png`, `icon-512.png`, `icon.svg`: Ikon aplikasi beresolusi tinggi.
+- `android/`: Proyek Android Studio lengkap dengan `MainActivity.java`, `AndroidManifest.xml`, dan `build.gradle` (siap dirakit ke `.apk` via `./gradlew assembleDebug`).
+
+---
+
+## 🎨 Dukungan Editor & Ekstensi VS Code / Antigravity IDE
+
+Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke paket biner **`.vsix`** siap pakai (Versi `0.7.3`):
+- **Paket Instalasi Mandiri (`.vsix`):** Tersedia di `editors/vscode/dapcode-lang-0.7.3.vsix`.
   ```powershell
-  code --install-extension editors/vscode/dapcode-lang-0.7.2.vsix
+  code --install-extension editors/vscode/dapcode-lang-0.7.3.vsix
   ```
 - **Integrasi LSP Cerdas (`extension.js`):**
   - **Diagnostik Real-Time:** Pelaporan kesalahan sintaks, kepemilikan (*borrow check*), dan tipe secara langsung saat mengetik.
-  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`, `Teks`, `Daftar`, `Kamus`), fungsi pustaka standar, serta metode fungsional koleksi (`petakan`, `saring`, `lipat`, `setiap`, `pasang`, `ambil_atau`, `ke_json`, dll).
+  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`, `Teks`, `Daftar`, `Kamus`), fungsi pustaka standar, serta metode fungsional koleksi.
   - **Auto-Completion Kontekstual:** Rekomendasi otomatis kata kunci bahasa Indonesia, tipe data, fungsi pustaka standar, metode koleksi, serta deklarasi lokal.
   - **Document Formatting:** Format kode sumber otomatis saat dokumen diformat atau disimpan.
+- **DapCode Live Playground & Canvas 2D:**
+  - Jendela preview interaktif langsung di dalam editor dengan kompilasi otomatis WASM dan loop animasi grafis 60 FPS.
+  - Tombol **"📱 Ekspor Mobile (PWA)"** untuk mengekspor game/animasi kanvas langsung menjadi aplikasi mobile dengan satu klik.
 - **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk closure lambda `|x|`, metode koleksi fungsional `petakan`, `saring`, `lipat`, `setiap`, `Kamus`, `pasang`, `ambil_atau`, `server_http`, `uji`, `pastikan`, dll.
 - **Integrasi Menu & Perintah Cepat:**
   - `dapcode.run` -> Jalankan berkas aktif dengan `dapcodec run`.
   - `dapcode.test` -> Jalankan pengujian unit aktif dengan `dapcodec test`.
   - `dapcode.repl` -> Buka sesi konsol interaktif `dapcodec repl`.
+  - `dapcode.openPlayground` -> Buka Web Playground & Canvas Preview.
+  - `dapcode.buildMobile` -> Bangun aplikasi mobile (PWA & Android Bundle).
+  - `dapcode.serveMobile` -> Jalankan server mobile lokal dengan terminal QR Code.
   - `dapcode.doc` -> Hasilkan dokumentasi dan buka di browser dengan `dapcodec doc --open`.
   - `dapcode.check` -> Periksa tipe dan kepemilikan dengan `dapcodec check`.
-  - `dapcode.build` -> Kompilasi berkas aktif ke file `.exe` mandiri dengan `dapcodec build`.
+  - `dapcode.build` -> Kompilasi berkas aktif ke biner mandiri dengan `dapcodec build`.
   - `dapcode.restartLsp` -> Mulai ulang Language Server.
 
 ---

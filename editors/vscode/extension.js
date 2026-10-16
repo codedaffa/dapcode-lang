@@ -537,29 +537,69 @@ function activate(context) {
         })
     );
 
-    function runInTerminal(terminal, compiler, subcommand, fileArg = '', extraArgs = '') {
-        const isBash = (vscode.env.shell && /bash|sh|zsh/i.test(vscode.env.shell)) ||
-                       (terminal.name && /bash|sh|zsh/i.test(terminal.name));
-        
-        let comp = compiler;
-        let file = fileArg;
-        
-        if (isBash) {
-            comp = comp.replace(/\\/g, '/');
-            if (file) file = file.replace(/\\/g, '/');
-            const filePart = file ? ` "${file}"` : '';
-            const extraPart = extraArgs ? ` ${extraArgs}` : '';
-            terminal.sendText(`"${comp}" ${subcommand}${filePart}${extraPart}`);
+    function detectTerminalShell(terminal) {
+        // 1. Cek opsi pembuatan shell jika ada
+        const creationShell = (terminal && terminal.creationOptions && terminal.creationOptions.shellPath
+            ? String(terminal.creationOptions.shellPath)
+            : ''
+        ).toLowerCase();
+        if (/pwsh|powershell/.test(creationShell)) return 'powershell';
+        if (/bash|sh|zsh|wsl|git/.test(creationShell)) return 'bash';
+        if (/cmd\.exe|cmd/.test(creationShell)) return 'cmd';
+
+        const termName = (terminal && terminal.name ? terminal.name : '').toLowerCase();
+
+        // 2. Cek nama terminal aktif secara langsung jika spesifik shell
+        if (/pwsh|powershell/.test(termName)) {
+            return 'powershell';
+        }
+        if (/bash|sh|zsh|wsl|git/.test(termName)) {
+            return 'bash';
+        }
+        if (/cmd|command\s*prompt/.test(termName)) {
+            return 'cmd';
+        }
+
+        // 3. Jika nama terminal kustom (seperti "DapCode", "DapCode Mobile"), periksa profile default
+        try {
+            const defaultProfile = vscode.workspace.getConfiguration('terminal.integrated.defaultProfile').get('windows') || '';
+            const profileStr = String(defaultProfile).toLowerCase();
+            if (/pwsh|powershell/.test(profileStr)) return 'powershell';
+            if (/bash|sh|zsh|wsl|git/.test(profileStr)) return 'bash';
+            if (/cmd|command\s*prompt/.test(profileStr)) return 'cmd';
+        } catch (_) {}
+
+        const envShell = (vscode.env.shell || '').toLowerCase();
+        if (/pwsh|powershell/.test(envShell)) return 'powershell';
+        if (/bash|sh|zsh|wsl|git/.test(envShell)) return 'bash';
+        if (/cmd\.exe|cmd/.test(envShell)) return 'cmd';
+
+        return process.platform === 'win32' ? 'powershell' : 'bash';
+    }
+
+    function runInTerminal(terminal, compiler, ...args) {
+        const shellType = detectTerminalShell(terminal);
+        const comp = compiler.replace(/\\/g, '/');
+
+        const formattedArgs = args
+            .filter((arg) => arg !== undefined && arg !== null && arg !== '')
+            .map((arg) => {
+                const str = String(arg);
+                // Jika argumen adalah path berkas atau mengandung spasi/karakter pemisah direktori
+                if (str.includes('\\') || str.includes('/') || str.includes(' ')) {
+                    const normalized = str.replace(/\\/g, '/');
+                    return `"${normalized}"`;
+                }
+                return str;
+            });
+
+        const argsStr = formattedArgs.length > 0 ? ' ' + formattedArgs.join(' ') : '';
+
+        if (shellType === 'powershell') {
+            terminal.sendText(`& "${comp}"${argsStr}`);
         } else {
-            const isCmd = (vscode.env.shell && /cmd\.exe/i.test(vscode.env.shell)) || 
-                          (terminal.name && /cmd/i.test(terminal.name));
-            const filePart = file ? ` "${file}"` : '';
-            const extraPart = extraArgs ? ` ${extraArgs}` : '';
-            if (isCmd) {
-                terminal.sendText(`"${comp}" ${subcommand}${filePart}${extraPart}`);
-            } else {
-                terminal.sendText(`& "${comp}" ${subcommand}${filePart}${extraPart}`);
-            }
+            // Bash atau CMD
+            terminal.sendText(`"${comp}"${argsStr}`);
         }
     }
 
