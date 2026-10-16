@@ -50,6 +50,13 @@ pub fn note_to_frequency(note: &str) -> f64 {
 }
 
 #[derive(Clone)]
+pub struct ClosureData {
+    pub params: Vec<String>,
+    pub body: Box<Expr>,
+    pub captured: HashMap<String, Value>,
+}
+
+#[derive(Clone)]
 pub enum Value {
     Int(u64),
     Float(f64),
@@ -64,6 +71,7 @@ pub enum Value {
     Task(Arc<Mutex<Option<thread::JoinHandle<Value>>>>),
     List(Arc<Mutex<Vec<Value>>>),
     Map(Arc<Mutex<BTreeMap<String, Value>>>),
+    Closure(ClosureData),
 }
 
 impl fmt::Debug for Value {
@@ -97,6 +105,7 @@ impl fmt::Debug for Value {
                 let lock = entries.lock().unwrap();
                 write!(f, "{:?}", *lock)
             }
+            Value::Closure(c) => write!(f, "<Closure |{}|>", c.params.join(", ")),
         }
     }
 }
@@ -152,6 +161,7 @@ impl fmt::Display for Value {
                 }
                 write!(f, "}}")
             }
+            Value::Closure(c) => write!(f, "<Closure |{}|>", c.params.join(", ")),
         }
     }
 }
@@ -225,6 +235,7 @@ impl Value {
             Value::Task(_) => "Tugas".to_string(),
             Value::List(_) => "Daftar".to_string(),
             Value::Map(_) => "Kamus".to_string(),
+            Value::Closure(_) => "Closure".to_string(),
         }
     }
 }
@@ -503,6 +514,66 @@ impl Evaluator {
         let res = self.eval_block(&f.body, &mut local_env);
         self.call_stack.pop();
         res
+    }
+
+    pub fn apply_closure(
+        &mut self,
+        closure: &ClosureData,
+        args: Vec<Value>,
+        span: Span,
+    ) -> Result<Value> {
+        if args.len() != closure.params.len() {
+            return Err(Diagnostic::error(format!(
+                "Closure membutuhkan {} argumen, tetapi menerima {}",
+                closure.params.len(),
+                args.len()
+            ))
+            .with_span(span));
+        }
+        let mut local_env = Environment::new();
+        for (k, v) in &closure.captured {
+            local_env.insert(k, v.clone());
+        }
+        for (idx, p) in closure.params.iter().enumerate() {
+            local_env.insert(p, args[idx].clone());
+        }
+        self.call_stack.push(("<closure>".to_string(), span));
+        let res = match &*closure.body {
+            Expr::Block(b) => match self.eval_block(b, &mut local_env)? {
+                ControlFlow::Next(v) | ControlFlow::Return(v) => Ok(v),
+                ControlFlow::Fail(e) => Ok(Value::ErrorUnion(Err(Box::new(e)))),
+            },
+            expr => self.eval_expr(expr, &mut local_env),
+        };
+        self.call_stack.pop();
+        res
+    }
+
+    pub fn apply_function_or_closure(
+        &mut self,
+        fn_val: &Value,
+        args: Vec<Value>,
+        span: Span,
+        env: &mut Environment,
+    ) -> Result<Value> {
+        match fn_val {
+            Value::Closure(c) => self.apply_closure(c, args, span),
+            Value::String(fn_name) => {
+                if let Some(target_fn) = self.functions.get(fn_name).cloned() {
+                    match self.eval_fn(&target_fn, args, env)? {
+                        ControlFlow::Next(v) | ControlFlow::Return(v) => Ok(v),
+                        ControlFlow::Fail(e) => Ok(Value::ErrorUnion(Err(Box::new(e)))),
+                    }
+                } else {
+                    Err(Diagnostic::error(format!("Fungsi '{}' tidak ditemukan", fn_name)).with_span(span))
+                }
+            }
+            other => Err(Diagnostic::error(format!(
+                "Diharapkan closure atau nama fungsi, tetapi menemukan '{}'",
+                other.type_name()
+            ))
+            .with_span(span)),
+        }
     }
 
     pub fn eval_block(&mut self, block: &Block, env: &mut Environment) -> Result<ControlFlow> {
@@ -878,6 +949,18 @@ impl Evaluator {
                     ControlFlow::Next(v) | ControlFlow::Return(v) => Ok(v),
                     ControlFlow::Fail(e) => Ok(Value::ErrorUnion(Err(Box::new(e)))),
                 }
+            }
+            Expr::Closure { params, body, .. } => {
+                let mut captured = HashMap::new();
+                for (k, v) in env.get_all_variables() {
+                    captured.insert(k, v);
+                }
+                let param_names = params.iter().map(|p| p.name.clone()).collect();
+                Ok(Value::Closure(ClosureData {
+                    params: param_names,
+                    body: body.clone(),
+                    captured,
+                }))
             }
             Expr::Block(b) => match self.eval_block(b, env)? {
                 ControlFlow::Next(v) | ControlFlow::Return(v) => Ok(v),
@@ -2407,11 +2490,22 @@ impl Evaluator {
                             }
                             ControlFlow::Fail(e) => Ok(Value::ErrorUnion(Err(Box::new(e)))),
                         }
+                    } else if let Some(val) = env.get(name) {
+                        let mut evaluated_args = Vec::new();
+                        for a in args {
+                            evaluated_args.push(self.eval_expr(&a.value, env)?);
+                        }
+                        self.apply_function_or_closure(&val, evaluated_args, *span, env)
                     } else {
                         Err(Diagnostic::error(format!("Fungsi '{}' tidak ditemukan", name)).with_span(*span))
                     }
                 } else {
-                    Err(Diagnostic::error("Bukan fungsi").with_span(*span))
+                    let callee_val = self.eval_expr(callee, env)?;
+                    let mut evaluated_args = Vec::new();
+                    for a in args {
+                        evaluated_args.push(self.eval_expr(&a.value, env)?);
+                    }
+                    self.apply_function_or_closure(&callee_val, evaluated_args, *span, env)
                 }
     }
 
@@ -2654,6 +2748,63 @@ impl Evaluator {
                             let end = akhir.min(items.len()).max(start);
                             let sliced = items[start..end].to_vec();
                             return Ok(Value::List(Arc::new(Mutex::new(sliced))));
+                        }
+                        "petakan" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'petakan' membutuhkan 1 argumen (closure)").with_span(*span));
+                            }
+                            let fn_val = self.eval_expr(&args[0].value, env)?;
+                            let items = items_arc.lock().unwrap().clone();
+                            let mut mapped = Vec::new();
+                            for item in items {
+                                let res = self.apply_function_or_closure(&fn_val, vec![item], *span, env)?;
+                                mapped.push(res);
+                            }
+                            return Ok(Value::List(Arc::new(Mutex::new(mapped))));
+                        }
+                        "saring" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'saring' membutuhkan 1 argumen (closure)").with_span(*span));
+                            }
+                            let fn_val = self.eval_expr(&args[0].value, env)?;
+                            let items = items_arc.lock().unwrap().clone();
+                            let mut filtered = Vec::new();
+                            for item in items {
+                                let cond = self.apply_function_or_closure(&fn_val, vec![item.clone()], *span, env)?;
+                                let is_true = match cond {
+                                    Value::Bool(b) => b,
+                                    Value::Int(n) => n != 0,
+                                    _ => true,
+                                };
+                                if is_true {
+                                    filtered.push(item);
+                                }
+                            }
+                            return Ok(Value::List(Arc::new(Mutex::new(filtered))));
+                        }
+                        "lipat" => {
+                            if args.len() != 2 {
+                                return Err(Diagnostic::error("Metode 'lipat' membutuhkan 2 argumen: (awal, folder)").with_span(*span));
+                            }
+                            let init = self.eval_expr(&args[0].value, env)?;
+                            let fn_val = self.eval_expr(&args[1].value, env)?;
+                            let items = items_arc.lock().unwrap().clone();
+                            let mut acc = init;
+                            for item in items {
+                                acc = self.apply_function_or_closure(&fn_val, vec![acc, item], *span, env)?;
+                            }
+                            return Ok(acc);
+                        }
+                        "setiap" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'setiap' membutuhkan 1 argumen (closure)").with_span(*span));
+                            }
+                            let fn_val = self.eval_expr(&args[0].value, env)?;
+                            let items = items_arc.lock().unwrap().clone();
+                            for item in items {
+                                let _ = self.apply_function_or_closure(&fn_val, vec![item], *span, env)?;
+                            }
+                            return Ok(Value::Unit);
                         }
                         other => {
                             return Err(Diagnostic::error(format!(

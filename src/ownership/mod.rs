@@ -402,6 +402,9 @@ impl OwnershipAnalyzer {
                     vars.extend(self.collect_expr_vars(e));
                 }
             }
+            Expr::Closure { body, .. } => {
+                vars.extend(self.collect_expr_vars(body));
+            }
             Expr::Lit(_, _) => {}
         }
         vars

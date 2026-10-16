@@ -745,6 +745,42 @@
             "}"
         ],
         "description": "Iterasi seluruh kunci dalam Kamus dengan perulangan untuk-di"
+    },
+    "Closure Lambda": {
+        "prefix": "closure",
+        "body": [
+            "|${1:item}| ${2:item * 2}"
+        ],
+        "description": "Fungsi anonim / closure lambda (|x| ...)"
+    },
+    "Daftar Petakan": {
+        "prefix": "petakan",
+        "body": [
+            "${1:hasil} := ${2:daftar}.petakan(|${3:x}| ${4:x * 2})"
+        ],
+        "description": "Transformasikan setiap elemen Daftar dengan closure pemetaan (.petakan)"
+    },
+    "Daftar Saring": {
+        "prefix": "saring",
+        "body": [
+            "${1:hasil} := ${2:daftar}.saring(|${3:x}| ${4:x > 0})"
+        ],
+        "description": "Saring elemen Daftar dengan predikat boolean closure (.saring)"
+    },
+    "Daftar Lipat": {
+        "prefix": "lipat",
+        "body": [
+            "${1:total} := ${2:daftar}.lipat(${3:0}, |${4:acc}, ${5:x}| ${6:acc + x})"
+        ],
+        "description": "Akumulasi elemen Daftar dengan nilai awal dan closure folder (.lipat / reduce)"
+    },
+    "Daftar Setiap": {
+        "prefix": "setiap",
+        "body": [
+            "${1:daftar}.setiap(|${2:x}| ${3:cetak(\"{x}\")})"
+        ],
+        "description": "Jalankan aksi callback untuk setiap elemen Daftar (.setiap / for-each)"
     }
 }
+
 

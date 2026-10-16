@@ -336,6 +336,19 @@ impl Formatter {
                 out.push_str(&format!("{}}}", self.indent()));
                 out
             }
+            Expr::Closure { params, body, .. } => {
+                let param_strs: Vec<String> = params
+                    .iter()
+                    .map(|p| {
+                        if let Some(ty) = &p.ty {
+                            format!("{}: {}", p.name, self.format_type(ty))
+                        } else {
+                            p.name.clone()
+                        }
+                    })
+                    .collect();
+                format!("|{}| {}", param_strs.join(", "), self.format_expr(body))
+            }
             Expr::Block(b) => {
                 let mut out = String::from("{\n");
                 self.indent_level += 1;

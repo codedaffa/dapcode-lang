@@ -651,21 +651,62 @@ fungsi utama() {
 }
 ```
 
+### 24. Pemrograman Fungsional Koleksi & Closure Lambda (`|x| ...`)
+DapCode mendukung paradigma pemrograman fungsional modern tingkat tinggi melalui fungsi anonim (*closures / lambda expressions*) dengan sintaks ringkas pipe `|x| ...`, inferensi tipe otomatis, penangkapan variabel lingkungan leksikal (*lexical capture*), dan metode transformasi koleksi fungsional tingkat tinggi pada `Daftar<T>`:
+
+- **Sintaks Closure Lambda:**
+  - Tanpa argumen: `|| expr`
+  - Argumen tunggal: `|x| expr`
+  - Banyak argumen: `|a, b| expr`
+  - Anotasi tipe opsional: `|x: u64, y: u64| -> u64 { x + y }`
+- **Metode Fungsional pada `Daftar<T>`:**
+  - `.petakan(f: |T| -> R) -> Daftar<R>`: Mentransformasikan setiap elemen daftar dengan fungsi/closure pemetaan (*map*).
+  - `.saring(predikat: |T| -> Bool) -> Daftar<T>`: Menyaring elemen daftar yang memenuhi kondisi predikat boolean (*filter*).
+  - `.lipat(awal: A, folder: |A, T| -> A) -> A`: Mengakumulasi nilai elemen daftar dari nilai awal ke satu hasil akhir (*fold / reduce*).
+  - `.setiap(f: |T| -> Unit) -> Unit`: Menjalankan fungsi callback untuk setiap elemen daftar secara berurutan (*for-each*).
+  - **Pipeline / Method Chaining:** Metode-metode koleksi dapat dirangkai secara berantai (misal `.saring(...).petakan(...).lipat(...)`) dengan performa tinggi berkat ekspansi *statement expression* inline pada kompilasi C11 tanpa alokasi trampolin heap.
+
+```dap
+fungsi utama() {
+    angka := Daftar()
+    angka.tambah(1)
+    angka.tambah(2)
+    angka.tambah(3)
+    angka.tambah(4)
+    angka.tambah(5)
+
+    // 1. Transformasi elemen (.petakan)
+    kuadrat := angka.petakan(|x| x * x)
+
+    // 2. Penyaringan elemen (.saring)
+    genap := angka.saring(|x| x % 2 == 0)
+
+    // 3. Akumulasi nilai (.lipat)
+    total := angka.lipat(0, |acc, x| acc + x) // 15
+
+    // 4. Chaining pipeline
+    total_pipa := angka.saring(|x| x > 2).petakan(|x| x * 10).lipat(0, |acc, x| acc + x) // 120
+
+    // 5. Iterasi callback (.setiap)
+    genap.setiap(|x| cetak("Angka genap: {x}"))
+}
+```
+
 ---
 
 ## 🎨 Dukungan Editor & Ekstensi VS Code
 
-Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke paket biner **`.vsix`** siap pakai (Versi `0.2.0`):
-- **Paket Instalasi Mandiri (`.vsix`):** Tersedia di `editors/vscode/dapcode-lang-0.2.0.vsix`.
+Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke paket biner **`.vsix`** siap pakai (Versi `0.7.0`):
+- **Paket Instalasi Mandiri (`.vsix`):** Tersedia di `editors/vscode/dapcode-lang-0.7.0.vsix`.
   ```powershell
-  code --install-extension editors/vscode/dapcode-lang-0.2.0.vsix
+  code --install-extension editors/vscode/dapcode-lang-0.7.0.vsix
   ```
 - **Integrasi LSP Cerdas (`extension.js`):**
   - **Diagnostik Real-Time:** Pelaporan kesalahan sintaks, kepemilikan (*borrow check*), dan tipe secara langsung saat mengetik.
-  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`, `Teks`, `Daftar`, `Kamus`), fungsi pustaka standar (`buka_basis_data`, `db_simpan`, `db_ambil`, `db_hapus`, `db_ada`, `buat_server_http`, `buat_server_websocket`, `kirim_respons_http`, `respons_json`, `respons_teks`, `respons_401`, `respons_403`, `respons_redirect`, `respons_berkas`, `sajikan_berkas_statis`, `cocok_rute`, `cocok_awalan`, `sisa_jalur`, `ambil_param_rute`, `ambil_kueri_param`, `ada_kueri_param`, `kueri_param_atau`, `semua_kueri_param`, `ambil_header_http`, `ada_header_http`, `header_atau`, `ambil_otorisasi_bearer`, `tambah_header`, `respons_cors`, `kunci_websocket`, `respons_upgrade_websocket`, `cocok_regex`, `cari_regex`, `ganti_regex`, `ekstrak_regex`, `ekstrak_grup_regex`, `pisah_regex`, `huruf_besar`, `huruf_kecil`, `pangkas`, `berisi`, `awalan`, `akhiran`, `ganti`, `pisah`, `potong`, `sisip`, `hapus`, `kosong`, `balik`, `gabung`, `pasang`, `ambil_atau`, `daftar_nilai`, `bersihkan`, `sha1`, `ke_json`, `cetak`, dll), dan simbol lokal.
-  - **Auto-Completion Kontekstual:** Rekomendasi otomatis kata kunci bahasa Indonesia, tipe data, fungsi pustaka standar, serta deklarasi lokal.
+  - **Hover Tooltips:** Dokumentasi Markdown instan untuk kata kunci, tipe data (`BasisData`, `PermintaanHttp`, `ResponsHttp`, `Teks`, `Daftar`, `Kamus`), fungsi pustaka standar, serta metode fungsional koleksi (`petakan`, `saring`, `lipat`, `setiap`, `pasang`, `ambil_atau`, `ke_json`, dll).
+  - **Auto-Completion Kontekstual:** Rekomendasi otomatis kata kunci bahasa Indonesia, tipe data, fungsi pustaka standar, metode koleksi, serta deklarasi lokal.
   - **Document Formatting:** Format kode sumber otomatis saat dokumen diformat atau disimpan.
-- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk `utama`, `fungsi`, `struktur`, `sifat`, `terapkan`, `jika`, `selama`, `untuk`, `jalan_paralel`, `tangkap`, `server_http`, `buat_server_websocket`, `tingkatkan_websocket`, `buka_db`, `db_simpan`, `db_ambil`, `respons_json`, `respons_teks`, `respons_401`, `respons_redirect`, `respons_berkas`, `sajikan_berkas_statis`, `req.sajikan_statis`, `cocok_rute`, `cocok_awalan`, `sisa_jalur`, `ambil_kueri_param`, `kueri_param_atau`, `semua_kueri_param`, `ambil_otorisasi_bearer`, `cocok_regex`, `ekstrak_grup_regex`, `pisah_regex`, `respons_cors`, `Kamus`, `pasang`, `ambil_atau`, `daftar_nilai`, `bersihkan`, `ke_json`, unit test `uji`, asersi `pastikan`, komentar dokumen `///` & `//!`, operasi direktori `buat_direktori`, dan argumen CLI `ambil_argumen_cli`.
+- **Koleksi Snippets Lengkap (`snippets/dapcode.json`):** Cuplikan cepat untuk closure lambda `|x|`, metode koleksi fungsional `petakan`, `saring`, `lipat`, `setiap`, `Kamus`, `pasang`, `ambil_atau`, `server_http`, `uji`, `pastikan`, dll.
 - **Integrasi Menu & Perintah Cepat:**
   - `dapcode.run` -> Jalankan berkas aktif dengan `dapcodec run`.
   - `dapcode.test` -> Jalankan pengujian unit aktif dengan `dapcodec test`.
@@ -682,7 +723,7 @@ Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke
 ```powershell
 cargo test
 ```
-Semua 32 modul test (115+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & Middleware, Static Files & MIME Asset Serving, Subsistem WebSocket RFC 6455 & Real-Time Communication, Embedded Database (BasisData & DapDb), Mesin Reguler Ekspresi Mandiri (Regex & Capturing Groups), Metode Kaya Koleksi & String (Fluent Teks & Daftar), Koleksi Asosiatif Kamus (In-Memory Map/Dictionary), Audio Synthesis & WebAudio Mock, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
+Semua 33 modul test (118+ pengujian: Lexer, Parser, Typechecker, Auto-Ownership, Comptime, Concurrency, Error Handling, Stdlib, Modules & Imports, JSON Engine, LSP Server, Jaringan & HTTP Client, HTTP Web Server & Primitives, High-Level Web Router & Middleware, Static Files & MIME Asset Serving, Subsistem WebSocket RFC 6455 & Real-Time Communication, Embedded Database (BasisData & DapDb), Mesin Reguler Ekspresi Mandiri (Regex & Capturing Groups), Metode Kaya Koleksi & String (Fluent Teks & Daftar), Koleksi Asosiatif Kamus (In-Memory Map/Dictionary), Pemrograman Fungsional Koleksi & Closure Lambda (|x| ...), Audio Synthesis & WebAudio Mock, Manajemen Dependensi & Multi-Paket, Test Runner Bawaan, Interactive REPL, Generator Dokumentasi Otomatis, Kriptografi & Enkoding, Manajer Paket dappkg & DapCode.lock, Demo Pipeline) terverifikasi 100% lolos uji tanpa kesalahan.
 
 
 

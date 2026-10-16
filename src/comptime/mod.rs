@@ -85,7 +85,7 @@ impl ComptimeEvaluator {
                     Value::String(s) => Literal::String(s),
                     Value::Bool(b) => Literal::Bool(b),
                     Value::Unit => Literal::Unit,
-                    Value::Struct { .. } | Value::ErrorUnion(_) | Value::Task(_) | Value::List(_) | Value::Map(_) => Literal::Unit,
+                    Value::Struct { .. } | Value::ErrorUnion(_) | Value::Task(_) | Value::List(_) | Value::Map(_) | Value::Closure(_) => Literal::Unit,
                 };
                 *expr = Expr::Lit(replacement_lit, *span);
             }
@@ -125,6 +125,7 @@ impl ComptimeEvaluator {
             }
             Expr::Parallel { body, .. } => self.fold_block(body)?,
             Expr::Await { task, .. } => self.fold_expr(task)?,
+            Expr::Closure { body, .. } => self.fold_expr(body)?,
             Expr::Block(b) => self.fold_block(b)?,
             Expr::Lit(_, _) | Expr::Ident(_, _) | Expr::SelfVar(_) => {}
         }

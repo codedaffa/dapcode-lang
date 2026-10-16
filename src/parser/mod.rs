@@ -699,6 +699,64 @@ impl<'a> Parser<'a> {
                     span: start.merge(end),
                 })
             }
+            TokenKind::Pipe => {
+                let start = self.advance().span;
+                let mut params = Vec::new();
+                if !self.check(TokenKind::Pipe) {
+                    loop {
+                        let (param_name, p_span) = self.expect_ident()?;
+                        let param_ty = if self.check(TokenKind::Colon) {
+                            self.advance();
+                            Some(self.parse_type_expr()?)
+                        } else {
+                            None
+                        };
+                        params.push(ParamDecl {
+                            name: param_name,
+                            ty: param_ty,
+                            is_self: false,
+                            span: p_span,
+                        });
+                        if self.check(TokenKind::Comma) {
+                            self.advance();
+                            continue;
+                        }
+                        break;
+                    }
+                }
+                self.expect(TokenKind::Pipe)?;
+                let ret_ty = if self.check(TokenKind::Arrow) {
+                    self.advance();
+                    Some(self.parse_type_expr()?)
+                } else {
+                    None
+                };
+                let body = self.parse_expr(Precedence::Lowest)?;
+                let end = body.span();
+                Ok(Expr::Closure {
+                    params,
+                    ret_ty,
+                    body: Box::new(body),
+                    span: start.merge(end),
+                })
+            }
+            TokenKind::OrOr => {
+                let start = self.advance().span;
+                let ret_ty = if self.check(TokenKind::Arrow) {
+                    self.advance();
+                    Some(self.parse_type_expr()?)
+                } else {
+                    None
+                };
+                let body = self.parse_expr(Precedence::Lowest)?;
+                let end = body.span();
+                Ok(Expr::Closure {
+                    params: Vec::new(),
+                    ret_ty,
+                    body: Box::new(body),
+                    span: start.merge(end),
+                })
+            }
             _ => Err(Diagnostic::error(format!(
                 "Ekspresi tidak terduga atau tidak valid dimulai dengan: '{}'",
                 tok.kind

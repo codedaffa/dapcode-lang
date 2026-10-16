@@ -200,6 +200,7 @@ pub fn value_to_json(val: &Value) -> String {
                 .join(",");
             format!("{{{}}}", inner)
         }
+        Value::Closure(_) => "\"<Closure>\"".to_string(),
     }
 }
 

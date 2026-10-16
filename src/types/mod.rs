@@ -1239,13 +1239,17 @@ impl TypeChecker {
                 init,
                 span,
             } => {
-                let init_ty = self.check_expr(init)?;
                 let final_ty = if let Some(e_ty) = explicit_ty {
                     let expected = self.type_expr_to_type(e_ty)?;
+                    let init_ty = if let Expr::Closure { params, ret_ty, body, span: c_span } = init {
+                        self.check_closure(params, ret_ty, body, *c_span, Some(&expected))?
+                    } else {
+                        self.check_expr(init)?
+                    };
                     self.unify(&init_ty, &expected, *span)?;
                     expected
                 } else {
-                    init_ty
+                    self.check_expr(init)?
                 };
                 self.insert_var(name, final_ty);
                 Ok(Type::Unit)
@@ -1553,7 +1557,11 @@ impl TypeChecker {
                             .with_span(*span));
                         }
                         for (idx, arg) in args.iter().enumerate() {
-                            let arg_ty = self.check_expr(&arg.value)?;
+                            let arg_ty = if let Expr::Closure { params, ret_ty, body, span: c_span } = &arg.value {
+                                self.check_closure(params, ret_ty, body, *c_span, Some(&param_types[idx]))?
+                            } else {
+                                self.check_expr(&arg.value)?
+                            };
                             self.unify(&arg_ty, &param_types[idx], arg.span)?;
                         }
                         Ok(*ret_ty)
@@ -1567,609 +1575,7 @@ impl TypeChecker {
                 method,
                 args,
                 span,
-            } => {
-                let rec_ty = self.check_expr(receiver)?;
-                let resolved_rec = self.resolve_type(&rec_ty);
-
-                match &resolved_rec {
-                    Type::List(elem_ty) => {
-                        match method.as_str() {
-                            "tambah" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'tambah' membutuhkan tepat 1 argumen")
-                                        .with_span(*span));
-                                }
-                                let arg_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&arg_ty, elem_ty, args[0].span)?;
-                                Ok(Type::Unit)
-                            }
-                            "panjang" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'panjang' tidak menerima argumen")
-                                        .with_span(*span));
-                                }
-                                Ok(Type::U64)
-                            }
-                            "ambil" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'ambil' membutuhkan tepat 1 argumen (indeks)")
-                                        .with_span(*span));
-                                }
-                                let idx_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&idx_ty, &Type::U64, args[0].span)?;
-                                Ok(Type::ErrorUnion(elem_ty.clone(), Box::new(Type::String)))
-                            }
-                            "hapus" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'hapus' membutuhkan tepat 1 argumen (indeks)")
-                                        .with_span(*span));
-                                }
-                                let idx_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&idx_ty, &Type::U64, args[0].span)?;
-                                Ok(Type::ErrorUnion(elem_ty.clone(), Box::new(Type::String)))
-                            }
-                            "sisip" => {
-                                if args.len() != 2 {
-                                    return Err(Diagnostic::error("Metode 'sisip' membutuhkan 2 argumen: (indeks: u64, nilai: T)")
-                                        .with_span(*span));
-                                }
-                                let idx_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&idx_ty, &Type::U64, args[0].span)?;
-                                let val_ty = self.check_expr(&args[1].value)?;
-                                self.unify(&val_ty, elem_ty, args[1].span)?;
-                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
-                            }
-                            "berisi" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'berisi' membutuhkan tepat 1 argumen")
-                                        .with_span(*span));
-                                }
-                                let val_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&val_ty, elem_ty, args[0].span)?;
-                                Ok(Type::Bool)
-                            }
-                            "kosong" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'kosong' tidak menerima argumen")
-                                        .with_span(*span));
-                                }
-                                Ok(Type::Bool)
-                            }
-                            "balik" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'balik' tidak menerima argumen")
-                                        .with_span(*span));
-                                }
-                                Ok(Type::List(elem_ty.clone()))
-                            }
-                            "gabung" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'gabung' membutuhkan 1 argumen (pemisah: Teks)")
-                                        .with_span(*span));
-                                }
-                                let sep_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&sep_ty, &Type::String, args[0].span)?;
-                                Ok(Type::String)
-                            }
-                            "potong" => {
-                                if args.len() != 2 {
-                                    return Err(Diagnostic::error("Metode 'potong' membutuhkan 2 argumen: (awal: u64, akhir: u64)")
-                                        .with_span(*span));
-                                }
-                                let a_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&a_ty, &Type::U64, args[0].span)?;
-                                let b_ty = self.check_expr(&args[1].value)?;
-                                self.unify(&b_ty, &Type::U64, args[1].span)?;
-                                Ok(Type::List(elem_ty.clone()))
-                            }
-                            other => Err(Diagnostic::error(format!(
-                                "Metode '{}' tidak ditemukan pada Daftar<{}>",
-                                other, elem_ty
-                            ))
-                            .with_span(*span)),
-                        }
-                    }
-                    Type::Map(val_ty) => {
-                        match method.as_str() {
-                            "pasang" => {
-                                if args.len() != 2 {
-                                    return Err(Diagnostic::error("Metode 'pasang' membutuhkan 2 argumen: (kunci: Teks, nilai: V)")
-                                        .with_span(*span));
-                                }
-                                let k_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&k_ty, &Type::String, args[0].span)?;
-                                let v_ty = self.check_expr(&args[1].value)?;
-                                self.unify(&v_ty, val_ty, args[1].span)?;
-                                Ok(Type::Unit)
-                            }
-                            "ambil" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'ambil' membutuhkan 1 argumen (kunci: Teks)")
-                                        .with_span(*span));
-                                }
-                                let k_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&k_ty, &Type::String, args[0].span)?;
-                                Ok(Type::ErrorUnion(val_ty.clone(), Box::new(Type::String)))
-                            }
-                            "ambil_atau" => {
-                                if args.len() != 2 {
-                                    return Err(Diagnostic::error("Metode 'ambil_atau' membutuhkan 2 argumen: (kunci: Teks, bawaan: V)")
-                                        .with_span(*span));
-                                }
-                                let k_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&k_ty, &Type::String, args[0].span)?;
-                                let d_ty = self.check_expr(&args[1].value)?;
-                                self.unify(&d_ty, val_ty, args[1].span)?;
-                                Ok(*val_ty.clone())
-                            }
-                            "ada" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'ada' membutuhkan 1 argumen (kunci: Teks)")
-                                        .with_span(*span));
-                                }
-                                let k_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&k_ty, &Type::String, args[0].span)?;
-                                Ok(Type::Bool)
-                            }
-                            "hapus" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'hapus' membutuhkan 1 argumen (kunci: Teks)")
-                                        .with_span(*span));
-                                }
-                                let k_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&k_ty, &Type::String, args[0].span)?;
-                                Ok(Type::ErrorUnion(val_ty.clone(), Box::new(Type::String)))
-                            }
-                            "panjang" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'panjang' tidak menerima argumen")
-                                        .with_span(*span));
-                                }
-                                Ok(Type::U64)
-                            }
-                            "kosong" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'kosong' tidak menerima argumen")
-                                        .with_span(*span));
-                                }
-                                Ok(Type::Bool)
-                            }
-                            "daftar_kunci" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'daftar_kunci' tidak menerima argumen")
-                                        .with_span(*span));
-                                }
-                                Ok(Type::List(Box::new(Type::String)))
-                            }
-                            "daftar_nilai" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'daftar_nilai' tidak menerima argumen")
-                                        .with_span(*span));
-                                }
-                                Ok(Type::List(val_ty.clone()))
-                            }
-                            "ke_json" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'ke_json' tidak menerima argumen")
-                                        .with_span(*span));
-                                }
-                                Ok(Type::String)
-                            }
-                            "bersihkan" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'bersihkan' tidak menerima argumen")
-                                        .with_span(*span));
-                                }
-                                Ok(Type::Unit)
-                            }
-                            other => Err(Diagnostic::error(format!(
-                                "Metode '{}' tidak ditemukan pada Kamus<{}>",
-                                other, val_ty
-                            ))
-                            .with_span(*span)),
-                        }
-                    }
-                    Type::String => {
-                        match method.as_str() {
-                            "panjang" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'panjang' pada Teks tidak menerima argumen")
-                                        .with_span(*span));
-                                }
-                                Ok(Type::U64)
-                            }
-                            "huruf_besar" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'huruf_besar' tidak menerima argumen")
-                                        .with_span(*span));
-                                }
-                                Ok(Type::String)
-                            }
-                            "huruf_kecil" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'huruf_kecil' tidak menerima argumen")
-                                        .with_span(*span));
-                                }
-                                Ok(Type::String)
-                            }
-                            "berisi" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'berisi' pada Teks membutuhkan 1 argumen (sub: Teks)")
-                                        .with_span(*span));
-                                }
-                                let sub_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&sub_ty, &Type::String, args[0].span)?;
-                                Ok(Type::Bool)
-                            }
-                            "awalan" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'awalan' membutuhkan 1 argumen (awalan: Teks)")
-                                        .with_span(*span));
-                                }
-                                let sub_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&sub_ty, &Type::String, args[0].span)?;
-                                Ok(Type::Bool)
-                            }
-                            "akhiran" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'akhiran' membutuhkan 1 argumen (akhiran: Teks)")
-                                        .with_span(*span));
-                                }
-                                let sub_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&sub_ty, &Type::String, args[0].span)?;
-                                Ok(Type::Bool)
-                            }
-                            "pangkas" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'pangkas' tidak menerima argumen")
-                                        .with_span(*span));
-                                }
-                                Ok(Type::String)
-                            }
-                            "ganti" => {
-                                if args.len() != 2 {
-                                    return Err(Diagnostic::error("Metode 'ganti' membutuhkan 2 argumen: (lama: Teks, baru: Teks)")
-                                        .with_span(*span));
-                                }
-                                let o_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&o_ty, &Type::String, args[0].span)?;
-                                let n_ty = self.check_expr(&args[1].value)?;
-                                self.unify(&n_ty, &Type::String, args[1].span)?;
-                                Ok(Type::String)
-                            }
-                            "pisah" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'pisah' membutuhkan 1 argumen (pemisah: Teks)")
-                                        .with_span(*span));
-                                }
-                                let p_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&p_ty, &Type::String, args[0].span)?;
-                                Ok(Type::List(Box::new(Type::String)))
-                            }
-                            "potong" => {
-                                if args.len() != 2 {
-                                    return Err(Diagnostic::error("Metode 'potong' membutuhkan 2 argumen: (awal: u64, panjang: u64)")
-                                        .with_span(*span));
-                                }
-                                let a_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&a_ty, &Type::U64, args[0].span)?;
-                                let p_ty = self.check_expr(&args[1].value)?;
-                                self.unify(&p_ty, &Type::U64, args[1].span)?;
-                                Ok(Type::String)
-                            }
-                            "ambil" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'ambil' membutuhkan 1 argumen (indeks: u64)")
-                                        .with_span(*span));
-                                }
-                                let idx_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&idx_ty, &Type::U64, args[0].span)?;
-                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
-                            }
-                            other => Err(Diagnostic::error(format!(
-                                "Metode '{}' tidak ditemukan pada Teks",
-                                other
-                            ))
-                            .with_span(*span)),
-                        }
-                    }
-                    Type::Struct(s_name) if s_name == "BasisData" => {
-                        match method.as_str() {
-                            "simpan" => {
-                                if args.len() != 2 {
-                                    return Err(Diagnostic::error("Metode 'simpan' membutuhkan 2 argumen (kunci: Teks, nilai: Teks)").with_span(*span));
-                                }
-                                let k_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&k_ty, &Type::String, args[0].span)?;
-                                let v_ty = self.check_expr(&args[1].value)?;
-                                self.unify(&v_ty, &Type::String, args[1].span)?;
-                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
-                            }
-                            "ambil" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'ambil' membutuhkan 1 argumen (kunci: Teks)").with_span(*span));
-                                }
-                                let k_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&k_ty, &Type::String, args[0].span)?;
-                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
-                            }
-                            "hapus" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'hapus' membutuhkan 1 argumen (kunci: Teks)").with_span(*span));
-                                }
-                                let k_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&k_ty, &Type::String, args[0].span)?;
-                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
-                            }
-                            "ada" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'ada' membutuhkan 1 argumen (kunci: Teks)").with_span(*span));
-                                }
-                                let k_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&k_ty, &Type::String, args[0].span)?;
-                                Ok(Type::Bool)
-                            }
-                            "daftar_kunci" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'daftar_kunci' tidak menerima argumen").with_span(*span));
-                                }
-                                Ok(Type::ErrorUnion(Box::new(Type::List(Box::new(Type::String))), Box::new(Type::String)))
-                            }
-                            "padatkan" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'padatkan' tidak menerima argumen").with_span(*span));
-                                }
-                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
-                            }
-                            "ambil_awalan" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'ambil_awalan' membutuhkan 1 argumen (awalan: Teks)").with_span(*span));
-                                }
-                                let p_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&p_ty, &Type::String, args[0].span)?;
-                                Ok(Type::ErrorUnion(Box::new(Type::List(Box::new(Type::String))), Box::new(Type::String)))
-                            }
-                            "mulai_transaksi" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'mulai_transaksi' tidak menerima argumen").with_span(*span));
-                                }
-                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
-                            }
-                            "sedang_transaksi" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'sedang_transaksi' tidak menerima argumen").with_span(*span));
-                                }
-                                Ok(Type::Bool)
-                            }
-                            "komit" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'komit' tidak menerima argumen").with_span(*span));
-                                }
-                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
-                            }
-                            "batal" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'batal' tidak menerima argumen").with_span(*span));
-                                }
-                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
-                            }
-                            "ekspor_json" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'ekspor_json' tidak menerima argumen").with_span(*span));
-                                }
-                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
-                            }
-                            "ekspor_json_awalan" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'ekspor_json_awalan' membutuhkan 1 argumen (awalan: Teks)").with_span(*span));
-                                }
-                                let p_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&p_ty, &Type::String, args[0].span)?;
-                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
-                            }
-                            "impor_json" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'impor_json' membutuhkan 1 argumen (json_teks: Teks)").with_span(*span));
-                                }
-                                let j_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&j_ty, &Type::String, args[0].span)?;
-                                Ok(Type::ErrorUnion(Box::new(Type::U64), Box::new(Type::String)))
-                            }
-                            other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada BasisData", other)).with_span(*span)),
-                        }
-                    }
-                    Type::Struct(s_name) if s_name == "PermintaanHttp" => {
-                        match method.as_str() {
-                            "cocok" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'cocok' membutuhkan 1 argumen (pola: Teks)").with_span(*span));
-                                }
-                                let p_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&p_ty, &Type::String, args[0].span)?;
-                                Ok(Type::Bool)
-                            }
-                            "param" => {
-                                if args.len() != 2 {
-                                    return Err(Diagnostic::error("Metode 'param' membutuhkan 2 argumen (pola: Teks, nama_param: Teks)").with_span(*span));
-                                }
-                                let p_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&p_ty, &Type::String, args[0].span)?;
-                                let n_ty = self.check_expr(&args[1].value)?;
-                                self.unify(&n_ty, &Type::String, args[1].span)?;
-                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
-                            }
-                            "kueri_param" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'kueri_param' membutuhkan 1 argumen (kunci: Teks)").with_span(*span));
-                                }
-                                let k_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&k_ty, &Type::String, args[0].span)?;
-                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
-                            }
-                            "ada_kueri" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'ada_kueri' membutuhkan 1 argumen (kunci: Teks)").with_span(*span));
-                                }
-                                let k_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&k_ty, &Type::String, args[0].span)?;
-                                Ok(Type::Bool)
-                            }
-                            "kueri_atau" => {
-                                if args.len() != 2 {
-                                    return Err(Diagnostic::error("Metode 'kueri_atau' membutuhkan 2 argumen (kunci: Teks, bawaan: Teks)").with_span(*span));
-                                }
-                                let k_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&k_ty, &Type::String, args[0].span)?;
-                                let d_ty = self.check_expr(&args[1].value)?;
-                                self.unify(&d_ty, &Type::String, args[1].span)?;
-                                Ok(Type::String)
-                            }
-                            "semua_kueri" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'semua_kueri' tidak membutuhkan argumen").with_span(*span));
-                                }
-                                Ok(Type::List(Box::new(Type::String)))
-                            }
-                            "header" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'header' membutuhkan 1 argumen (nama_header: Teks)").with_span(*span));
-                                }
-                                let n_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&n_ty, &Type::String, args[0].span)?;
-                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
-                            }
-                            "ada_header" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'ada_header' membutuhkan 1 argumen (nama_header: Teks)").with_span(*span));
-                                }
-                                let n_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&n_ty, &Type::String, args[0].span)?;
-                                Ok(Type::Bool)
-                            }
-                            "header_atau" => {
-                                if args.len() != 2 {
-                                    return Err(Diagnostic::error("Metode 'header_atau' membutuhkan 2 argumen (nama_header: Teks, bawaan: Teks)").with_span(*span));
-                                }
-                                let n_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&n_ty, &Type::String, args[0].span)?;
-                                let d_ty = self.check_expr(&args[1].value)?;
-                                self.unify(&d_ty, &Type::String, args[1].span)?;
-                                Ok(Type::String)
-                            }
-                            "otorisasi_bearer" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'otorisasi_bearer' tidak membutuhkan argumen").with_span(*span));
-                                }
-                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
-                            }
-                            "cocok_awalan" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'cocok_awalan' membutuhkan 1 argumen (awalan: Teks)").with_span(*span));
-                                }
-                                let a_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&a_ty, &Type::String, args[0].span)?;
-                                Ok(Type::Bool)
-                            }
-                            "sisa_jalur" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'sisa_jalur' membutuhkan 1 argumen (awalan: Teks)").with_span(*span));
-                                }
-                                let a_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&a_ty, &Type::String, args[0].span)?;
-                                Ok(Type::String)
-                            }
-                            "sajikan_statis" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'sajikan_statis' membutuhkan 1 argumen (folder_dasar: Teks)").with_span(*span));
-                                }
-                                let f_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&f_ty, &Type::String, args[0].span)?;
-                                Ok(Type::ErrorUnion(
-                                    Box::new(Type::Struct("ResponsHttp".to_string())),
-                                    Box::new(Type::String),
-                                ))
-                            }
-                            "adalah_websocket" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'adalah_websocket' tidak membutuhkan argumen").with_span(*span));
-                                }
-                                Ok(Type::Bool)
-                            }
-                            "kunci_websocket" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'kunci_websocket' tidak membutuhkan argumen").with_span(*span));
-                                }
-                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
-                            }
-                            "tingkatkan_websocket" => {
-                                if args.len() != 1 {
-                                    return Err(Diagnostic::error("Metode 'tingkatkan_websocket' membutuhkan 1 argumen (nama_penangan: Teks)").with_span(*span));
-                                }
-                                let h_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&h_ty, &Type::String, args[0].span)?;
-                                Ok(Type::ErrorUnion(
-                                    Box::new(Type::Struct("ResponsHttp".to_string())),
-                                    Box::new(Type::String),
-                                ))
-                            }
-                            other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada PermintaanHttp", other)).with_span(*span)),
-                        }
-                    }
-                    Type::Struct(s_name) if s_name == "ResponsHttp" => {
-                        match method.as_str() {
-                            "tambah_header" => {
-                                if args.len() != 2 {
-                                    return Err(Diagnostic::error("Metode 'tambah_header' membutuhkan 2 argumen (kunci: Teks, nilai: Teks)").with_span(*span));
-                                }
-                                let k_ty = self.check_expr(&args[0].value)?;
-                                self.unify(&k_ty, &Type::String, args[0].span)?;
-                                let v_ty = self.check_expr(&args[1].value)?;
-                                self.unify(&v_ty, &Type::String, args[1].span)?;
-                                Ok(Type::Struct("ResponsHttp".to_string()))
-                            }
-                            "cors" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'cors' tidak menerima argumen").with_span(*span));
-                                }
-                                Ok(Type::Struct("ResponsHttp".to_string()))
-                            }
-                            "status_teks" => {
-                                if !args.is_empty() {
-                                    return Err(Diagnostic::error("Metode 'status_teks' tidak membutuhkan argumen").with_span(*span));
-                                }
-                                Ok(Type::String)
-                            }
-                            other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada ResponsHttp", other)).with_span(*span)),
-                        }
-                    }
-                    Type::Struct(s_name) => {
-                        let method_info = self.find_method(s_name, method, *span)?;
-                        // Check arguments
-                        // First param is `ini`, so call args should match remaining params
-                        let expected_params = &method_info.param_types[1..];
-                        if args.len() != expected_params.len() {
-                            return Err(Diagnostic::error(format!(
-                                "Metode '{}.{}' membutuhkan {} argumen, tetapi menerima {}",
-                                s_name,
-                                method,
-                                expected_params.len(),
-                                args.len()
-                            ))
-                            .with_span(*span));
-                        }
-                        for (i, arg) in args.iter().enumerate() {
-                            let arg_ty = self.check_expr(&arg.value)?;
-                            self.unify(&arg_ty, &expected_params[i], arg.span)?;
-                        }
-                        Ok(method_info.ret_type.clone())
-                    }
-                    other => Err(Diagnostic::error(format!(
-                        "Tidak dapat memanggil metode '{}' pada tipe '{}'",
-                        method, other
-                    ))
-                    .with_span(*span)),
-                }
-            }
+            } => self.check_method_call(receiver, method, args, *span),
             Expr::FieldAccess {
                 receiver,
                 field,
@@ -2280,8 +1686,726 @@ impl TypeChecker {
                 let body_ty = self.check_block(body)?;
                 Ok(body_ty)
             }
+            Expr::Closure { params, ret_ty, body, span } => {
+                self.check_closure(params, ret_ty, body, *span, None)
+            }
             Expr::Block(b) => self.check_block(b),
         }
+    }
+
+    fn check_method_call(
+        &mut self,
+        receiver: &Expr,
+        method: &str,
+        args: &[CallArg],
+        span: Span,
+    ) -> Result<Type> {
+                let rec_ty = self.check_expr(receiver)?;
+                let resolved_rec = self.resolve_type(&rec_ty);
+
+                match &resolved_rec {
+                    Type::List(elem_ty) => {
+                        match method {
+                            "tambah" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'tambah' membutuhkan tepat 1 argumen")
+                                        .with_span(span));
+                                }
+                                let arg_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&arg_ty, elem_ty, args[0].span)?;
+                                Ok(Type::Unit)
+                            }
+                            "panjang" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'panjang' tidak menerima argumen")
+                                        .with_span(span));
+                                }
+                                Ok(Type::U64)
+                            }
+                            "ambil" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ambil' membutuhkan tepat 1 argumen (indeks)")
+                                        .with_span(span));
+                                }
+                                let idx_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&idx_ty, &Type::U64, args[0].span)?;
+                                Ok(Type::ErrorUnion(elem_ty.clone(), Box::new(Type::String)))
+                            }
+                            "hapus" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'hapus' membutuhkan tepat 1 argumen (indeks)")
+                                        .with_span(span));
+                                }
+                                let idx_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&idx_ty, &Type::U64, args[0].span)?;
+                                Ok(Type::ErrorUnion(elem_ty.clone(), Box::new(Type::String)))
+                            }
+                            "sisip" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'sisip' membutuhkan 2 argumen: (indeks: u64, nilai: T)")
+                                        .with_span(span));
+                                }
+                                let idx_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&idx_ty, &Type::U64, args[0].span)?;
+                                let val_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&val_ty, elem_ty, args[1].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            "berisi" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'berisi' membutuhkan tepat 1 argumen")
+                                        .with_span(span));
+                                }
+                                let val_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&val_ty, elem_ty, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "kosong" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'kosong' tidak menerima argumen")
+                                        .with_span(span));
+                                }
+                                Ok(Type::Bool)
+                            }
+                            "balik" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'balik' tidak menerima argumen")
+                                        .with_span(span));
+                                }
+                                Ok(Type::List(elem_ty.clone()))
+                            }
+                            "gabung" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'gabung' membutuhkan 1 argumen (pemisah: Teks)")
+                                        .with_span(span));
+                                }
+                                let sep_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&sep_ty, &Type::String, args[0].span)?;
+                                Ok(Type::String)
+                            }
+                            "potong" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'potong' membutuhkan 2 argumen: (awal: u64, akhir: u64)")
+                                        .with_span(span));
+                                }
+                                let a_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&a_ty, &Type::U64, args[0].span)?;
+                                let b_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&b_ty, &Type::U64, args[1].span)?;
+                                Ok(Type::List(elem_ty.clone()))
+                            }
+                            "petakan" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'petakan' membutuhkan 1 argumen: closure |item| -> R")
+                                        .with_span(span));
+                                }
+                                let ret_var = self.fresh_var();
+                                let expected_fn = Type::Fn(vec![elem_ty.as_ref().clone()], Box::new(ret_var.clone()));
+                                let fn_ty = if let Expr::Closure { params, ret_ty, body, span: c_span } = &args[0].value {
+                                    self.check_closure(params, ret_ty, body, *c_span, Some(&expected_fn))?
+                                } else {
+                                    self.check_expr(&args[0].value)?
+                                };
+                                self.unify(&fn_ty, &expected_fn, args[0].span)?;
+                                let resolved_ret = self.resolve_type(&ret_var);
+                                Ok(Type::List(Box::new(resolved_ret)))
+                            }
+                            "saring" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'saring' membutuhkan 1 argumen: closure |item| -> Bool")
+                                        .with_span(span));
+                                }
+                                let expected_fn = Type::Fn(vec![elem_ty.as_ref().clone()], Box::new(Type::Bool));
+                                let fn_ty = if let Expr::Closure { params, ret_ty, body, span: c_span } = &args[0].value {
+                                    self.check_closure(params, ret_ty, body, *c_span, Some(&expected_fn))?
+                                } else {
+                                    self.check_expr(&args[0].value)?
+                                };
+                                self.unify(&fn_ty, &expected_fn, args[0].span)?;
+                                Ok(Type::List(elem_ty.clone()))
+                            }
+                            "lipat" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'lipat' membutuhkan 2 argumen: (awal: A, folder: |akumu, item| -> A)")
+                                        .with_span(span));
+                                }
+                                let init_ty = self.check_expr(&args[0].value)?;
+                                let resolved_init = self.resolve_type(&init_ty);
+                                let expected_fn = Type::Fn(vec![resolved_init.clone(), elem_ty.as_ref().clone()], Box::new(resolved_init.clone()));
+                                let fn_ty = if let Expr::Closure { params, ret_ty, body, span: c_span } = &args[1].value {
+                                    self.check_closure(params, ret_ty, body, *c_span, Some(&expected_fn))?
+                                } else {
+                                    self.check_expr(&args[1].value)?
+                                };
+                                self.unify(&fn_ty, &expected_fn, args[1].span)?;
+                                Ok(self.resolve_type(&resolved_init))
+                            }
+                            "setiap" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'setiap' membutuhkan 1 argumen: closure |item| -> Unit")
+                                        .with_span(span));
+                                }
+                                let ret_var = self.fresh_var();
+                                let expected_fn = Type::Fn(vec![elem_ty.as_ref().clone()], Box::new(ret_var));
+                                let fn_ty = if let Expr::Closure { params, ret_ty, body, span: c_span } = &args[0].value {
+                                    self.check_closure(params, ret_ty, body, *c_span, Some(&expected_fn))?
+                                } else {
+                                    self.check_expr(&args[0].value)?
+                                };
+                                self.unify(&fn_ty, &expected_fn, args[0].span)?;
+                                Ok(Type::Unit)
+                            }
+                            other => Err(Diagnostic::error(format!(
+                                "Metode '{}' tidak ditemukan pada Daftar<{}>",
+                                other, elem_ty
+                            ))
+                            .with_span(span)),
+                        }
+                    }
+                    Type::Map(val_ty) => {
+                        match method {
+                            "pasang" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'pasang' membutuhkan 2 argumen: (kunci: Teks, nilai: V)")
+                                        .with_span(span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                let v_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&v_ty, val_ty, args[1].span)?;
+                                Ok(Type::Unit)
+                            }
+                            "ambil" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ambil' membutuhkan 1 argumen (kunci: Teks)")
+                                        .with_span(span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(val_ty.clone(), Box::new(Type::String)))
+                            }
+                            "ambil_atau" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'ambil_atau' membutuhkan 2 argumen: (kunci: Teks, bawaan: V)")
+                                        .with_span(span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                let d_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&d_ty, val_ty, args[1].span)?;
+                                Ok(*val_ty.clone())
+                            }
+                            "ada" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ada' membutuhkan 1 argumen (kunci: Teks)")
+                                        .with_span(span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "hapus" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'hapus' membutuhkan 1 argumen (kunci: Teks)")
+                                        .with_span(span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(val_ty.clone(), Box::new(Type::String)))
+                            }
+                            "panjang" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'panjang' tidak menerima argumen")
+                                        .with_span(span));
+                                }
+                                Ok(Type::U64)
+                            }
+                            "kosong" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'kosong' tidak menerima argumen")
+                                        .with_span(span));
+                                }
+                                Ok(Type::Bool)
+                            }
+                            "daftar_kunci" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'daftar_kunci' tidak menerima argumen")
+                                        .with_span(span));
+                                }
+                                Ok(Type::List(Box::new(Type::String)))
+                            }
+                            "daftar_nilai" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'daftar_nilai' tidak menerima argumen")
+                                        .with_span(span));
+                                }
+                                Ok(Type::List(val_ty.clone()))
+                            }
+                            "ke_json" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'ke_json' tidak menerima argumen")
+                                        .with_span(span));
+                                }
+                                Ok(Type::String)
+                            }
+                            "bersihkan" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'bersihkan' tidak menerima argumen")
+                                        .with_span(span));
+                                }
+                                Ok(Type::Unit)
+                            }
+                            other => Err(Diagnostic::error(format!(
+                                "Metode '{}' tidak ditemukan pada Kamus<{}>",
+                                other, val_ty
+                            ))
+                            .with_span(span)),
+                        }
+                    }
+                    Type::String => {
+                        match method {
+                            "panjang" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'panjang' pada Teks tidak menerima argumen")
+                                        .with_span(span));
+                                }
+                                Ok(Type::U64)
+                            }
+                            "huruf_besar" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'huruf_besar' tidak menerima argumen")
+                                        .with_span(span));
+                                }
+                                Ok(Type::String)
+                            }
+                            "huruf_kecil" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'huruf_kecil' tidak menerima argumen")
+                                        .with_span(span));
+                                }
+                                Ok(Type::String)
+                            }
+                            "berisi" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'berisi' pada Teks membutuhkan 1 argumen (sub: Teks)")
+                                        .with_span(span));
+                                }
+                                let sub_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&sub_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "awalan" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'awalan' membutuhkan 1 argumen (awalan: Teks)")
+                                        .with_span(span));
+                                }
+                                let sub_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&sub_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "akhiran" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'akhiran' membutuhkan 1 argumen (akhiran: Teks)")
+                                        .with_span(span));
+                                }
+                                let sub_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&sub_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "pangkas" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'pangkas' tidak menerima argumen")
+                                        .with_span(span));
+                                }
+                                Ok(Type::String)
+                            }
+                            "ganti" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'ganti' membutuhkan 2 argumen: (lama: Teks, baru: Teks)")
+                                        .with_span(span));
+                                }
+                                let o_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&o_ty, &Type::String, args[0].span)?;
+                                let n_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&n_ty, &Type::String, args[1].span)?;
+                                Ok(Type::String)
+                            }
+                            "pisah" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'pisah' membutuhkan 1 argumen (pemisah: Teks)")
+                                        .with_span(span));
+                                }
+                                let p_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&p_ty, &Type::String, args[0].span)?;
+                                Ok(Type::List(Box::new(Type::String)))
+                            }
+                            "potong" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'potong' membutuhkan 2 argumen: (awal: u64, panjang: u64)")
+                                        .with_span(span));
+                                }
+                                let a_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&a_ty, &Type::U64, args[0].span)?;
+                                let p_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&p_ty, &Type::U64, args[1].span)?;
+                                Ok(Type::String)
+                            }
+                            "ambil" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ambil' membutuhkan 1 argumen (indeks: u64)")
+                                        .with_span(span));
+                                }
+                                let idx_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&idx_ty, &Type::U64, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            other => Err(Diagnostic::error(format!(
+                                "Metode '{}' tidak ditemukan pada Teks",
+                                other
+                            ))
+                            .with_span(span)),
+                        }
+                    }
+                    Type::Struct(s_name) if s_name == "BasisData" => {
+                        match method {
+                            "simpan" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'simpan' membutuhkan 2 argumen (kunci: Teks, nilai: Teks)").with_span(span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                let v_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&v_ty, &Type::String, args[1].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            "ambil" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ambil' membutuhkan 1 argumen (kunci: Teks)").with_span(span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "hapus" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'hapus' membutuhkan 1 argumen (kunci: Teks)").with_span(span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            "ada" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ada' membutuhkan 1 argumen (kunci: Teks)").with_span(span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "daftar_kunci" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'daftar_kunci' tidak menerima argumen").with_span(span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::List(Box::new(Type::String))), Box::new(Type::String)))
+                            }
+                            "padatkan" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'padatkan' tidak menerima argumen").with_span(span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            "ambil_awalan" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ambil_awalan' membutuhkan 1 argumen (awalan: Teks)").with_span(span));
+                                }
+                                let p_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&p_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::List(Box::new(Type::String))), Box::new(Type::String)))
+                            }
+                            "mulai_transaksi" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'mulai_transaksi' tidak menerima argumen").with_span(span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            "sedang_transaksi" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'sedang_transaksi' tidak menerima argumen").with_span(span));
+                                }
+                                Ok(Type::Bool)
+                            }
+                            "komit" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'komit' tidak menerima argumen").with_span(span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            "batal" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'batal' tidak menerima argumen").with_span(span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::Bool), Box::new(Type::String)))
+                            }
+                            "ekspor_json" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'ekspor_json' tidak menerima argumen").with_span(span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "ekspor_json_awalan" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ekspor_json_awalan' membutuhkan 1 argumen (awalan: Teks)").with_span(span));
+                                }
+                                let p_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&p_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "impor_json" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'impor_json' membutuhkan 1 argumen (json_teks: Teks)").with_span(span));
+                                }
+                                let j_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&j_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::U64), Box::new(Type::String)))
+                            }
+                            other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada BasisData", other)).with_span(span)),
+                        }
+                    }
+                    Type::Struct(s_name) if s_name == "PermintaanHttp" => {
+                        match method {
+                            "cocok" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'cocok' membutuhkan 1 argumen (pola: Teks)").with_span(span));
+                                }
+                                let p_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&p_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "param" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'param' membutuhkan 2 argumen (pola: Teks, nama_param: Teks)").with_span(span));
+                                }
+                                let p_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&p_ty, &Type::String, args[0].span)?;
+                                let n_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&n_ty, &Type::String, args[1].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "kueri_param" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'kueri_param' membutuhkan 1 argumen (kunci: Teks)").with_span(span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "ada_kueri" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ada_kueri' membutuhkan 1 argumen (kunci: Teks)").with_span(span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "kueri_atau" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'kueri_atau' membutuhkan 2 argumen (kunci: Teks, bawaan: Teks)").with_span(span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                let d_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&d_ty, &Type::String, args[1].span)?;
+                                Ok(Type::String)
+                            }
+                            "semua_kueri" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'semua_kueri' tidak membutuhkan argumen").with_span(span));
+                                }
+                                Ok(Type::List(Box::new(Type::String)))
+                            }
+                            "header" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'header' membutuhkan 1 argumen (nama_header: Teks)").with_span(span));
+                                }
+                                let n_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&n_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "ada_header" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'ada_header' membutuhkan 1 argumen (nama_header: Teks)").with_span(span));
+                                }
+                                let n_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&n_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "header_atau" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'header_atau' membutuhkan 2 argumen (nama_header: Teks, bawaan: Teks)").with_span(span));
+                                }
+                                let n_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&n_ty, &Type::String, args[0].span)?;
+                                let d_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&d_ty, &Type::String, args[1].span)?;
+                                Ok(Type::String)
+                            }
+                            "otorisasi_bearer" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'otorisasi_bearer' tidak membutuhkan argumen").with_span(span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "cocok_awalan" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'cocok_awalan' membutuhkan 1 argumen (awalan: Teks)").with_span(span));
+                                }
+                                let a_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&a_ty, &Type::String, args[0].span)?;
+                                Ok(Type::Bool)
+                            }
+                            "sisa_jalur" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'sisa_jalur' membutuhkan 1 argumen (awalan: Teks)").with_span(span));
+                                }
+                                let a_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&a_ty, &Type::String, args[0].span)?;
+                                Ok(Type::String)
+                            }
+                            "sajikan_statis" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'sajikan_statis' membutuhkan 1 argumen (folder_dasar: Teks)").with_span(span));
+                                }
+                                let f_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&f_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(
+                                    Box::new(Type::Struct("ResponsHttp".to_string())),
+                                    Box::new(Type::String),
+                                ))
+                            }
+                            "adalah_websocket" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'adalah_websocket' tidak membutuhkan argumen").with_span(span));
+                                }
+                                Ok(Type::Bool)
+                            }
+                            "kunci_websocket" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'kunci_websocket' tidak membutuhkan argumen").with_span(span));
+                                }
+                                Ok(Type::ErrorUnion(Box::new(Type::String), Box::new(Type::String)))
+                            }
+                            "tingkatkan_websocket" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'tingkatkan_websocket' membutuhkan 1 argumen (nama_penangan: Teks)").with_span(span));
+                                }
+                                let h_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&h_ty, &Type::String, args[0].span)?;
+                                Ok(Type::ErrorUnion(
+                                    Box::new(Type::Struct("ResponsHttp".to_string())),
+                                    Box::new(Type::String),
+                                ))
+                            }
+                            other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada PermintaanHttp", other)).with_span(span)),
+                        }
+                    }
+                    Type::Struct(s_name) if s_name == "ResponsHttp" => {
+                        match method {
+                            "tambah_header" => {
+                                if args.len() != 2 {
+                                    return Err(Diagnostic::error("Metode 'tambah_header' membutuhkan 2 argumen (kunci: Teks, nilai: Teks)").with_span(span));
+                                }
+                                let k_ty = self.check_expr(&args[0].value)?;
+                                self.unify(&k_ty, &Type::String, args[0].span)?;
+                                let v_ty = self.check_expr(&args[1].value)?;
+                                self.unify(&v_ty, &Type::String, args[1].span)?;
+                                Ok(Type::Struct("ResponsHttp".to_string()))
+                            }
+                            "cors" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'cors' tidak menerima argumen").with_span(span));
+                                }
+                                Ok(Type::Struct("ResponsHttp".to_string()))
+                            }
+                            "status_teks" => {
+                                if !args.is_empty() {
+                                    return Err(Diagnostic::error("Metode 'status_teks' tidak membutuhkan argumen").with_span(span));
+                                }
+                                Ok(Type::String)
+                            }
+                            other => Err(Diagnostic::error(format!("Metode '{}' tidak ditemukan pada ResponsHttp", other)).with_span(span)),
+                        }
+                    }
+                    Type::Struct(s_name) => {
+                        let method_info = self.find_method(s_name, method, span)?;
+                        // Check arguments
+                        // First param is `ini`, so call args should match remaining params
+                        let expected_params = &method_info.param_types[1..];
+                        if args.len() != expected_params.len() {
+                            return Err(Diagnostic::error(format!(
+                                "Metode '{}.{}' membutuhkan {} argumen, tetapi menerima {}",
+                                s_name,
+                                method,
+                                expected_params.len(),
+                                args.len()
+                            ))
+                            .with_span(span));
+                        }
+                        for (i, arg) in args.iter().enumerate() {
+                            let arg_ty = self.check_expr(&arg.value)?;
+                            self.unify(&arg_ty, &expected_params[i], arg.span)?;
+                        }
+                        Ok(method_info.ret_type.clone())
+                    }
+                    other => Err(Diagnostic::error(format!(
+                        "Tidak dapat memanggil metode '{}' pada tipe '{}'",
+                        method, other
+                    ))
+                    .with_span(span)),
+                }
+    }
+
+    fn check_closure(
+        &mut self,
+        params: &[ParamDecl],
+        ret_ty: &Option<TypeExpr>,
+        body: &Expr,
+        span: Span,
+        expected_fn: Option<&Type>,
+    ) -> Result<Type> {
+        self.enter_scope();
+        let mut param_types = Vec::new();
+
+        let (exp_params, exp_ret) = if let Some(Type::Fn(p, r)) = expected_fn.map(|t| self.resolve_type(t)) {
+            (Some(p), Some(r))
+        } else {
+            (None, None)
+        };
+
+        for (idx, param) in params.iter().enumerate() {
+            let p_ty = if let Some(t_expr) = &param.ty {
+                self.type_expr_to_type(t_expr)?
+            } else if let Some(exp_p) = &exp_params {
+                if idx < exp_p.len() {
+                    self.resolve_type(&exp_p[idx])
+                } else {
+                    self.fresh_var()
+                }
+            } else {
+                self.fresh_var()
+            };
+            self.insert_var(&param.name, p_ty.clone());
+            param_types.push(p_ty);
+        }
+
+        let body_ty = self.check_expr(body)?;
+        if let Some(expected_ret) = ret_ty {
+            let exp = self.type_expr_to_type(expected_ret)?;
+            self.unify(&body_ty, &exp, span)?;
+        } else if let Some(exp_r) = &exp_ret {
+            self.unify(&body_ty, exp_r, span)?;
+        }
+        self.exit_scope();
+        Ok(Type::Fn(param_types, Box::new(self.resolve_type(&body_ty))))
     }
 
     fn check_struct_instantiation(

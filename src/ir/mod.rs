@@ -594,6 +594,9 @@ impl<'a> IRBuilder<'a> {
                 ops.extend(b_ops);
                 val
             }
+            Expr::Closure { body, .. } => {
+                self.lower_expr(body, ops)
+            }
             Expr::Block(b) => {
                 for s in &b.stmts {
                     self.lower_stmt(s, ops);

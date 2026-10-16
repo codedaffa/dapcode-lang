@@ -1,0 +1,89 @@
+// ========================================================
+// Demo Pemrograman Fungsional & Closure Lambda di DapCode
+// Fitur: Closure Anonymous (|x| ...), .petakan, .saring, .lipat, .setiap
+// ========================================================
+
+fungsi demo_closure_dasar() -> Unit {
+    cetak("=== 1. Closure Lambda & Lexical Variable Capture ===")
+
+    // Closure tanpa parameter
+    salam := || "Halo dari Closure Lambda DapCode!"
+    cetak(salam())
+
+    // Closure dengan parameter & inferensi tipe otomatis
+    kuadrat := |x| x * x
+    hasil_kuadrat := kuadrat(7)
+    cetak("Kuadrat dari 7 adalah: {hasil_kuadrat}")
+
+    // Lexical Scoping: Closure menangkap variabel lingkungan luar
+    faktor := 10
+    pengali := |n| n * faktor
+    cetak("5 dikali faktor (10) = {pengali(5)}")
+
+    // Closure dengan tipe eksplisit
+    hitung := |a: u64, b: u64| -> u64 { a * 2 + b }
+    cetak("Hitung (3 * 2 + 4) = {hitung(3, 4)}")
+}
+
+fungsi demo_transformasi_koleksi() -> Unit {
+    cetak("")
+    cetak("=== 2. Metode Koleksi Fungsional: petakan & saring ===")
+
+    angka := Daftar()
+    angka.tambah(1)
+    angka.tambah(2)
+    angka.tambah(3)
+    angka.tambah(4)
+    angka.tambah(5)
+    angka.tambah(6)
+    angka.tambah(7)
+    angka.tambah(8)
+
+    cetak("Daftar awal berisi {angka.panjang()} angka")
+
+    // 1. petakan (map): transformasi setiap elemen
+    kuadrat_list := angka.petakan(|x| x * x)
+    cetak("Hasil petakan kuadrat (panjang: {kuadrat_list.panjang()}):")
+    kuadrat_list.setiap(|val| cetak("  -> Kuadrat: {val}"))
+
+    // 2. saring (filter): seleksi elemen dengan predikat boolean
+    genap := angka.saring(|x| x % 2 == 0)
+    cetak("Hasil saring angka genap (panjang: {genap.panjang()}):")
+    genap.setiap(|val| cetak("  -> Genap: {val}"))
+}
+
+fungsi demo_lipat_dan_chaining() -> Unit {
+    cetak("")
+    cetak("=== 3. Akumulasi (.lipat) & Method Chaining Pipeline ===")
+
+    data := Daftar()
+    data.tambah(10)
+    data.tambah(20)
+    data.tambah(30)
+    data.tambah(40)
+    data.tambah(50)
+
+    // 3. lipat (fold / reduce): akumulasi nilai
+    total := data.lipat(0, |acc, x| acc + x)
+    cetak("Total penjumlahan semua elemen: {total}")
+
+    // 4. Method Chaining: saring -> petakan -> lipat
+    // Ambil angka > 20, kalikan 2, lalu jumlahkan semuanya
+    total_pipa := data.saring(|x| x > 20).petakan(|x| x * 2).lipat(0, |acc, x| acc + x)
+
+    cetak("Hasil pipeline (saring > 20 -> petakan * 2 -> lipat): {total_pipa}")
+}
+
+fungsi utama() -> u64 {
+    cetak("==================================================")
+    cetak("    DapCode Functional Programming & Closures     ")
+    cetak("==================================================")
+
+    demo_closure_dasar()
+    demo_transformasi_koleksi()
+    demo_lipat_dan_chaining()
+
+    cetak("")
+    cetak("Semua demonstrasi closure dan fungsi tingkat tinggi selesai!")
+    kembali 0
+}

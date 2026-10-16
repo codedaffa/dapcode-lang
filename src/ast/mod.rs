@@ -284,6 +284,12 @@ pub enum Expr {
         body: Block,
         span: Span,
     },
+    Closure {
+        params: Vec<ParamDecl>,
+        ret_ty: Option<TypeExpr>,
+        body: Box<Expr>,
+        span: Span,
+    },
     Block(Block),
 }
 
@@ -304,6 +310,7 @@ impl Expr {
             Expr::Parallel { span, .. } => *span,
             Expr::Await { span, .. } => *span,
             Expr::Comptime { span, .. } => *span,
+            Expr::Closure { span, .. } => *span,
             Expr::Block(b) => b.span,
         }
     }

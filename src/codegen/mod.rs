@@ -1,7 +1,7 @@
 use crate::ast::*;
 use crate::diag::{Diagnostic, Result};
 use crate::ownership::OwnershipReport;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -13,6 +13,7 @@ pub struct CodeGenerator<'a> {
     pub task_helpers: Vec<String>,
     pub method_to_struct: HashMap<String, String>,
     pub var_types: HashMap<String, String>,
+    pub local_vars: HashSet<String>,
 }
 
 impl<'a> CodeGenerator<'a> {
@@ -24,6 +25,7 @@ impl<'a> CodeGenerator<'a> {
             task_helpers: Vec::new(),
             method_to_struct: HashMap::new(),
             var_types: HashMap::new(),
+            local_vars: HashSet::new(),
         }
     }
 
@@ -3509,6 +3511,11 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
         }
         self.out.push_str(") {\n");
 
+        self.local_vars.clear();
+        for p in &f.params {
+            self.local_vars.insert(p.name.clone());
+        }
+
         for stmt in &f.body.stmts {
             self.emit_stmt(stmt, &ret_ty);
         }
@@ -3533,6 +3540,7 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
     fn emit_stmt(&mut self, stmt: &Stmt, fn_ret_ty: &str) {
         match stmt {
             Stmt::VarDecl { name, init, explicit_ty, .. } => {
+                self.local_vars.insert(name.clone());
                 if let Some(t) = explicit_ty {
                     match t {
                         TypeExpr::Named(n, _) if n == "Kamus" => { self.var_types.insert(name.clone(), "Kamus".to_string()); }
@@ -3552,6 +3560,7 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 }
                 // Check if init is a catch expression on an error union
                 if let Expr::Catch { inner, err_var, handler, .. } = init {
+                    self.local_vars.insert(err_var.clone());
                     let in_str = self.emit_expr(inner);
                     let res_var = format!("_res_{}", name);
                     self.out.push_str(&format!("    __auto_type {} = {};\n", res_var, in_str));
@@ -3611,6 +3620,7 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 self.out.push_str("    }\n");
             }
             Stmt::ForIn { var_name, iterable, body, .. } => {
+                self.local_vars.insert(var_name.clone());
                 let it_str = self.emit_expr(iterable);
                 let idx_var = format!("_i_{}", self._temp_counter);
                 let list_var = format!("_list_{}", self._temp_counter);
@@ -3836,7 +3846,13 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                     arg_strs.push(self.emit_expr(&a.value));
                 }
                 let callee_name = match &**callee {
-                    Expr::Ident(n, _) => format!("dap_{}", n),
+                    Expr::Ident(n, _) => {
+                        if self.local_vars.contains(n) {
+                            n.clone()
+                        } else {
+                            format!("dap_{}", n)
+                        }
+                    }
                     _ => self.emit_expr(callee),
                 };
                 format!("{}({})", callee_name, arg_strs.join(", "))
@@ -3865,6 +3881,112 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 }
                 if method == "ke_json" && args.is_empty() {
                     return format!("dap_Kamus_ke_json({})", rec_str);
+                }
+                if method == "petakan" && args.len() == 1 {
+                    if let Expr::Closure { params, body, .. } = &args[0].value {
+                        let param_name = if !params.is_empty() { &params[0].name } else { "_item" };
+                        let item_cast = if !params.is_empty() && params[0].ty.is_some() {
+                            let c_ty = self.type_to_c(params[0].ty.as_ref().unwrap());
+                            if c_ty == "Teks" || c_ty.ends_with('*') {
+                                format!("({})_src->items[_i]", c_ty)
+                            } else {
+                                format!("({})((uintptr_t)_src->items[_i])", c_ty)
+                            }
+                        } else {
+                            "(uintptr_t)_src->items[_i]".to_string()
+                        };
+                        let body_str = self.emit_expr(body);
+                        return format!(
+                            "({{\n    DapList* _src = {};\n    DapList* _res = dap_Daftar_baru();\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            __auto_type {} = {};\n            __auto_type _mapped = ({});\n            dap_Daftar_tambah(_res, (void*)(uintptr_t)(_mapped));\n        }}\n    }}\n    _res;\n}})",
+                            rec_str, param_name, item_cast, body_str
+                        );
+                    } else {
+                        let fn_str = self.emit_expr(&args[0].value);
+                        return format!(
+                            "({{\n    DapList* _src = {};\n    DapList* _res = dap_Daftar_baru();\n    __auto_type _fn = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            __auto_type _mapped = _fn((uintptr_t)_src->items[_i]);\n            dap_Daftar_tambah(_res, (void*)(uintptr_t)(_mapped));\n        }}\n    }}\n    _res;\n}})",
+                            rec_str, fn_str
+                        );
+                    }
+                }
+                if method == "saring" && args.len() == 1 {
+                    if let Expr::Closure { params, body, .. } = &args[0].value {
+                        let param_name = if !params.is_empty() { &params[0].name } else { "_item" };
+                        let item_cast = if !params.is_empty() && params[0].ty.is_some() {
+                            let c_ty = self.type_to_c(params[0].ty.as_ref().unwrap());
+                            if c_ty == "Teks" || c_ty.ends_with('*') {
+                                format!("({})_src->items[_i]", c_ty)
+                            } else {
+                                format!("({})((uintptr_t)_src->items[_i])", c_ty)
+                            }
+                        } else {
+                            "(uintptr_t)_src->items[_i]".to_string()
+                        };
+                        let body_str = self.emit_expr(body);
+                        return format!(
+                            "({{\n    DapList* _src = {};\n    DapList* _res = dap_Daftar_baru();\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            __auto_type {} = {};\n            if ((bool)({})) {{\n                dap_Daftar_tambah(_res, _src->items[_i]);\n            }}\n        }}\n    }}\n    _res;\n}})",
+                            rec_str, param_name, item_cast, body_str
+                        );
+                    } else {
+                        let fn_str = self.emit_expr(&args[0].value);
+                        return format!(
+                            "({{\n    DapList* _src = {};\n    DapList* _res = dap_Daftar_baru();\n    __auto_type _fn = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            if ((bool)(_fn((uintptr_t)_src->items[_i]))) {{\n                dap_Daftar_tambah(_res, _src->items[_i]);\n            }}\n        }}\n    }}\n    _res;\n}})",
+                            rec_str, fn_str
+                        );
+                    }
+                }
+                if method == "lipat" && args.len() == 2 {
+                    let init_str = self.emit_expr(&args[0].value);
+                    if let Expr::Closure { params, body, .. } = &args[1].value {
+                        let acc_name = if !params.is_empty() { &params[0].name } else { "_acc" };
+                        let item_name = if params.len() > 1 { &params[1].name } else { "_item" };
+                        let item_cast = if params.len() > 1 && params[1].ty.is_some() {
+                            let c_ty = self.type_to_c(params[1].ty.as_ref().unwrap());
+                            if c_ty == "Teks" || c_ty.ends_with('*') {
+                                format!("({})_src->items[_i]", c_ty)
+                            } else {
+                                format!("({})((uintptr_t)_src->items[_i])", c_ty)
+                            }
+                        } else {
+                            "(uintptr_t)_src->items[_i]".to_string()
+                        };
+                        let body_str = self.emit_expr(body);
+                        return format!(
+                            "({{\n    DapList* _src = {};\n    __auto_type {} = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            __auto_type {} = {};\n            {} = ({});\n        }}\n    }}\n    {};\n}})",
+                            rec_str, acc_name, init_str, item_name, item_cast, acc_name, body_str, acc_name
+                        );
+                    } else {
+                        let fn_str = self.emit_expr(&args[1].value);
+                        return format!(
+                            "({{\n    DapList* _src = {};\n    __auto_type _acc = {};\n    __auto_type _fn = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            _acc = _fn(_acc, (uintptr_t)_src->items[_i]);\n        }}\n    }}\n    _acc;\n}})",
+                            rec_str, init_str, fn_str
+                        );
+                    }
+                }
+                if method == "setiap" && args.len() == 1 {
+                    if let Expr::Closure { params, body, .. } = &args[0].value {
+                        let param_name = if !params.is_empty() { &params[0].name } else { "_item" };
+                        let item_cast = if !params.is_empty() && params[0].ty.is_some() {
+                            let c_ty = self.type_to_c(params[0].ty.as_ref().unwrap());
+                            if c_ty == "Teks" || c_ty.ends_with('*') {
+                                format!("({})_src->items[_i]", c_ty)
+                            } else {
+                                format!("({})((uintptr_t)_src->items[_i])", c_ty)
+                            }
+                        } else {
+                            "(uintptr_t)_src->items[_i]".to_string()
+                        };
+                        let body_str = self.emit_expr(body);
+                        return format!(
+                            "({{\n    DapList* _src = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            __auto_type {} = {};\n            (void)({});\n        }}\n    }}\n    (void)0;\n}})",
+                            rec_str, param_name, item_cast, body_str
+                        );
+                    } else {
+                        let fn_str = self.emit_expr(&args[0].value);
+                        return format!(
+                            "({{\n    DapList* _src = {};\n    __auto_type _fn = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            _fn((uintptr_t)_src->items[_i]);\n        }}\n    }}\n    (void)0;\n}})",
+                            rec_str, fn_str
+                        );
+                    }
                 }
                 if method == "tambah" {
                     let arg_str = if !args.is_empty() { self.emit_expr(&args[0].value) } else { "NULL".to_string() };
@@ -4180,7 +4302,84 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 format!("dap_tunggu({})", t)
             }
             Expr::Comptime { .. } => "((void)0)".to_string(),
+            Expr::Closure { params, ret_ty, body, .. } => {
+                let p_list: Vec<String> = params
+                    .iter()
+                    .map(|p| {
+                        if let Some(ty) = &p.ty {
+                            format!("{} {}", self.type_to_c(ty), p.name)
+                        } else {
+                            format!("uintptr_t {}", p.name)
+                        }
+                    })
+                    .collect();
+                let params_joined = if p_list.is_empty() { "void".to_string() } else { p_list.join(", ") };
+                let ret_c_ty = if let Some(r) = ret_ty {
+                    self.type_to_c(r)
+                } else {
+                    self.deduce_expr_type_to_c(body)
+                };
+
+                let body_code = match &**body {
+                    Expr::Block(b) => {
+                        let mut code = String::new();
+                        for s in &b.stmts {
+                            let mut stmt_out = String::new();
+                            std::mem::swap(&mut self.out, &mut stmt_out);
+                            self.emit_stmt(s, &ret_c_ty);
+                            std::mem::swap(&mut self.out, &mut stmt_out);
+                            code.push_str(&stmt_out);
+                        }
+                        if let Some(e) = &b.expr {
+                            let e_str = self.emit_expr(e);
+                            if ret_c_ty == "void" {
+                                code.push_str(&format!("    {};\n    return;\n", e_str));
+                            } else {
+                                code.push_str(&format!("    return {};\n", e_str));
+                            }
+                        }
+                        code
+                    }
+                    _ => {
+                        let expr_str = self.emit_expr(body);
+                        if ret_c_ty == "void" {
+                            format!("    {};\n    return;\n", expr_str)
+                        } else {
+                            format!("    return {};\n", expr_str)
+                        }
+                    }
+                };
+
+                format!(
+                    "({{\n    auto {} _closure_fn({}) {{\n{}\n    }}\n    _closure_fn;\n}})",
+                    ret_c_ty, params_joined, body_code.trim_end()
+                )
+            }
             Expr::Block(_) => "((void)0)".to_string(),
+        }
+    }
+
+    fn deduce_expr_type_to_c(&self, expr: &Expr) -> String {
+        match expr {
+            Expr::Block(b) => {
+                if let Some(e) = &b.expr {
+                    self.deduce_expr_type_to_c(e)
+                } else {
+                    "void".to_string()
+                }
+            }
+            Expr::Lit(Literal::String(_), _) | Expr::InterpolatedString(_, _) => "const char*".to_string(),
+            Expr::Lit(Literal::Bool(_), _) => "bool".to_string(),
+            Expr::Lit(Literal::Float(_), _) => "double".to_string(),
+            Expr::Lit(Literal::Int(_), _) => "u64".to_string(),
+            Expr::Lit(Literal::Unit, _) => "void".to_string(),
+            Expr::Binary(_, op, _, _) => match op {
+                BinaryOp::Eq | BinaryOp::NotEq | BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq | BinaryOp::And | BinaryOp::Or => "bool".to_string(),
+                _ => "u64".to_string(),
+            },
+            Expr::Unary(UnaryOp::Not, _, _) => "bool".to_string(),
+            Expr::Unary(UnaryOp::Neg, _, _) => "i64".to_string(),
+            _ => "uintptr_t".to_string(),
         }
     }
 

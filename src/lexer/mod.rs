@@ -98,9 +98,14 @@ impl<'a> Lexer<'a> {
                 tokens.push(Token::new(TokenKind::AndAnd, Span::new(start, self.cursor, self.file_id)));
                 continue;
             }
-            if ch == '|' && self.peek_char_offset(1) == '|' {
-                self.cursor += 2;
-                tokens.push(Token::new(TokenKind::OrOr, Span::new(start, self.cursor, self.file_id)));
+            if ch == '|' {
+                if self.peek_char_offset(1) == '|' {
+                    self.cursor += 2;
+                    tokens.push(Token::new(TokenKind::OrOr, Span::new(start, self.cursor, self.file_id)));
+                } else {
+                    self.cursor += 1;
+                    tokens.push(Token::new(TokenKind::Pipe, Span::new(start, self.cursor, self.file_id)));
+                }
                 continue;
             }
 

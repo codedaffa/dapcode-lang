@@ -64,6 +64,7 @@ pub enum TokenKind {
     GtEq,          // >=
     AndAnd,        // &&
     OrOr,          // ||
+    Pipe,          // |
 
     // Statement separator inserted by newline
     Newline,
@@ -166,6 +167,7 @@ impl fmt::Display for TokenKind {
             TokenKind::GtEq => write!(f, ">="),
             TokenKind::AndAnd => write!(f, "&&"),
             TokenKind::OrOr => write!(f, "||"),
+            TokenKind::Pipe => write!(f, "|"),
             TokenKind::Newline => write!(f, "<baris_baru>"),
             TokenKind::Eof => write!(f, "<akhir_berkas>"),
         }
