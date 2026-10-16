@@ -53,19 +53,25 @@ pub enum Commands {
         /// Berkas sumber .dap (opsional jika DapCode.toml ada di direktori saat ini)
         file: Option<PathBuf>,
     },
-    /// Mengompilasi program DapCode ke berkas binary mandiri (native executable atau WebAssembly .wasm)
+    /// Mengompilasi program DapCode ke berkas binary mandiri (native, wasm, atau bundel mobile PWA)
     Build {
         /// Berkas sumber .dap (opsional jika DapCode.toml ada di direktori saat ini)
         file: Option<PathBuf>,
-        /// Berkas keluaran binary (.exe atau .wasm)
+        /// Berkas keluaran binary (.exe atau .wasm) atau folder bundel mobile
         #[arg(short, long)]
         output: Option<PathBuf>,
-        /// Target kompilasi: "native" (default) atau "wasm"
+        /// Target kompilasi: "native" (default), "wasm", atau "mobile" / "pwa"
         #[arg(short, long, default_value = "native")]
         target: String,
         /// Pintasan kompilasi ke WebAssembly (--target wasm)
         #[arg(long)]
         wasm: bool,
+        /// Bangun sebagai bundel aplikasi mobile lengkap (PWA + Android WebView Template)
+        #[arg(long)]
+        mobile: bool,
+        /// Pintasan untuk membangun PWA (Progressive Web App)
+        #[arg(long)]
+        pwa: bool,
     },
     /// Menampilkan pohon sintaks abstrak (Abstract Syntax Tree / AST)
     DumpAst {
@@ -173,6 +179,40 @@ pub enum Commands {
         #[arg(long, default_value_t = false)]
         open: bool,
     },
+    /// Membangun, mengemas, atau menyajikan aplikasi mobile DapCode (PWA & Android WebView Bundler)
+    #[command(subcommand)]
+    Mobile(MobileCommands),
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum MobileCommands {
+    /// Menginisialisasi proyek aplikasi mobile DapCode baru dengan dukungan layar sentuh (touch screen)
+    Init {
+        /// Nama aplikasi atau direktori target (opsional, default: "app_mobile")
+        name: Option<String>,
+    },
+    /// Membangun bundel aplikasi mobile lengkap (PWA, WebAssembly, dan template Android WebView)
+    Build {
+        /// Berkas sumber .dap (opsional jika DapCode.toml ada di direktori saat ini)
+        file: Option<PathBuf>,
+        /// Direktori keluaran bundel aplikasi mobile (default: "<nama>_mobile")
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        /// Nama tampilan aplikasi mobile (default: dari nama berkas)
+        #[arg(short, long)]
+        name: Option<String>,
+    },
+    /// Menjalankan server pengembangan mobile lokal dengan QR Code & akses Wi-Fi untuk pengujian instan di HP
+    Serve {
+        /// Berkas sumber .dap (opsional jika DapCode.toml ada di direktori saat ini)
+        file: Option<PathBuf>,
+        /// Port HTTP server (default: 8080)
+        #[arg(short, long, default_value_t = 8080)]
+        port: u16,
+        /// Buka langsung di peramban web desktop
+        #[arg(long, default_value_t = false)]
+        open: bool,
+    },
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -272,7 +312,10 @@ pub fn run_cli() -> io::Result<()> {
             output,
             target,
             wasm,
-        } => cmd_build(file.as_deref(), output, &target, wasm),
+            mobile,
+            pwa,
+        } => cmd_build(file.as_deref(), output, &target, wasm, mobile || pwa),
+        Commands::Mobile(mob_cmd) => handle_mobile_cmd(mob_cmd),
         Commands::DumpAst { file } => cmd_dump_ast(file.as_deref()),
         Commands::DumpIr { file } => cmd_dump_ir(file.as_deref()),
         Commands::DumpOwnership { file } => cmd_dump_ownership(file.as_deref()),
@@ -367,7 +410,7 @@ pub fn resolve_target_file(file: Option<&Path>) -> io::Result<PathBuf> {
     ))
 }
 
-fn load_program_and_modules(file: &Path, sm: &mut SourceMap) -> Option<(usize, crate::ast::Program)> {
+pub fn load_program_and_modules(file: &Path, sm: &mut SourceMap) -> Option<(usize, crate::ast::Program)> {
     let mut loader = ModuleLoader::new();
     match loader.load_program(file, sm) {
         Ok(res) => Some(res),
@@ -540,6 +583,7 @@ fn cmd_build(
     output: Option<PathBuf>,
     target_arch: &str,
     is_wasm: bool,
+    is_mobile: bool,
 ) -> io::Result<()> {
     let target = resolve_target_file(file)?;
     let mut sm = SourceMap::new();
@@ -554,6 +598,32 @@ fn cmd_build(
     let mut checker = TypeChecker::new(file_id);
     if let Err(diag) = checker.check_program(&program) {
         eprint!("{}", diag.render(&sm));
+        return Ok(());
+    }
+
+    if is_mobile || target_arch.to_lowercase() == "mobile" || target_arch.to_lowercase() == "pwa" {
+        let app_stem = target.file_stem().and_then(|s| s.to_str()).unwrap_or("app");
+        let target_dir = output.unwrap_or_else(|| {
+            target.parent().unwrap_or(Path::new(".")).join(format!("{}_mobile", app_stem))
+        });
+        println!(
+            "{} Mengompilasi '{}' ke bundel aplikasi Mobile (PWA & Android WebView)...",
+            "info:".blue().bold(),
+            target.display()
+        );
+
+        let mut emitter = crate::wasm::WasmEmitter::new();
+        match emitter.compile_program(&program) {
+            Ok(wasm_bytes) => {
+                if let Err(e) = crate::mobile::build_mobile_bundle(&wasm_bytes, app_stem, &target_dir) {
+                    eprintln!("{} Gagal membangun bundel mobile: {}", "kesalahan:".red().bold(), e);
+                    return Ok(());
+                }
+            }
+            Err(diag) => {
+                eprint!("{}", diag.render(&sm));
+            }
+        }
         return Ok(());
     }
 
@@ -1771,6 +1841,59 @@ pub fn handle_pkg_cmd(cmd: PkgCommands) -> io::Result<()> {
         PkgCommands::Tree => cmd_tree(),
         PkgCommands::Check => cmd_pkg_check(),
         PkgCommands::Vendor { target } => cmd_vendor(Some(target)),
+    }
+}
+
+pub fn handle_mobile_cmd(cmd: MobileCommands) -> io::Result<()> {
+    match cmd {
+        MobileCommands::Init { name } => crate::mobile::cmd_mobile_init(name.as_deref()),
+        MobileCommands::Build { file, output, name } => {
+            let target = resolve_target_file(file.as_deref())?;
+            let mut sm = SourceMap::new();
+            let (file_id, mut program) = match load_program_and_modules(&target, &mut sm) {
+                Some(res) => res,
+                None => return Ok(()),
+            };
+
+            let mut comptime = ComptimeEvaluator::new();
+            let _ = comptime.fold_program(&mut program);
+
+            let mut checker = TypeChecker::new(file_id);
+            if let Err(diag) = checker.check_program(&program) {
+                eprint!("{}", diag.render(&sm));
+                return Ok(());
+            }
+
+            let app_title = name.unwrap_or_else(|| {
+                target.file_stem().and_then(|s| s.to_str()).unwrap_or("dapcode_app").to_string()
+            });
+
+            let out_dir = output.unwrap_or_else(|| {
+                target.parent().unwrap_or(Path::new(".")).join(format!("{}_mobile", app_title))
+            });
+
+            println!(
+                "{} Mengompilasi '{}' ke bundel aplikasi Mobile...",
+                "info:".blue().bold(),
+                target.display()
+            );
+
+            let mut emitter = crate::wasm::WasmEmitter::new();
+            match emitter.compile_program(&program) {
+                Ok(wasm_bytes) => {
+                    if let Err(e) = crate::mobile::build_mobile_bundle(&wasm_bytes, &app_title, &out_dir) {
+                        eprintln!("{} Gagal membuat bundel mobile: {}", "kesalahan:".red().bold(), e);
+                    }
+                }
+                Err(diag) => {
+                    eprint!("{}", diag.render(&sm));
+                }
+            }
+            Ok(())
+        }
+        MobileCommands::Serve { file, port, open } => {
+            crate::mobile::cmd_mobile_serve(file.as_deref(), port, open)
+        }
     }
 }
 

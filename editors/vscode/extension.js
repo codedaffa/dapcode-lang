@@ -585,6 +585,36 @@ function activate(context) {
     );
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('dapcode.buildMobile', () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                vscode.window.showErrorMessage('Tidak ada berkas DapCode yang aktif.');
+                return;
+            }
+            const filePath = editor.document.fileName;
+            const compiler = findCompilerPath();
+            const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode Mobile');
+            terminal.show();
+            runInTerminal(terminal, compiler, 'mobile', 'build', filePath);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dapcode.serveMobile', () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                vscode.window.showErrorMessage('Tidak ada berkas DapCode yang aktif.');
+                return;
+            }
+            const filePath = editor.document.fileName;
+            const compiler = findCompilerPath();
+            const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode Mobile Server');
+            terminal.show();
+            runInTerminal(terminal, compiler, 'mobile', 'serve', filePath, '--open');
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('dapcode.restartLsp', () => {
             startLspServer(context);
             vscode.window.showInformationMessage('DapCode Language Server telah dimulai ulang.');
@@ -660,6 +690,10 @@ function activate(context) {
                                 vscode.window.createTerminal('DapCode Playground');
                             terminal.show();
                             runInTerminal(terminal, compiler, 'playground', '', '--open');
+                            break;
+                        }
+                        case 'buildMobile': {
+                            vscode.commands.executeCommand('dapcode.buildMobile');
                             break;
                         }
                         case 'applyPreset': {
@@ -1098,6 +1132,7 @@ function getPlaygroundWebviewHtml() {
         </select>
         <button id="btn-apply-preset">📥 Ke Editor</button>
         <button id="btn-external">🌐 Buka di Browser</button>
+        <button id="btn-mobile-export" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: white;">📱 Ekspor Mobile (PWA)</button>
     </div>
 
     <div class="canvas-card">
@@ -1684,6 +1719,30 @@ fungsi utama() -> u64 {
             }
         });
 
+        // Touch event support (layar sentuh / stylus / mobile preview)
+        function handleTouch(e, isDown) {
+            const touch = e.touches[0] || (e.changedTouches && e.changedTouches[0]);
+            if (touch) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                canvasMouseX = (touch.clientX - rect.left) * scaleX;
+                canvasMouseY = (touch.clientY - rect.top) * scaleY;
+                coordsHud.textContent = `X: ${Math.round(canvasMouseX)}, Y: ${Math.round(canvasMouseY)}`;
+            }
+            if (isDown !== undefined) {
+                canvasMouseDown = isDown;
+            }
+            if (currentWasmInstance) {
+                rerunCurrentFrame();
+            }
+            e.preventDefault();
+        }
+        canvas.addEventListener("touchstart", (e) => handleTouch(e, true), { passive: false });
+        canvas.addEventListener("touchmove", (e) => handleTouch(e), { passive: false });
+        canvas.addEventListener("touchend", (e) => handleTouch(e, false), { passive: false });
+        canvas.addEventListener("touchcancel", (e) => handleTouch(e, false), { passive: false });
+
         window.addEventListener("keydown", (e) => {
             canvasKeysPressed.add(e.keyCode || e.which);
             if (currentWasmInstance) {
@@ -1768,6 +1827,13 @@ fungsi utama() -> u64 {
         btnExternal.addEventListener("click", () => {
             vscode.postMessage({ command: "openExternal" });
         });
+
+        const btnMobileExport = document.getElementById("btn-mobile-export");
+        if (btnMobileExport) {
+            btnMobileExport.addEventListener("click", () => {
+                vscode.postMessage({ command: "buildMobile" });
+            });
+        }
 
         btnClearConsole.addEventListener("click", () => {
             consoleOutput.textContent = "";

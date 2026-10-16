@@ -144,6 +144,18 @@
                 "title": "DapCode: Buka Web Playground & Canvas Preview",
                 "category": "DapCode",
                 "icon": "$(play-circle)"
+            },
+            {
+                "command": "dapcode.buildMobile",
+                "title": "DapCode: Bangun Aplikasi Mobile (PWA & Android Bundle)",
+                "category": "DapCode",
+                "icon": "$(device-mobile)"
+            },
+            {
+                "command": "dapcode.serveMobile",
+                "title": "DapCode: Jalankan Server Mobile (QR Code & Wi-Fi)",
+                "category": "DapCode",
+                "icon": "$(broadcast)"
             }
         ],
         "menus": {
@@ -167,6 +179,11 @@
                     "command": "dapcode.openPlayground",
                     "when": "resourceLangId == dapcode",
                     "group": "navigation@4"
+                },
+                {
+                    "command": "dapcode.serveMobile",
+                    "when": "resourceLangId == dapcode",
+                    "group": "navigation@5"
                 }
             ],
             "editor/context": [

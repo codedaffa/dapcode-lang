@@ -13,6 +13,7 @@ pub mod ir;
 pub mod json;
 pub mod lexer;
 pub mod lsp;
+pub mod mobile;
 pub mod modules;
 pub mod net;
 pub mod ownership;
