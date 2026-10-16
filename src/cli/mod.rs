@@ -217,7 +217,45 @@ pub enum PkgCommands {
     },
 }
 
+/// Menginisialisasi konsol Windows untuk mendukung Unicode UTF-8 (CP 65001)
+/// dan pemrosesan kode warna ANSI/VT100 (Virtual Terminal Processing)
+pub fn init_windows_console() {
+    #[cfg(windows)]
+    {
+        unsafe {
+            unsafe extern "system" {
+                fn SetConsoleOutputCP(wCodePageID: u32) -> i32;
+                fn SetConsoleCP(wCodePageID: u32) -> i32;
+                fn GetStdHandle(nStdHandle: u32) -> *mut std::ffi::c_void;
+                fn GetConsoleMode(hConsoleHandle: *mut std::ffi::c_void, lpMode: *mut u32) -> i32;
+                fn SetConsoleMode(hConsoleHandle: *mut std::ffi::c_void, dwMode: u32) -> i32;
+            }
+
+            const STD_OUTPUT_HANDLE: u32 = -11i32 as u32;
+            const STD_ERROR_HANDLE: u32 = -12i32 as u32;
+            const ENABLE_VIRTUAL_TERMINAL_PROCESSING: u32 = 0x0004;
+
+            // Aktifkan UTF-8 code page (65001) untuk cmd.exe
+            SetConsoleOutputCP(65001);
+            SetConsoleCP(65001);
+
+            // Aktifkan mode ANSI escape sequence / Virtual Terminal Processing
+            for handle_id in [STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
+                let handle = GetStdHandle(handle_id);
+                if !handle.is_null() && handle != ((-1i32) as isize as *mut std::ffi::c_void) {
+                    let mut mode: u32 = 0;
+                    if GetConsoleMode(handle, &mut mode) != 0 {
+                        let _ = SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+                    }
+                }
+            }
+        }
+        let _ = colored::control::set_virtual_terminal(true);
+    }
+}
+
 pub fn run_cli() -> io::Result<()> {
+    init_windows_console();
     let cli = Cli::parse();
 
     let Some(command) = cli.command else {
@@ -2202,23 +2240,19 @@ pub fn print_welcome_dashboard() {
     println!("{}", "             /_/                             ".dimmed());
     println!();
 
-    // 2. Banner Header Kotak
-    println!("{}", "╔══════════════════════════════════════════════════════════════════════════════════════╗".cyan());
+    // 2. Banner Header
+    println!("  {}", "════════════════════════════════════════════════════════════════════════════".cyan());
     println!(
-        "{}   {} {} {}   {}",
-        "║".cyan(),
+        "  {} {}  {}",
         "🚀".bright_yellow(),
         "DAPCODE PROGRAMMING LANGUAGE & COMPILER TOOLCHAIN".bright_white().bold(),
-        "v0.1.0".bright_green().bold(),
-        "║".cyan()
+        "v0.1.0".bright_green().bold()
     );
     println!(
-        "{}   {}   {}",
-        "║".cyan(),
-        "Bahasa Pemrograman Modern Berbahasa Indonesia (AOT C11 • Wasm32 • Interp)".white(),
-        "║".cyan()
+        "     {}",
+        "Bahasa Pemrograman Modern Berbahasa Indonesia (AOT C11 • Wasm32 • Interp)".bright_cyan()
     );
-    println!("{}", "╚══════════════════════════════════════════════════════════════════════════════════════╝".cyan());
+    println!("  {}", "════════════════════════════════════════════════════════════════════════════".cyan());
     println!();
 
     // 3. Status Badges
@@ -2237,7 +2271,7 @@ pub fn print_welcome_dashboard() {
 
     // 4. Kategori: Alur Kerja Utama
     println!("  {}", "⚡ ALUR KERJA UTAMA (PRIMARY WORKFLOW)".bright_yellow().bold());
-    println!("  {}  {}", "────────────────────────────────────────────────────────────────────────────".bright_black(), "");
+    println!("  {}", "────────────────────────────────────────────────────────────────────────────".bright_black());
     println!(
         "    {} {:<22} {}",
         "•".bright_green(),
@@ -2272,7 +2306,7 @@ pub fn print_welcome_dashboard() {
 
     // 5. Kategori: Peralatan Pengembang & Eksplorasi
     println!("  {}", "🛠️  ALAT PENGEMBANG & EKSPLORASI (DEVELOPER TOOLS)".bright_cyan().bold());
-    println!("  {}  {}", "────────────────────────────────────────────────────────────────────────────".bright_black(), "");
+    println!("  {}", "────────────────────────────────────────────────────────────────────────────".bright_black());
     println!(
         "    {} {:<22} {}",
         "•".bright_yellow(),
@@ -2313,7 +2347,7 @@ pub fn print_welcome_dashboard() {
 
     // 6. Kategori: Manajer Paket Resmi (dappkg)
     println!("  {}", "📦 MANAJER PAKET RESMI (dappkg)".bright_magenta().bold());
-    println!("  {}  {}", "────────────────────────────────────────────────────────────────────────────".bright_black(), "");
+    println!("  {}", "────────────────────────────────────────────────────────────────────────────".bright_black());
     println!(
         "    {} {:<22} {}",
         "•".bright_magenta(),
@@ -2342,7 +2376,7 @@ pub fn print_welcome_dashboard() {
 
     // 7. Kategori: Pustaka Standar Bawaan
     println!("  {}", "🔋 PUSTAKA STANDAR UNGGULAN (BATTERIES INCLUDED)".bright_green().bold());
-    println!("  {}  {}", "────────────────────────────────────────────────────────────────────────────".bright_black(), "");
+    println!("  {}", "────────────────────────────────────────────────────────────────────────────".bright_black());
     println!(
         "    {} {:<26} {}",
         "🌐".bright_blue(),

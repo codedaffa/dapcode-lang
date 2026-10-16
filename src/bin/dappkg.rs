@@ -54,6 +54,7 @@ pub enum DappkgCommands {
 }
 
 fn main() {
+    dapcodec::cli::init_windows_console();
     let cli = DappkgCli::parse();
 
     let res: io::Result<()> = match cli.command {
