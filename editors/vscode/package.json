@@ -26,7 +26,16 @@
     ],
     "main": "./extension.js",
     "activationEvents": [
-        "onLanguage:dapcode"
+        "onLanguage:dapcode",
+        "onCommand:dapcode.openPlayground",
+        "onCommand:dapcode.run",
+        "onCommand:dapcode.test",
+        "onCommand:dapcode.repl",
+        "onCommand:dapcode.doc",
+        "onCommand:dapcode.check",
+        "onCommand:dapcode.build",
+        "onCommand:dapcode.buildMobile",
+        "onCommand:dapcode.serveMobile"
     ],
     "contributes": {
         "languages": [

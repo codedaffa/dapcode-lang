@@ -1728,7 +1728,7 @@ fungsi utama() -> u64 {
                 const scaleY = canvas.height / rect.height;
                 canvasMouseX = (touch.clientX - rect.left) * scaleX;
                 canvasMouseY = (touch.clientY - rect.top) * scaleY;
-                coordsHud.textContent = `X: ${Math.round(canvasMouseX)}, Y: ${Math.round(canvasMouseY)}`;
+                coordsHud.textContent = "X: " + Math.round(canvasMouseX) + ", Y: " + Math.round(canvasMouseY);
             }
             if (isDown !== undefined) {
                 canvasMouseDown = isDown;
