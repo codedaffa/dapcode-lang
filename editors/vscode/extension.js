@@ -1459,21 +1459,120 @@ fungsi utama() -> u64 {
                     const mem = getMemory();
                     const str = mem ? new TextDecoder().decode(new Uint8Array(mem.buffer, ptr, len)) : "";
                     appendLog(str);
+                },
+
+                // Fungsi Matematika Bawaan WebAssembly
+                sin: Math.sin,
+                cos: Math.cos,
+                tan: Math.tan,
+                asin: Math.asin,
+                acos: Math.acos,
+                atan: Math.atan,
+                atan2: Math.atan2,
+                akar_kubik: Math.cbrt,
+                pangkat: Math.pow,
+                log: Math.log,
+                log10: Math.log10,
+                log2: Math.log2,
+                exp: Math.exp,
+                tanda: Math.sign,
+
+                // Web Audio Synthesizer Bawaan
+                audio_mainkan_nada: (freq, dur, vol) => {
+                    try {
+                        const ctx = window.__dapAudioCtx || (window.__dapAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+                        if (ctx.state === 'suspended') ctx.resume();
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                        const now = ctx.currentTime;
+                        gain.gain.setValueAtTime(0.0001, now);
+                        gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, Math.min(1.0, vol)), now + 0.02);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + dur + 0.05);
+                    } catch (_) {}
+                },
+                audio_mainkan_gelombang: (tipe, freq, dur, vol) => {
+                    try {
+                        const ctx = window.__dapAudioCtx || (window.__dapAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+                        if (ctx.state === 'suspended') ctx.resume();
+                        const types = ['sine', 'square', 'sawtooth', 'triangle'];
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = types[Number(tipe) % 4] || 'sine';
+                        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                        const now = ctx.currentTime;
+                        gain.gain.setValueAtTime(0.0001, now);
+                        gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, Math.min(1.0, vol)), now + 0.02);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + dur + 0.05);
+                    } catch (_) {}
+                },
+                audio_efek_suara: (tipe) => {
+                    try {
+                        const ctx = window.__dapAudioCtx || (window.__dapAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+                        if (ctx.state === 'suspended') ctx.resume();
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        const now = ctx.currentTime;
+                        if (Number(tipe) === 0) {
+                            osc.frequency.setValueAtTime(800, now);
+                            gain.gain.setValueAtTime(0.3, now);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                            osc.connect(gain); gain.connect(ctx.destination);
+                            osc.start(now); osc.stop(now + 0.05);
+                        } else {
+                            osc.frequency.setValueAtTime(250, now);
+                            osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                            gain.gain.setValueAtTime(0.4, now);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                            osc.connect(gain); gain.connect(ctx.destination);
+                            osc.start(now); osc.stop(now + 0.15);
+                        }
+                    } catch (_) {}
+                },
+                audio_set_volume: () => {},
+                audio_hentikan_semua: () => {
+                    if (window.__dapAudioCtx) window.__dapAudioCtx.suspend();
+                },
+                audio_frekuensi_nada: (ptr, len) => {
+                    const mem = getMemory();
+                    const str = mem ? new TextDecoder().decode(new Uint8Array(mem.buffer, ptr, len)) : "";
+                    const notes = {
+                        "C4": 261.63, "D4": 293.66, "E4": 329.63, "F4": 349.23,
+                        "G4": 392.00, "A4": 440.00, "B4": 493.88, "C5": 523.25
+                    };
+                    return notes[str] || 440.0;
                 }
             };
+        }
+
+        function executeWasmEntry(instance) {
+            if (!instance || !instance.exports) return;
+            const exportedKeys = Object.keys(instance.exports).filter(k => k !== 'memory');
+            const target = instance.exports.render_game
+                || instance.exports.utama
+                || instance.exports.render
+                || instance.exports.gambar_tata_surya
+                || instance.exports.perbarui_layar
+                || (exportedKeys.length > 0 ? instance.exports[exportedKeys[0]] : null);
+            if (target && typeof target === 'function') {
+                target();
+            }
         }
 
         function rerunCurrentFrame() {
             if (!currentWasmInstance) return;
             commandCount = 0;
             const tStart = performance.now();
-            if (currentWasmInstance.exports.render_game) {
-                currentWasmInstance.exports.render_game();
-            } else if (currentWasmInstance.exports.utama) {
-                currentWasmInstance.exports.utama();
-            } else if (currentWasmInstance.exports.render) {
-                currentWasmInstance.exports.render();
-            }
+            executeWasmEntry(currentWasmInstance);
             metricRender.textContent = \`\${(performance.now() - tStart).toFixed(2)} ms\`;
             metricCmds.textContent = commandCount.toString();
         }
@@ -1502,13 +1601,7 @@ fungsi utama() -> u64 {
                 currentWasmInstance = instance;
                 memRef = instance.exports.memory;
 
-                if (instance.exports.render_game) {
-                    instance.exports.render_game();
-                } else if (instance.exports.utama) {
-                    instance.exports.utama();
-                } else if (instance.exports.render) {
-                    instance.exports.render();
-                }
+                executeWasmEntry(instance);
 
                 const tDuration = (performance.now() - tStart).toFixed(2);
                 metricRender.textContent = \`\${tDuration} ms\`;
