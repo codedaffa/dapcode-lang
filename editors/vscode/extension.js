@@ -45,6 +45,68 @@ function findCompilerPath() {
     return customPath || 'dapcodec';
 }
 
+function getActiveOrVisibleDapDocument(target) {
+    if (target) {
+        if (target.document) return target.document;
+        if (target.fileName && typeof target.getText === 'function') return target;
+        if (target.fsPath) {
+            const found = vscode.workspace.textDocuments.find((d) => d.fileName === target.fsPath);
+            if (found) return found;
+        }
+    }
+    const activeEditor = vscode.window.activeTextEditor;
+    if (activeEditor && (activeEditor.document.languageId === 'dapcode' || activeEditor.document.fileName.endsWith('.dap'))) {
+        return activeEditor.document;
+    }
+    const visibleEditor = vscode.window.visibleTextEditors.find(
+        (e) => e.document.languageId === 'dapcode' || e.document.fileName.endsWith('.dap')
+    );
+    if (visibleEditor) {
+        return visibleEditor.document;
+    }
+    const openDoc = vscode.workspace.textDocuments.find(
+        (d) => d.languageId === 'dapcode' || d.fileName.endsWith('.dap')
+    );
+    if (openDoc) {
+        return openDoc;
+    }
+    if (activeEditor && activeEditor.document) {
+        return activeEditor.document;
+    }
+    return null;
+}
+
+function getTargetDapFilePath(uri) {
+    if (uri) {
+        if (typeof uri === 'string') return uri;
+        if (uri.fsPath) return uri.fsPath;
+    }
+    const doc = getActiveOrVisibleDapDocument();
+    if (doc) return doc.fileName;
+
+    const openDoc = vscode.workspace.textDocuments.find(
+        (d) => d.languageId === 'dapcode' || d.fileName.endsWith('.dap')
+    );
+    if (openDoc) return openDoc.fileName;
+
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (workspaceFolders && workspaceFolders.length > 0) {
+        const root = workspaceFolders[0].uri.fsPath;
+        const candidates = [
+            path.join(root, 'examples', 'demo_kanvas.dap'),
+            path.join(root, 'src', 'utama.dap'),
+            path.join(root, 'examples', 'demo_uji.dap'),
+            path.join(root, 'utama.dap'),
+        ];
+        for (const c of candidates) {
+            if (fs.existsSync(c)) {
+                return c;
+            }
+        }
+    }
+    return null;
+}
+
 function sendLspMessage(msg) {
     if (!lspProcess || lspProcess.killed) return;
     const body = JSON.stringify(msg);
@@ -503,13 +565,12 @@ function activate(context) {
 
     // Commands
     context.subscriptions.push(
-        vscode.commands.registerCommand('dapcode.run', () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
+        vscode.commands.registerCommand('dapcode.run', (uri) => {
+            const filePath = getTargetDapFilePath(uri);
+            if (!filePath) {
                 vscode.window.showErrorMessage('Tidak ada berkas DapCode yang aktif.');
                 return;
             }
-            const filePath = editor.document.fileName;
             const compiler = findCompilerPath();
             const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode');
             terminal.show();
@@ -518,13 +579,13 @@ function activate(context) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('dapcode.test', () => {
-            const editor = vscode.window.activeTextEditor;
+        vscode.commands.registerCommand('dapcode.test', (uri) => {
+            const filePath = getTargetDapFilePath(uri);
             const compiler = findCompilerPath();
             const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode');
             terminal.show();
-            if (editor && editor.document.languageId === 'dapcode') {
-                runInTerminal(terminal, compiler, 'test', editor.document.fileName);
+            if (filePath) {
+                runInTerminal(terminal, compiler, 'test', filePath);
             } else {
                 runInTerminal(terminal, compiler, 'test');
             }
@@ -541,13 +602,13 @@ function activate(context) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('dapcode.doc', () => {
+        vscode.commands.registerCommand('dapcode.doc', (uri) => {
             const compiler = findCompilerPath();
             const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode');
             terminal.show();
-            const editor = vscode.window.activeTextEditor;
-            if (editor && editor.document.languageId === 'dapcode') {
-                runInTerminal(terminal, compiler, 'doc', editor.document.fileName, '--open');
+            const filePath = getTargetDapFilePath(uri);
+            if (filePath) {
+                runInTerminal(terminal, compiler, 'doc', filePath, '--open');
             } else {
                 runInTerminal(terminal, compiler, 'doc', '', '--open');
             }
@@ -555,13 +616,12 @@ function activate(context) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('dapcode.check', () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
+        vscode.commands.registerCommand('dapcode.check', (uri) => {
+            const filePath = getTargetDapFilePath(uri);
+            if (!filePath) {
                 vscode.window.showErrorMessage('Tidak ada berkas DapCode yang aktif.');
                 return;
             }
-            const filePath = editor.document.fileName;
             const compiler = findCompilerPath();
             const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode');
             terminal.show();
@@ -570,13 +630,12 @@ function activate(context) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('dapcode.build', () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
+        vscode.commands.registerCommand('dapcode.build', (uri) => {
+            const filePath = getTargetDapFilePath(uri);
+            if (!filePath) {
                 vscode.window.showErrorMessage('Tidak ada berkas DapCode yang aktif.');
                 return;
             }
-            const filePath = editor.document.fileName;
             const compiler = findCompilerPath();
             const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode');
             terminal.show();
@@ -585,13 +644,12 @@ function activate(context) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('dapcode.buildMobile', () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                vscode.window.showErrorMessage('Tidak ada berkas DapCode yang aktif.');
+        vscode.commands.registerCommand('dapcode.buildMobile', (uri) => {
+            const filePath = getTargetDapFilePath(uri);
+            if (!filePath) {
+                vscode.window.showWarningMessage('Buka atau pilih berkas DapCode (.dap) di samping Playground untuk diekspor ke aplikasi mobile.');
                 return;
             }
-            const filePath = editor.document.fileName;
             const compiler = findCompilerPath();
             const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode Mobile');
             terminal.show();
@@ -600,13 +658,12 @@ function activate(context) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('dapcode.serveMobile', () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
+        vscode.commands.registerCommand('dapcode.serveMobile', (uri) => {
+            const filePath = getTargetDapFilePath(uri);
+            if (!filePath) {
                 vscode.window.showErrorMessage('Tidak ada berkas DapCode yang aktif.');
                 return;
             }
-            const filePath = editor.document.fileName;
             const compiler = findCompilerPath();
             const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode Mobile Server');
             terminal.show();
@@ -633,9 +690,9 @@ function activate(context) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('dapcode.debug', () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
+        vscode.commands.registerCommand('dapcode.debug', (uri) => {
+            const filePath = getTargetDapFilePath(uri);
+            if (!filePath) {
                 vscode.window.showErrorMessage('Tidak ada berkas DapCode yang aktif.');
                 return;
             }
@@ -643,7 +700,7 @@ function activate(context) {
                 type: 'dapcode',
                 name: 'DapCode: Debug Berkas Aktif',
                 request: 'launch',
-                program: editor.document.fileName,
+                program: filePath,
                 stopOnEntry: false,
             });
         })
@@ -651,14 +708,14 @@ function activate(context) {
 
     // 8. Web Playground & Canvas 2D Live Preview
     context.subscriptions.push(
-        vscode.commands.registerCommand('dapcode.openPlayground', () => {
+        vscode.commands.registerCommand('dapcode.openPlayground', (uri) => {
             const column = vscode.window.activeTextEditor
                 ? vscode.ViewColumn.Beside
                 : vscode.ViewColumn.One;
 
             if (playgroundPanel) {
                 playgroundPanel.reveal(column);
-                triggerPlaygroundCompilation();
+                triggerPlaygroundCompilation(uri);
                 return;
             }
 
@@ -693,12 +750,33 @@ function activate(context) {
                             break;
                         }
                         case 'buildMobile': {
-                            vscode.commands.executeCommand('dapcode.buildMobile');
+                            let doc = getActiveOrVisibleDapDocument();
+                            let targetPath = doc ? doc.fileName : getTargetDapFilePath();
+
+                            if (!targetPath && message.code) {
+                                const workspaceFolders = vscode.workspace.workspaceFolders;
+                                const root = (workspaceFolders && workspaceFolders.length > 0)
+                                    ? workspaceFolders[0].uri.fsPath
+                                    : os.tmpdir();
+                                const presetName = message.presetKey || 'aplikasi_mobile';
+                                const generatedFile = path.join(root, `${presetName}.dap`);
+                                fs.writeFileSync(generatedFile, message.code, 'utf8');
+                                targetPath = generatedFile;
+                            }
+
+                            if (targetPath) {
+                                vscode.commands.executeCommand('dapcode.buildMobile', vscode.Uri.file(targetPath));
+                            } else {
+                                vscode.window.showInformationMessage(
+                                    'Buka berkas DapCode (.dap) di samping Playground untuk diekspor ke aplikasi mobile.'
+                                );
+                            }
                             break;
                         }
                         case 'applyPreset': {
-                            const editor = vscode.window.activeTextEditor;
-                            if (editor && editor.document.languageId === 'dapcode') {
+                            const doc = getActiveOrVisibleDapDocument();
+                            const editor = vscode.window.visibleTextEditors.find((e) => e.document === doc) || vscode.window.activeTextEditor;
+                            if (editor && (editor.document.languageId === 'dapcode' || editor.document.fileName.endsWith('.dap'))) {
                                 const fullRange = new vscode.Range(
                                     editor.document.positionAt(0),
                                     editor.document.positionAt(editor.document.getText().length)
@@ -708,12 +786,12 @@ function activate(context) {
                                 });
                                 triggerPlaygroundCompilation(editor);
                             } else {
-                                const doc = await vscode.workspace.openTextDocument({
+                                const newDoc = await vscode.workspace.openTextDocument({
                                     language: 'dapcode',
                                     content: message.code,
                                 });
-                                await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
-                                triggerPlaygroundCompilation();
+                                await vscode.window.showTextDocument(newDoc, vscode.ViewColumn.One);
+                                triggerPlaygroundCompilation(newDoc);
                             }
                             break;
                         }
@@ -732,7 +810,7 @@ function activate(context) {
             );
 
             // Initial compilation on open
-            triggerPlaygroundCompilation();
+            triggerPlaygroundCompilation(uri);
         })
     );
 
@@ -843,13 +921,13 @@ function compileDapCodeToWasm(code) {
 
 async function triggerPlaygroundCompilation(targetEditor) {
     if (!playgroundPanel) return;
-    const editor = targetEditor || vscode.window.activeTextEditor;
-    if (!editor || editor.document.languageId !== 'dapcode') {
+    const doc = getActiveOrVisibleDapDocument(targetEditor);
+    if (!doc) {
         return;
     }
 
-    const code = editor.document.getText();
-    const filename = path.basename(editor.document.fileName || 'tanpa_nama.dap');
+    const code = doc.getText();
+    const filename = path.basename(doc.fileName || 'tanpa_nama.dap');
 
     playgroundPanel.webview.postMessage({
         command: 'compiling',
@@ -1831,7 +1909,9 @@ fungsi utama() -> u64 {
         const btnMobileExport = document.getElementById("btn-mobile-export");
         if (btnMobileExport) {
             btnMobileExport.addEventListener("click", () => {
-                vscode.postMessage({ command: "buildMobile" });
+                const key = presetSelect.value;
+                const code = PRESETS[key] || "";
+                vscode.postMessage({ command: "buildMobile", presetKey: key, code: code });
             });
         }
 
