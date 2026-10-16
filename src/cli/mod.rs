@@ -30,7 +30,7 @@ use std::sync::{Arc, Mutex};
 )]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -220,7 +220,12 @@ pub enum PkgCommands {
 pub fn run_cli() -> io::Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
+    let Some(command) = cli.command else {
+        print_welcome_dashboard();
+        return Ok(());
+    };
+
+    match command {
         Commands::Init { name } => cmd_init(name.as_deref()),
         Commands::Run { file, args } => cmd_run(file.as_deref(), args),
         Commands::Check { file } => cmd_check(file.as_deref()),
@@ -2183,6 +2188,218 @@ pub fn cmd_playground(port: u16, open: bool) -> io::Result<()> {
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
     Ok(())
+}
+
+/// Menampilkan dashboard sambutan interaktif penuh warna (full-color CLI welcome dashboard)
+pub fn print_welcome_dashboard() {
+    println!();
+    // 1. ASCII Art Logo dengan gradasi warna
+    println!("{}", "      ____              ______          __   ".bright_cyan().bold());
+    println!("{}", "     / __ \\____ _____  / ____/___  ____/ /__ ".cyan().bold());
+    println!("{}", "    / / / / __ `/ __ \\/ /   / __ \\/ __  / _ \\".blue().bold());
+    println!("{}", "   / /_/ / /_/ / /_/ / /___/ /_/ / /_/ /  __/".bright_purple().bold());
+    println!("{}", "  /_____/\\__,_/ .___/\\____/\\____/\\__,_/\\___/ ".magenta().bold());
+    println!("{}", "             /_/                             ".dimmed());
+    println!();
+
+    // 2. Banner Header Kotak
+    println!("{}", "╔══════════════════════════════════════════════════════════════════════════════════════╗".cyan());
+    println!(
+        "{}   {} {} {}   {}",
+        "║".cyan(),
+        "🚀".bright_yellow(),
+        "DAPCODE PROGRAMMING LANGUAGE & COMPILER TOOLCHAIN".bright_white().bold(),
+        "v0.1.0".bright_green().bold(),
+        "║".cyan()
+    );
+    println!(
+        "{}   {}   {}",
+        "║".cyan(),
+        "Bahasa Pemrograman Modern Berbahasa Indonesia (AOT C11 • Wasm32 • Interp)".white(),
+        "║".cyan()
+    );
+    println!("{}", "╚══════════════════════════════════════════════════════════════════════════════════════╝".cyan());
+    println!();
+
+    // 3. Status Badges
+    println!(
+        "  {} {}  {} {}  {} {}  {} {}",
+        "STATUS:".bright_black().bold(),
+        "● AKTIF".green().bold(),
+        "MEMORI:".bright_black().bold(),
+        "Auto-Ownership (Perceus)".magenta().bold(),
+        "TARGET:".bright_black().bold(),
+        "Native C11 & Wasm".cyan().bold(),
+        "EDITOR:".bright_black().bold(),
+        "VS Code Extension v0.7.2".yellow().bold()
+    );
+    println!();
+
+    // 4. Kategori: Alur Kerja Utama
+    println!("  {}", "⚡ ALUR KERJA UTAMA (PRIMARY WORKFLOW)".bright_yellow().bold());
+    println!("  {}  {}", "────────────────────────────────────────────────────────────────────────────".bright_black(), "");
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_green(),
+        "init <nama>".green().bold(),
+        "Inisialisasi proyek DapCode baru dengan manifes DapCode.toml".white()
+    );
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_yellow(),
+        "run [file.dap]".yellow().bold(),
+        "Jalankan kode sumber secara instan via Runtime Interpreter".white()
+    );
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_cyan(),
+        "build [file.dap]".cyan().bold(),
+        "Kompilasi Ahead-of-Time ke biner mandiri (.exe native / .wasm)".white()
+    );
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_blue(),
+        "check [file.dap]".blue().bold(),
+        "Pemeriksaan tipe statis & borrow-checker analisis kepemilikan".white()
+    );
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_magenta(),
+        "test [file.dap]".magenta().bold(),
+        "Jalankan test runner terisolasi (blok uji & asersi pastikan)".white()
+    );
+    println!();
+
+    // 5. Kategori: Peralatan Pengembang & Eksplorasi
+    println!("  {}", "🛠️  ALAT PENGEMBANG & EKSPLORASI (DEVELOPER TOOLS)".bright_cyan().bold());
+    println!("  {}  {}", "────────────────────────────────────────────────────────────────────────────".bright_black(), "");
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_yellow(),
+        "repl".bright_yellow().bold(),
+        "Buka konsol interaktif REPL (Read-Eval-Print Loop)".white()
+    );
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_cyan(),
+        "playground --open".bright_cyan().bold(),
+        "Jalankan server Web Playground interaktif dengan editor & Canvas 2D".white()
+    );
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_blue(),
+        "doc --open".bright_blue().bold(),
+        "Hasilkan dokumentasi API proyek (Markdown & HTML) dan buka di browser".white()
+    );
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_green(),
+        "fmt".bright_green().bold(),
+        "Format kode sumber DapCode (.dap) secara konsisten dan rapi".white()
+    );
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_purple(),
+        "lsp".bright_purple().bold(),
+        "Jalankan Language Server Protocol untuk editor VS Code / IDE".white()
+    );
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_red(),
+        "debug [file.dap]".bright_red().bold(),
+        "Mulai sesi debugger CLI interaktif (breakpoint & inspeksi variabel)".white()
+    );
+    println!();
+
+    // 6. Kategori: Manajer Paket Resmi (dappkg)
+    println!("  {}", "📦 MANAJER PAKET RESMI (dappkg)".bright_magenta().bold());
+    println!("  {}  {}", "────────────────────────────────────────────────────────────────────────────".bright_black(), "");
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_magenta(),
+        "dappkg add <paket>".magenta().bold(),
+        "Tambah dependensi baru ke DapCode.toml (Git URL atau folder lokal)".white()
+    );
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_green(),
+        "dappkg install".green().bold(),
+        "Unduh semua dependensi dan kunci integritas hash ke DapCode.lock".white()
+    );
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_yellow(),
+        "dappkg vendor".yellow().bold(),
+        "Salin dependensi ke vendor/ untuk kompilasi offline 100% tanpa internet".white()
+    );
+    println!(
+        "    {} {:<22} {}",
+        "•".bright_cyan(),
+        "dappkg tree".cyan().bold(),
+        "Visualisasikan hierarki pohon dependensi proyek".white()
+    );
+    println!();
+
+    // 7. Kategori: Pustaka Standar Bawaan
+    println!("  {}", "🔋 PUSTAKA STANDAR UNGGULAN (BATTERIES INCLUDED)".bright_green().bold());
+    println!("  {}  {}", "────────────────────────────────────────────────────────────────────────────".bright_black(), "");
+    println!(
+        "    {} {:<26} {}",
+        "🌐".bright_blue(),
+        "HTTP Server & Router".bright_blue().bold(),
+        "Server mikroservis REST, cocok_rute, parameter dinamis, middleware & CORS".dimmed()
+    );
+    println!(
+        "    {} {:<26} {}",
+        "💾".bright_yellow(),
+        "BasisData / DapDb".bright_yellow().bold(),
+        "Embedded Key-Value database terformat persisten dengan transaksi ACID".dimmed()
+    );
+    println!(
+        "    {} {:<26} {}",
+        "📡".bright_cyan(),
+        "WebSocket RFC 6455".bright_cyan().bold(),
+        "Komunikasi full-duplex dua arah real-time bawaan mandiri".dimmed()
+    );
+    println!(
+        "    {} {:<26} {}",
+        "🕒".bright_green(),
+        "Waktu & Kalender".bright_green().bold(),
+        "Kalender sipil Howard Hinnant, waktu_sekarang, kabisat, format ISO".dimmed()
+    );
+    println!(
+        "    {} {:<26} {}",
+        "🔍".bright_purple(),
+        "Reguler Ekspresi".bright_purple().bold(),
+        "Mesin Regex mandiri: cocok_regex, cari_regex, ekstrak grup, ganti_regex".dimmed()
+    );
+    println!(
+        "    {} {:<26} {}",
+        "🎨".bright_magenta(),
+        "Koleksi Fungsional".bright_magenta().bold(),
+        "Kamus, Daftar, serta metode pipa: .petakan(), .saring(), .lipat(), .setiap()".dimmed()
+    );
+    println!(
+        "    {} {:<26} {}",
+        "🎮".bright_red(),
+        "Canvas 2D & Audio".bright_red().bold(),
+        "Grafis WebAssembly hardware-accelerated dan sintesis audio frekuensi".dimmed()
+    );
+    println!();
+
+    // 8. Footer Navigasi
+    println!("{}", "  ────────────────────────────────────────────────────────────────────────────".bright_black());
+    println!(
+        "  {} Ketik {} untuk panduan lengkap setiap opsi.",
+        "💡".bright_yellow(),
+        "dapcodec --help".cyan().bold()
+    );
+    println!(
+        "  {} Dokumentasi & Sumber: {}",
+        "📚".bright_blue(),
+        "https://github.com/dapcode-lang (atau 'dapcodec doc --open')".bright_blue().underline()
+    );
+    println!();
 }
 
 
