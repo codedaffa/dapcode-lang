@@ -767,7 +767,7 @@ fn cmd_repl() -> io::Result<()> {
             break;
         }
 
-        let trimmed_line = line_buf.trim();
+        let trimmed_line = line_buf.trim().trim_start_matches('\u{feff}');
 
         // 1. Meta Commands handling (only when not currently in a multiline block)
         if depth == 0 && accumulated.is_empty() {
@@ -807,7 +807,11 @@ fn cmd_repl() -> io::Result<()> {
                 println!("{}", "Environment dan fungsi REPL berhasil di-reset ke kondisi awal.".green());
                 continue;
             }
-            if trimmed_line.starts_with(":muat") || trimmed_line.starts_with(":load") {
+            if trimmed_line == ":muat"
+                || trimmed_line.starts_with(":muat ")
+                || trimmed_line == ":load"
+                || trimmed_line.starts_with(":load ")
+            {
                 let rest = if trimmed_line.starts_with(":muat") {
                     trimmed_line[5..].trim()
                 } else {
@@ -816,7 +820,7 @@ fn cmd_repl() -> io::Result<()> {
                 let raw_path = rest.trim_matches('"').trim_matches('\'').trim();
                 if raw_path.is_empty() {
                     println!("{}", "Penggunaan: :muat <jalur_berkas.dap> atau :load <jalur_berkas.dap>".yellow());
-                    println!("Contoh: :muat examples/tes.dap");
+                    println!("Contoh: :muat examples/tes.dap atau :muat tes.dap");
                     continue;
                 }
 
@@ -825,6 +829,19 @@ fn cmd_repl() -> io::Result<()> {
                     let with_ext = format!("{}.dap", raw_path);
                     if Path::new(&with_ext).exists() {
                         path_buf = PathBuf::from(with_ext);
+                    }
+                }
+
+                // Fallback: periksa folder examples/ jika berkas belum ditemukan
+                if !path_buf.exists() {
+                    let in_examples = Path::new("examples").join(raw_path);
+                    if in_examples.exists() {
+                        path_buf = in_examples;
+                    } else if !raw_path.ends_with(".dap") {
+                        let in_examples_ext = Path::new("examples").join(format!("{}.dap", raw_path));
+                        if in_examples_ext.exists() {
+                            path_buf = in_examples_ext;
+                        }
                     }
                 }
 

@@ -101,8 +101,13 @@ impl SourceMap {
     }
 
     pub fn add_file(&mut self, path: impl AsRef<Path>, src: String) -> (usize, Arc<SourceFile>) {
+        let clean_src = if let Some(stripped) = src.strip_prefix('\u{feff}') {
+            stripped.to_string()
+        } else {
+            src
+        };
         let id = self.files.len();
-        let file = Arc::new(SourceFile::new(id, path.as_ref().to_path_buf(), src));
+        let file = Arc::new(SourceFile::new(id, path.as_ref().to_path_buf(), clean_src));
         self.files.push(Arc::clone(&file));
         (id, file)
     }

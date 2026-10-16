@@ -29,6 +29,12 @@ impl<'a> Lexer<'a> {
         let mut tokens: Vec<Token> = Vec::new();
 
         while self.cursor < self.bytes.len() {
+            // Handle UTF-8 Byte Order Mark (BOM: \u{feff} -> 0xEF 0xBB 0xBF)
+            if self.bytes[self.cursor..].starts_with(b"\xEF\xBB\xBF") {
+                self.cursor += 3;
+                continue;
+            }
+
             let start = self.cursor;
             let ch = self.peek_char();
 

@@ -132,3 +132,15 @@ fungsi sapaan() -> Teks {
     assert_eq!(resolved, Type::String);
 }
 
+#[test]
+fn test_repl_utf8_bom_handling() {
+    let bom_src = "\u{feff}fungsi salam() -> Teks { kembali \"halo\" }";
+    let mut sm = SourceMap::new();
+    let (file_id, _) = sm.add_file("<tes_bom>", bom_src.to_string());
+    let mut lexer = Lexer::new(bom_src, file_id);
+    let tokens = lexer.tokenize().expect("Lexing with BOM should succeed");
+    let mut parser = Parser::new(tokens, file_id);
+    let prog = parser.parse_program().expect("Parsing with BOM should succeed");
+    assert_eq!(prog.decls.len(), 1);
+}
+
