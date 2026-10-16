@@ -257,3 +257,153 @@ fungsi utama() -> Unit {
     let _ = fs::remove_file(src_file);
     let _ = fs::remove_file(bin_file);
 }
+
+#[test]
+fn test_kamus_functional_methods_interpreter() {
+    let code = r#"
+fungsi utama() -> u64 {
+    skor := Kamus()
+    skor.pasang("andi", 80)
+    skor.pasang("budi", 95)
+    skor.pasang("cici", 60)
+
+    // 1. petakan_nilai (1 parameter: |nilai|)
+    bonus := skor.petakan_nilai(|v| v + 5)
+    pastikan_sama(bonus.panjang(), 3)
+    b_andi := bonus.ambil("andi") ? tangkap e { 0 }
+    b_budi := bonus.ambil("budi") ? tangkap e { 0 }
+    b_cici := bonus.ambil("cici") ? tangkap e { 0 }
+    pastikan_sama(b_andi, 85)
+    pastikan_sama(b_budi, 100)
+    pastikan_sama(b_cici, 65)
+
+    // 2. petakan_nilai (2 parameter: |kunci, nilai|)
+    label := skor.petakan_nilai(|k, v| "{k}: {v}")
+    l_andi := label.ambil("andi") ? tangkap e { "" }
+    l_budi := label.ambil("budi") ? tangkap e { "" }
+    pastikan_sama(l_andi, "andi: 80")
+    pastikan_sama(l_budi, "budi: 95")
+
+    // 3. saring (2 parameter: |kunci, nilai|)
+    lulus := skor.saring(|k, v| v >= 75)
+    pastikan_sama(lulus.panjang(), 2)
+    pastikan(lulus.ada("andi"))
+    pastikan(lulus.ada("budi"))
+    pastikan(!lulus.ada("cici"))
+
+    // 4. saring (1 parameter: |nilai|)
+    tinggi := skor.saring(|v| v > 90)
+    pastikan_sama(tinggi.panjang(), 1)
+    pastikan(tinggi.ada("budi"))
+
+    // 5. setiap (2 parameter: |kunci, nilai|)
+    skor.setiap(|k, v| cetak("ENTRI:{k}={v}"))
+
+    kembali 1
+}
+"#;
+
+    let program = parse_and_check(code);
+    let mut eval = Evaluator::new();
+    let res = eval.run_program(&program).expect("Evaluasi gagal");
+    match res {
+        Value::Int(n) => assert_eq!(n, 1),
+        other => panic!("Diharapkan Int(1), dapat: {:?}", other),
+    }
+
+    let output = eval.get_output();
+    assert!(output.iter().any(|s| s.contains("ENTRI:andi=80")));
+    assert!(output.iter().any(|s| s.contains("ENTRI:budi=95")));
+    assert!(output.iter().any(|s| s.contains("ENTRI:cici=60")));
+}
+
+#[test]
+fn test_kamus_functional_methods_native_c_codegen() {
+    let code = r#"
+fungsi utama() -> u64 {
+    kamus := Kamus()
+    kamus.pasang("apel", 10)
+    kamus.pasang("jeruk", 25)
+    kamus.pasang("mangga", 15)
+
+    // 1. petakan_nilai
+    dua_kali := kamus.petakan_nilai(|v| v * 2)
+    cetak("PANJANG_PETAKAN:{dua_kali.panjang()}")
+    v_apel := dua_kali.ambil("apel") ? tangkap e { 0 }
+    cetak("APEL_DUA_KALI:{v_apel}")
+
+    // 2. saring
+    mahal := kamus.saring(|k, v| v >= 15)
+    cetak("PANJANG_SARING:{mahal.panjang()}")
+    jika mahal.ada("jeruk") {
+        cetak("ADA_JERUK:OK")
+    }
+    jika !mahal.ada("apel") {
+        cetak("TIDAK_ADA_APEL:OK")
+    }
+
+    // 3. setiap
+    kamus.setiap(|k, v| cetak("ITEM:{k}:{v}"))
+
+    kembali 0
+}
+"#;
+
+    let program = parse_and_check(code);
+    let ownership = OwnershipAnalyzer::new();
+    let report = ownership.analyze_program(&program);
+
+    let mut codegen = CodeGenerator::new(&report);
+    let c_code = codegen.generate_c(&program);
+
+    let temp_dir = std::env::temp_dir();
+    let src_file = temp_dir.join("dap_test_native_kamus_func.c");
+    let bin_file = temp_dir.join("dap_test_native_kamus_func.exe");
+
+    fs::write(&src_file, &c_code).expect("Gagal menulis kode C sementara");
+
+    let gcc_status = Command::new("gcc")
+        .args(&[
+            "-std=c11",
+            src_file.to_str().unwrap(),
+            "-o",
+            bin_file.to_str().unwrap(),
+            "-lm",
+            "-lws2_32",
+        ])
+        .status();
+
+    match gcc_status {
+        Ok(status) if status.success() => {
+            let run_output = Command::new(&bin_file)
+                .output()
+                .expect("Gagal menjalankan biner native");
+            assert!(
+                run_output.status.success(),
+                "Eksekusi C binary gagal dengan exit code: {:?}, stdout: {}, stderr: {}",
+                run_output.status.code(),
+                String::from_utf8_lossy(&run_output.stdout),
+                String::from_utf8_lossy(&run_output.stderr)
+            );
+            let out_str = String::from_utf8_lossy(&run_output.stdout);
+            assert!(out_str.contains("PANJANG_PETAKAN:3"), "stdout: {}", out_str);
+            assert!(out_str.contains("APEL_DUA_KALI:20"), "stdout: {}", out_str);
+            assert!(out_str.contains("PANJANG_SARING:2"), "stdout: {}", out_str);
+            assert!(out_str.contains("ADA_JERUK:OK"), "stdout: {}", out_str);
+            assert!(out_str.contains("TIDAK_ADA_APEL:OK"), "stdout: {}", out_str);
+            assert!(out_str.contains("ITEM:apel:10"), "stdout: {}", out_str);
+            assert!(out_str.contains("ITEM:jeruk:25"), "stdout: {}", out_str);
+            assert!(out_str.contains("ITEM:mangga:15"), "stdout: {}", out_str);
+        }
+        Ok(status) => {
+            panic!("Kompilasi GCC gagal dengan status {:?}", status);
+        }
+        Err(e) => {
+            eprintln!("GCC tidak tersedia di lingkungan pengujian: {:?}", e);
+        }
+    }
+
+    let _ = fs::remove_file(src_file);
+    let _ = fs::remove_file(bin_file);
+}
+

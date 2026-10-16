@@ -2920,6 +2920,77 @@ impl Evaluator {
                             entries_arc.lock().unwrap().clear();
                             return Ok(Value::Unit);
                         }
+                        "petakan_nilai" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'petakan_nilai' membutuhkan 1 argumen (closure)").with_span(*span));
+                            }
+                            let fn_val = self.eval_expr(&args[0].value, env)?;
+                            let num_params = match &fn_val {
+                                Value::Closure(c) => c.params.len(),
+                                Value::String(name) => self.functions.get(name).map_or(2, |f| f.params.len()),
+                                _ => 2,
+                            };
+                            let entries = entries_arc.lock().unwrap().clone();
+                            let mut mapped = BTreeMap::new();
+                            for (k, v) in entries {
+                                let res = if num_params == 1 {
+                                    self.apply_function_or_closure(&fn_val, vec![v], *span, env)?
+                                } else {
+                                    self.apply_function_or_closure(&fn_val, vec![Value::String(k.clone()), v], *span, env)?
+                                };
+                                mapped.insert(k, res);
+                            }
+                            return Ok(Value::Map(Arc::new(Mutex::new(mapped))));
+                        }
+                        "saring" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'saring' membutuhkan 1 argumen (closure)").with_span(*span));
+                            }
+                            let fn_val = self.eval_expr(&args[0].value, env)?;
+                            let num_params = match &fn_val {
+                                Value::Closure(c) => c.params.len(),
+                                Value::String(name) => self.functions.get(name).map_or(2, |f| f.params.len()),
+                                _ => 2,
+                            };
+                            let entries = entries_arc.lock().unwrap().clone();
+                            let mut filtered = BTreeMap::new();
+                            for (k, v) in entries {
+                                let cond = if num_params == 1 {
+                                    self.apply_function_or_closure(&fn_val, vec![v.clone()], *span, env)?
+                                } else {
+                                    self.apply_function_or_closure(&fn_val, vec![Value::String(k.clone()), v.clone()], *span, env)?
+                                };
+                                let is_true = match cond {
+                                    Value::Bool(b) => b,
+                                    Value::Int(n) => n != 0,
+                                    _ => true,
+                                };
+                                if is_true {
+                                    filtered.insert(k, v);
+                                }
+                            }
+                            return Ok(Value::Map(Arc::new(Mutex::new(filtered))));
+                        }
+                        "setiap" => {
+                            if args.len() != 1 {
+                                return Err(Diagnostic::error("Metode 'setiap' membutuhkan 1 argumen (closure)").with_span(*span));
+                            }
+                            let fn_val = self.eval_expr(&args[0].value, env)?;
+                            let num_params = match &fn_val {
+                                Value::Closure(c) => c.params.len(),
+                                Value::String(name) => self.functions.get(name).map_or(2, |f| f.params.len()),
+                                _ => 2,
+                            };
+                            let entries = entries_arc.lock().unwrap().clone();
+                            for (k, v) in entries {
+                                if num_params == 1 {
+                                    let _ = self.apply_function_or_closure(&fn_val, vec![v], *span, env)?;
+                                } else {
+                                    let _ = self.apply_function_or_closure(&fn_val, vec![Value::String(k), v], *span, env)?;
+                                }
+                            }
+                            return Ok(Value::Unit);
+                        }
                         other => {
                             return Err(Diagnostic::error(format!(
                                 "Metode '{}' tidak ditemukan pada Kamus", other

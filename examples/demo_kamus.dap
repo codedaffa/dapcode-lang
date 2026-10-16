@@ -102,6 +102,31 @@ fungsi demo_kamus_penghapusan() -> Unit {
     cetak("Setelah .bersihkan(): panjang {sesi.panjang()}, kosong? {sesi.kosong()}")
 }
 
+fungsi demo_kamus_fungsional() -> Unit {
+    cetak("")
+    cetak("=== 4. Metode Fungsional Kamus (.petakan_nilai, .saring, .setiap) ===")
+    
+    harga_menu := Kamus()
+    harga_menu.pasang("Nasi Goreng", 25000)
+    harga_menu.pasang("Mie Ayam", 18000)
+    harga_menu.pasang("Es Teh", 5000)
+    harga_menu.pasang("Kopi Hitam", 10000)
+    
+    // 1. petakan_nilai: Transformasi setiap nilai dalam kamus (contoh: PPN 10%)
+    harga_pajak := harga_menu.petakan_nilai(|harga| harga * 110 / 100)
+    cetak("Harga setelah pajak 10%:")
+    harga_pajak.setiap(|item, harga| cetak(" - {item}: Rp{harga}"))
+    
+    // 2. saring: Menyaring entri berdasarkan kondisi (contoh: harga >= Rp15.000)
+    menu_utama := harga_menu.saring(|item, harga| harga >= 15000)
+    cetak("Menu dengan harga Rp15.000 ke atas (total {menu_utama.panjang()} item):")
+    menu_utama.setiap(|item, harga| cetak(" * {item} -> Rp{harga}"))
+    
+    // 3. setiap: Iterasi callback untuk setiap pasangan kunci-nilai
+    cetak("Daftar lengkap harga asli menu:")
+    harga_menu.setiap(|k, v| cetak("   [{k}] -> Rp{v}"))
+}
+
 fungsi utama() -> Unit {
     cetak("=========================================================")
     cetak("  DapCode - Demonstrasi Koleksi Asosiatif Kamus (Map)    ")
@@ -111,6 +136,7 @@ fungsi utama() -> Unit {
     demo_kamus_dasar()
     demo_kamus_json_dan_kunci()
     demo_kamus_penghapusan()
+    demo_kamus_fungsional()
     
     cetak("")
     cetak("=========================================================")

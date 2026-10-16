@@ -3558,6 +3558,25 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                         else if n == "BasisData" { self.var_types.insert(name.clone(), "BasisData".to_string()); }
                     }
                 }
+                if let Expr::MethodCall { receiver, method, .. } = init {
+                    let rec_name = match &**receiver {
+                        Expr::Ident(n, _) => Some(n.as_str()),
+                        _ => None,
+                    };
+                    let rec_is_kamus = rec_name.map_or(false, |n| self.var_types.get(n).map_or(false, |t| t == "Kamus") || n.contains("kamus") || n.contains("map"));
+                    let rec_is_daftar = rec_name.map_or(false, |n| self.var_types.get(n).map_or(false, |t| t == "Daftar") || n.contains("daftar") || n.contains("list"));
+                    if method == "petakan_nilai" {
+                        self.var_types.insert(name.clone(), "Kamus".to_string());
+                    } else if method == "petakan" {
+                        self.var_types.insert(name.clone(), "Daftar".to_string());
+                    } else if method == "saring" {
+                        if rec_is_kamus {
+                            self.var_types.insert(name.clone(), "Kamus".to_string());
+                        } else if rec_is_daftar {
+                            self.var_types.insert(name.clone(), "Daftar".to_string());
+                        }
+                    }
+                }
                 // Check if init is a catch expression on an error union
                 if let Expr::Catch { inner, err_var, handler, .. } = init {
                     self.local_vars.insert(err_var.clone());
@@ -3882,6 +3901,50 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                 if method == "ke_json" && args.is_empty() {
                     return format!("dap_Kamus_ke_json({})", rec_str);
                 }
+                if method == "petakan_nilai" && args.len() == 1 {
+                    if let Expr::Closure { params, body, .. } = &args[0].value {
+                        let has_key = params.len() >= 2;
+                        let (key_decl, val_name, val_cast) = if has_key {
+                            let kn = &params[0].name;
+                            let vn: &str = &params[1].name;
+                            let vc = if params[1].ty.is_some() {
+                                let c_ty = self.type_to_c(params[1].ty.as_ref().unwrap());
+                                if c_ty == "Teks" || c_ty.ends_with('*') {
+                                    format!("({})_src->entries[_i].val", c_ty)
+                                } else {
+                                    format!("({})((uintptr_t)_src->entries[_i].val)", c_ty)
+                                }
+                            } else {
+                                "(uintptr_t)_src->entries[_i].val".to_string()
+                            };
+                            (format!("            const char* {} = _src->entries[_i].key;\n", kn), vn, vc)
+                        } else {
+                            let vn: &str = if !params.is_empty() { &params[0].name } else { "_val" };
+                            let vc = if !params.is_empty() && params[0].ty.is_some() {
+                                let c_ty = self.type_to_c(params[0].ty.as_ref().unwrap());
+                                if c_ty == "Teks" || c_ty.ends_with('*') {
+                                    format!("({})_src->entries[_i].val", c_ty)
+                                } else {
+                                    format!("({})((uintptr_t)_src->entries[_i].val)", c_ty)
+                                }
+                            } else {
+                                "(uintptr_t)_src->entries[_i].val".to_string()
+                            };
+                            ("".to_string(), vn, vc)
+                        };
+                        let body_str = self.emit_expr(body);
+                        return format!(
+                            "({{\n    DapMap* _src = {};\n    DapMap* _res = dap_Kamus_baru();\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n{}            __auto_type {} = {};\n            __auto_type _mapped = ({});\n            dap_Kamus_pasang(_res, _src->entries[_i].key, (void*)(uintptr_t)(_mapped));\n        }}\n    }}\n    _res;\n}})",
+                            rec_str, key_decl, val_name, val_cast, body_str
+                        );
+                    } else {
+                        let fn_str = self.emit_expr(&args[0].value);
+                        return format!(
+                            "({{\n    DapMap* _src = {};\n    DapMap* _res = dap_Kamus_baru();\n    __auto_type _fn = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            __auto_type _mapped = _fn((uintptr_t)_src->entries[_i].val);\n            dap_Kamus_pasang(_res, _src->entries[_i].key, (void*)(uintptr_t)(_mapped));\n        }}\n    }}\n    _res;\n}})",
+                            rec_str, fn_str
+                        );
+                    }
+                }
                 if method == "petakan" && args.len() == 1 {
                     if let Expr::Closure { params, body, .. } = &args[0].value {
                         let param_name = if !params.is_empty() { &params[0].name } else { "_item" };
@@ -3909,29 +3972,80 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                     }
                 }
                 if method == "saring" && args.len() == 1 {
-                    if let Expr::Closure { params, body, .. } = &args[0].value {
-                        let param_name = if !params.is_empty() { &params[0].name } else { "_item" };
-                        let item_cast = if !params.is_empty() && params[0].ty.is_some() {
-                            let c_ty = self.type_to_c(params[0].ty.as_ref().unwrap());
-                            if c_ty == "Teks" || c_ty.ends_with('*') {
-                                format!("({})_src->items[_i]", c_ty)
-                            } else {
-                                format!("({})((uintptr_t)_src->items[_i])", c_ty)
-                            }
-                        } else {
-                            "(uintptr_t)_src->items[_i]".to_string()
-                        };
-                        let body_str = self.emit_expr(body);
-                        return format!(
-                            "({{\n    DapList* _src = {};\n    DapList* _res = dap_Daftar_baru();\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            __auto_type {} = {};\n            if ((bool)({})) {{\n                dap_Daftar_tambah(_res, _src->items[_i]);\n            }}\n        }}\n    }}\n    _res;\n}})",
-                            rec_str, param_name, item_cast, body_str
-                        );
+                    let closure_params_len = if let Expr::Closure { params, .. } = &args[0].value {
+                        params.len()
                     } else {
-                        let fn_str = self.emit_expr(&args[0].value);
-                        return format!(
-                            "({{\n    DapList* _src = {};\n    DapList* _res = dap_Daftar_baru();\n    __auto_type _fn = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            if ((bool)(_fn((uintptr_t)_src->items[_i]))) {{\n                dap_Daftar_tambah(_res, _src->items[_i]);\n            }}\n        }}\n    }}\n    _res;\n}})",
-                            rec_str, fn_str
-                        );
+                        0
+                    };
+                    let is_kamus_filter = is_kamus || closure_params_len >= 2;
+                    if is_kamus_filter {
+                        if let Expr::Closure { params, body, .. } = &args[0].value {
+                            let has_key = params.len() >= 2;
+                            let (key_decl, val_name, val_cast) = if has_key {
+                                let kn = &params[0].name;
+                                let vn: &str = &params[1].name;
+                                let vc = if params[1].ty.is_some() {
+                                    let c_ty = self.type_to_c(params[1].ty.as_ref().unwrap());
+                                    if c_ty == "Teks" || c_ty.ends_with('*') {
+                                        format!("({})_src->entries[_i].val", c_ty)
+                                    } else {
+                                        format!("({})((uintptr_t)_src->entries[_i].val)", c_ty)
+                                    }
+                                } else {
+                                    "(uintptr_t)_src->entries[_i].val".to_string()
+                                };
+                                (format!("            const char* {} = _src->entries[_i].key;\n", kn), vn, vc)
+                            } else {
+                                let vn: &str = if !params.is_empty() { &params[0].name } else { "_val" };
+                                let vc = if !params.is_empty() && params[0].ty.is_some() {
+                                    let c_ty = self.type_to_c(params[0].ty.as_ref().unwrap());
+                                    if c_ty == "Teks" || c_ty.ends_with('*') {
+                                        format!("({})_src->entries[_i].val", c_ty)
+                                    } else {
+                                        format!("({})((uintptr_t)_src->entries[_i].val)", c_ty)
+                                    }
+                                } else {
+                                    "(uintptr_t)_src->entries[_i].val".to_string()
+                                };
+                                ("".to_string(), vn, vc)
+                            };
+                            let body_str = self.emit_expr(body);
+                            return format!(
+                                "({{\n    DapMap* _src = {};\n    DapMap* _res = dap_Kamus_baru();\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n{}            __auto_type {} = {};\n            if ((bool)({})) {{\n                dap_Kamus_pasang(_res, _src->entries[_i].key, _src->entries[_i].val);\n            }}\n        }}\n    }}\n    _res;\n}})",
+                                rec_str, key_decl, val_name, val_cast, body_str
+                            );
+                        } else {
+                            let fn_str = self.emit_expr(&args[0].value);
+                            return format!(
+                                "({{\n    DapMap* _src = {};\n    DapMap* _res = dap_Kamus_baru();\n    __auto_type _fn = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            if ((bool)(_fn(_src->entries[_i].key, (uintptr_t)_src->entries[_i].val))) {{\n                dap_Kamus_pasang(_res, _src->entries[_i].key, _src->entries[_i].val);\n            }}\n        }}\n    }}\n    _res;\n}})",
+                                rec_str, fn_str
+                            );
+                        }
+                    } else {
+                        if let Expr::Closure { params, body, .. } = &args[0].value {
+                            let param_name = if !params.is_empty() { &params[0].name } else { "_item" };
+                            let item_cast = if !params.is_empty() && params[0].ty.is_some() {
+                                let c_ty = self.type_to_c(params[0].ty.as_ref().unwrap());
+                                if c_ty == "Teks" || c_ty.ends_with('*') {
+                                    format!("({})_src->items[_i]", c_ty)
+                                } else {
+                                    format!("({})((uintptr_t)_src->items[_i])", c_ty)
+                                }
+                            } else {
+                                "(uintptr_t)_src->items[_i]".to_string()
+                            };
+                            let body_str = self.emit_expr(body);
+                            return format!(
+                                "({{\n    DapList* _src = {};\n    DapList* _res = dap_Daftar_baru();\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            __auto_type {} = {};\n            if ((bool)({})) {{\n                dap_Daftar_tambah(_res, _src->items[_i]);\n            }}\n        }}\n    }}\n    _res;\n}})",
+                                rec_str, param_name, item_cast, body_str
+                            );
+                        } else {
+                            let fn_str = self.emit_expr(&args[0].value);
+                            return format!(
+                                "({{\n    DapList* _src = {};\n    DapList* _res = dap_Daftar_baru();\n    __auto_type _fn = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            if ((bool)(_fn((uintptr_t)_src->items[_i]))) {{\n                dap_Daftar_tambah(_res, _src->items[_i]);\n            }}\n        }}\n    }}\n    _res;\n}})",
+                                rec_str, fn_str
+                            );
+                        }
                     }
                 }
                 if method == "lipat" && args.len() == 2 {
@@ -3963,29 +4077,80 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                     }
                 }
                 if method == "setiap" && args.len() == 1 {
-                    if let Expr::Closure { params, body, .. } = &args[0].value {
-                        let param_name = if !params.is_empty() { &params[0].name } else { "_item" };
-                        let item_cast = if !params.is_empty() && params[0].ty.is_some() {
-                            let c_ty = self.type_to_c(params[0].ty.as_ref().unwrap());
-                            if c_ty == "Teks" || c_ty.ends_with('*') {
-                                format!("({})_src->items[_i]", c_ty)
-                            } else {
-                                format!("({})((uintptr_t)_src->items[_i])", c_ty)
-                            }
-                        } else {
-                            "(uintptr_t)_src->items[_i]".to_string()
-                        };
-                        let body_str = self.emit_expr(body);
-                        return format!(
-                            "({{\n    DapList* _src = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            __auto_type {} = {};\n            (void)({});\n        }}\n    }}\n    (void)0;\n}})",
-                            rec_str, param_name, item_cast, body_str
-                        );
+                    let closure_params_len = if let Expr::Closure { params, .. } = &args[0].value {
+                        params.len()
                     } else {
-                        let fn_str = self.emit_expr(&args[0].value);
-                        return format!(
-                            "({{\n    DapList* _src = {};\n    __auto_type _fn = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            _fn((uintptr_t)_src->items[_i]);\n        }}\n    }}\n    (void)0;\n}})",
-                            rec_str, fn_str
-                        );
+                        0
+                    };
+                    let is_kamus_each = is_kamus || closure_params_len >= 2;
+                    if is_kamus_each {
+                        if let Expr::Closure { params, body, .. } = &args[0].value {
+                            let has_key = params.len() >= 2;
+                            let (key_decl, val_name, val_cast) = if has_key {
+                                let kn = &params[0].name;
+                                let vn: &str = &params[1].name;
+                                let vc = if params[1].ty.is_some() {
+                                    let c_ty = self.type_to_c(params[1].ty.as_ref().unwrap());
+                                    if c_ty == "Teks" || c_ty.ends_with('*') {
+                                        format!("({})_src->entries[_i].val", c_ty)
+                                    } else {
+                                        format!("({})((uintptr_t)_src->entries[_i].val)", c_ty)
+                                    }
+                                } else {
+                                    "(uintptr_t)_src->entries[_i].val".to_string()
+                                };
+                                (format!("            const char* {} = _src->entries[_i].key;\n", kn), vn, vc)
+                            } else {
+                                let vn: &str = if !params.is_empty() { &params[0].name } else { "_val" };
+                                let vc = if !params.is_empty() && params[0].ty.is_some() {
+                                    let c_ty = self.type_to_c(params[0].ty.as_ref().unwrap());
+                                    if c_ty == "Teks" || c_ty.ends_with('*') {
+                                        format!("({})_src->entries[_i].val", c_ty)
+                                    } else {
+                                        format!("({})((uintptr_t)_src->entries[_i].val)", c_ty)
+                                    }
+                                } else {
+                                    "(uintptr_t)_src->entries[_i].val".to_string()
+                                };
+                                ("".to_string(), vn, vc)
+                            };
+                            let body_str = self.emit_expr(body);
+                            return format!(
+                                "({{\n    DapMap* _src = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n{}            __auto_type {} = {};\n            (void)({});\n        }}\n    }}\n    (void)0;\n}})",
+                                rec_str, key_decl, val_name, val_cast, body_str
+                            );
+                        } else {
+                            let fn_str = self.emit_expr(&args[0].value);
+                            return format!(
+                                "({{\n    DapMap* _src = {};\n    __auto_type _fn = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            _fn(_src->entries[_i].key, (uintptr_t)_src->entries[_i].val);\n        }}\n    }}\n    (void)0;\n}})",
+                                rec_str, fn_str
+                            );
+                        }
+                    } else {
+                        if let Expr::Closure { params, body, .. } = &args[0].value {
+                            let param_name = if !params.is_empty() { &params[0].name } else { "_item" };
+                            let item_cast = if !params.is_empty() && params[0].ty.is_some() {
+                                let c_ty = self.type_to_c(params[0].ty.as_ref().unwrap());
+                                if c_ty == "Teks" || c_ty.ends_with('*') {
+                                    format!("({})_src->items[_i]", c_ty)
+                                } else {
+                                    format!("({})((uintptr_t)_src->items[_i])", c_ty)
+                                }
+                            } else {
+                                "(uintptr_t)_src->items[_i]".to_string()
+                            };
+                            let body_str = self.emit_expr(body);
+                            return format!(
+                                "({{\n    DapList* _src = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            __auto_type {} = {};\n            (void)({});\n        }}\n    }}\n    (void)0;\n}})",
+                                rec_str, param_name, item_cast, body_str
+                            );
+                        } else {
+                            let fn_str = self.emit_expr(&args[0].value);
+                            return format!(
+                                "({{\n    DapList* _src = {};\n    __auto_type _fn = {};\n    if (_src) {{\n        for (size_t _i = 0; _i < _src->len; _i++) {{\n            _fn((uintptr_t)_src->items[_i]);\n        }}\n    }}\n    (void)0;\n}})",
+                                rec_str, fn_str
+                            );
+                        }
                     }
                 }
                 if method == "tambah" {

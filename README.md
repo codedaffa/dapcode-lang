@@ -624,6 +624,10 @@ DapCode menyediakan tipe data koleksi asosiatif bawaan `Kamus<V>` untuk penyimpa
   - `.daftar_nilai() -> Daftar<V>`: Mengembalikan seluruh nilai entri aktif sebagai objek `Daftar<V>`.
   - `.ke_json() -> Teks`: Serialisasi kamus ke string format JSON standar (`{"kunci":nilai,...}`).
   - `.bersihkan() -> Unit`: Mengosongkan dan membersihkan seluruh isi pasangan entri di dalam kamus.
+  - **Metode Fungsional Koleksi (`Kamus`):**
+    - `.petakan_nilai(f: |nilai: V| -> R) -> Kamus<R>`: Mentransformasikan nilai setiap entri dengan closure pemetaan dan mengembalikan `Kamus<R>` baru (kunci tetap utuh).
+    - `.saring(f: |kunci: Teks, nilai: V| -> Bool) -> Kamus<V>`: Menyaring pasangan entri kamus berdasarkan predikat closure dan mengembalikan `Kamus<V>` baru.
+    - `.setiap(f: |kunci: Teks, nilai: V| -> Unit) -> Unit`: Menjalankan closure callback untuk setiap pasangan kunci-nilai di dalam kamus.
   - **Perulangan `untuk`:** Mendukung iterasi langsung `untuk kunci di kamus { ... }` yang menghasilkan setiap kunci aktif.
 
 ```dap
@@ -643,7 +647,17 @@ fungsi utama() {
     json := kamus.ke_json()
     cetak("JSON: {json}") // {"id":"usr_101","nama":"Budi Santoso","peran":"administrator"}
     
-    // 4. Iterasi Kunci
+    // 4. Metode Fungsional Kamus (.petakan_nilai, .saring, .setiap)
+    skor := Kamus()
+    skor.pasang("Andi", 80)
+    skor.pasang("Budi", 95)
+    skor.pasang("Cici", 60)
+    
+    bonus := skor.petakan_nilai(|v| v + 5)
+    lulus := skor.saring(|k, v| v >= 75)
+    lulus.setiap(|k, v| cetak("Lulus: {k} skor {v}"))
+    
+    // 5. Iterasi Kunci
     untuk k di kamus {
         val := kamus.ambil_atau(k, "-")
         cetak("{k} => {val}")
@@ -696,10 +710,10 @@ fungsi utama() {
 
 ## 🎨 Dukungan Editor & Ekstensi VS Code
 
-Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke paket biner **`.vsix`** siap pakai (Versi `0.7.0`):
-- **Paket Instalasi Mandiri (`.vsix`):** Tersedia di `editors/vscode/dapcode-lang-0.7.0.vsix`.
+Ekstensi resmi DapCode tersedia di folder `editors/vscode/` dan telah dikemas ke paket biner **`.vsix`** siap pakai (Versi `0.7.1`):
+- **Paket Instalasi Mandiri (`.vsix`):** Tersedia di `editors/vscode/dapcode-lang-0.7.1.vsix`.
   ```powershell
-  code --install-extension editors/vscode/dapcode-lang-0.7.0.vsix
+  code --install-extension editors/vscode/dapcode-lang-0.7.1.vsix
   ```
 - **Integrasi LSP Cerdas (`extension.js`):**
   - **Diagnostik Real-Time:** Pelaporan kesalahan sintaks, kepemilikan (*borrow check*), dan tipe secara langsung saat mengetik.

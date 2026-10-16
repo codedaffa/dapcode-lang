@@ -780,6 +780,27 @@
             "${1:daftar}.setiap(|${2:x}| ${3:cetak(\"{x}\")})"
         ],
         "description": "Jalankan aksi callback untuk setiap elemen Daftar (.setiap / for-each)"
+    },
+    "Kamus Petakan Nilai": {
+        "prefix": "petakan_nilai",
+        "body": [
+            "${1:hasil} := ${2:kamus}.petakan_nilai(|${3:v}| ${4:v * 2})"
+        ],
+        "description": "Transformasikan nilai setiap entri Kamus dengan closure pemetaan (.petakan_nilai)"
+    },
+    "Kamus Saring": {
+        "prefix": "kamus_saring",
+        "body": [
+            "${1:hasil} := ${2:kamus}.saring(|${3:k}, ${4:v}| ${5:v > 0})"
+        ],
+        "description": "Saring pasangan entri Kamus dengan predikat closure (.saring)"
+    },
+    "Kamus Setiap": {
+        "prefix": "kamus_setiap",
+        "body": [
+            "${1:kamus}.setiap(|${2:k}, ${3:v}| ${4:cetak(\"{k}: {v}\")})"
+        ],
+        "description": "Jalankan aksi callback untuk setiap pasangan kunci-nilai Kamus (.setiap)"
     }
 }
 

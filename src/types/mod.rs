@@ -1955,6 +1955,81 @@ impl TypeChecker {
                                 }
                                 Ok(Type::Unit)
                             }
+                            "petakan_nilai" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'petakan_nilai' membutuhkan 1 argumen: closure |nilai| -> R atau |kunci, nilai| -> R")
+                                        .with_span(span));
+                                }
+                                let ret_var = self.fresh_var();
+                                let is_two_params = if let Expr::Closure { params, .. } = &args[0].value {
+                                    params.len() >= 2
+                                } else {
+                                    false
+                                };
+                                let expected_params = if is_two_params {
+                                    vec![Type::String, val_ty.as_ref().clone()]
+                                } else {
+                                    vec![val_ty.as_ref().clone()]
+                                };
+                                let expected_fn = Type::Fn(expected_params, Box::new(ret_var.clone()));
+                                let fn_ty = if let Expr::Closure { params, ret_ty, body, span: c_span } = &args[0].value {
+                                    self.check_closure(params, ret_ty, body, *c_span, Some(&expected_fn))?
+                                } else {
+                                    self.check_expr(&args[0].value)?
+                                };
+                                self.unify(&fn_ty, &expected_fn, args[0].span)?;
+                                let resolved_ret = self.resolve_type(&ret_var);
+                                Ok(Type::Map(Box::new(resolved_ret)))
+                            }
+                            "saring" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'saring' membutuhkan 1 argumen: closure |kunci, nilai| -> Bool atau |nilai| -> Bool")
+                                        .with_span(span));
+                                }
+                                let is_one_param = if let Expr::Closure { params, .. } = &args[0].value {
+                                    params.len() == 1
+                                } else {
+                                    false
+                                };
+                                let expected_params = if is_one_param {
+                                    vec![val_ty.as_ref().clone()]
+                                } else {
+                                    vec![Type::String, val_ty.as_ref().clone()]
+                                };
+                                let expected_fn = Type::Fn(expected_params, Box::new(Type::Bool));
+                                let fn_ty = if let Expr::Closure { params, ret_ty, body, span: c_span } = &args[0].value {
+                                    self.check_closure(params, ret_ty, body, *c_span, Some(&expected_fn))?
+                                } else {
+                                    self.check_expr(&args[0].value)?
+                                };
+                                self.unify(&fn_ty, &expected_fn, args[0].span)?;
+                                Ok(Type::Map(val_ty.clone()))
+                            }
+                            "setiap" => {
+                                if args.len() != 1 {
+                                    return Err(Diagnostic::error("Metode 'setiap' membutuhkan 1 argumen: closure |kunci, nilai| -> Unit atau |nilai| -> Unit")
+                                        .with_span(span));
+                                }
+                                let ret_var = self.fresh_var();
+                                let is_one_param = if let Expr::Closure { params, .. } = &args[0].value {
+                                    params.len() == 1
+                                } else {
+                                    false
+                                };
+                                let expected_params = if is_one_param {
+                                    vec![val_ty.as_ref().clone()]
+                                } else {
+                                    vec![Type::String, val_ty.as_ref().clone()]
+                                };
+                                let expected_fn = Type::Fn(expected_params, Box::new(ret_var));
+                                let fn_ty = if let Expr::Closure { params, ret_ty, body, span: c_span } = &args[0].value {
+                                    self.check_closure(params, ret_ty, body, *c_span, Some(&expected_fn))?
+                                } else {
+                                    self.check_expr(&args[0].value)?
+                                };
+                                self.unify(&fn_ty, &expected_fn, args[0].span)?;
+                                Ok(Type::Unit)
+                            }
                             other => Err(Diagnostic::error(format!(
                                 "Metode '{}' tidak ditemukan pada Kamus<{}>",
                                 other, val_ty
