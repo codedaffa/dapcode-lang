@@ -386,6 +386,16 @@ impl TypeChecker {
             ),
         );
 
+        // Standard Library: Terminal & Interactive Input
+        self.functions.insert(
+            "masukan".to_string(),
+            (vec![Type::String], Type::String),
+        );
+        self.functions.insert(
+            "baca_baris".to_string(),
+            (vec![], Type::String),
+        );
+
         // Standard Library: JSON Utilities
         let json_val_arg = self.fresh_var();
         self.functions.insert(
@@ -1557,6 +1567,19 @@ impl TypeChecker {
                             self.check_expr(&a.value)?;
                         }
                         return Ok(Type::Unit);
+                    }
+                    if name == "masukan" || name == "baca_baris" {
+                        if args.len() > 1 {
+                            return Err(Diagnostic::error(
+                                format!("'{}' membutuhkan 0 atau 1 argumen: (prompt_opsional: Teks)", name),
+                            )
+                            .with_span(*span));
+                        }
+                        if args.len() == 1 {
+                            let p_ty = self.check_expr(&args[0].value)?;
+                            self.unify(&p_ty, &Type::String, args[0].span)?;
+                        }
+                        return Ok(Type::String);
                     }
                     if name == "pastikan" {
                         if args.len() != 1 {

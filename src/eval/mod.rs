@@ -1028,6 +1028,68 @@ impl Evaluator {
                     }
                 }
 
+                // Built-in: masukan & baca_baris (Terminal & Interactive Console Input)
+                if let Expr::Ident(name, _) = &**callee {
+                    if name == "masukan" || name == "baca_baris" {
+                        use std::io::{self, Write, IsTerminal};
+                        if args.len() > 1 {
+                            return Err(Diagnostic::error(format!(
+                                "'{}' membutuhkan 0 atau 1 argumen: (prompt_opsional: Teks)",
+                                name
+                            ))
+                            .with_span(*span));
+                        }
+                        if args.len() == 1 {
+                            let p_val = self.eval_expr(&args[0].value, env)?;
+                            let p_str = match p_val {
+                                Value::String(s) => s,
+                                other => other.to_string(),
+                            };
+                            print!("{}", p_str);
+                            let _ = io::stdout().flush();
+                            self.output.lock().unwrap().push(p_str.clone());
+                            if let Some(ref hook) = self.debug_hook {
+                                hook.lock().unwrap().on_output(&p_str);
+                            }
+                        }
+                        let mut line_buf = String::new();
+                        let stdin = io::stdin();
+                        let is_pipe = !stdin.is_terminal();
+                        match stdin.read_line(&mut line_buf) {
+                            Ok(bytes_read) => {
+                                let has_content = bytes_read > 0;
+                                if line_buf.ends_with('\n') {
+                                    line_buf.pop();
+                                    if line_buf.ends_with('\r') {
+                                        line_buf.pop();
+                                    }
+                                }
+                                // When piped (e.g. from web runner / subprocess), echo input to output stream
+                                if is_pipe {
+                                    if has_content {
+                                        println!("{}", line_buf);
+                                        self.output.lock().unwrap().push(format!("{}\n", line_buf));
+                                        if let Some(ref hook) = self.debug_hook {
+                                            hook.lock().unwrap().on_output(&format!("{}\n", line_buf));
+                                        }
+                                    } else if args.len() == 1 {
+                                        println!();
+                                        self.output.lock().unwrap().push("\n".to_string());
+                                    }
+                                }
+                                return Ok(Value::String(line_buf));
+                            }
+                            Err(e) => {
+                                return Err(Diagnostic::error(format!(
+                                    "Gagal membaca masukan dari terminal: {}",
+                                    e
+                                ))
+                                .with_span(*span));
+                            }
+                        }
+                    }
+                }
+
                 // 2. Built-in: tunggu
                 if let Expr::Ident(name, _) = &**callee {
                     if name == "tunggu" {

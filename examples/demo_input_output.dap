@@ -1,0 +1,84 @@
+/// ========================================================
+/// Program Demo Resmi: Input & Output (I/O) DapCode
+/// Mendemonstrasikan I/O Terminal, I/O Berkas, & I/O Sistem
+/// ========================================================
+
+fungsi utama() {
+    cetak("==================================================")
+    cetak("🚀 DEMONSTRASI FITUR INPUT & OUTPUT (I/O) DAPCODE")
+    cetak("==================================================")
+
+    // ----------------------------------------------------
+    // 1. INPUT & OUTPUT TERMINAL (STDIN & STDOUT)
+    // ----------------------------------------------------
+    cetak("\n--- [1] Input & Output Terminal (Konsol) ---")
+
+    // Mengambil input teks dari pengguna dengan prompt interaktif
+    nama := masukan("Masukkan nama lengkap Anda : ")
+    peran := masukan("Masukkan peran / profesi   : ")
+    kota := masukan("Masukkan kota domisili     : ")
+
+    // Menghitung panjang teks dan mengubah format huruf
+    nama_kapital := ke_huruf_besar(nama)
+    total_karakter := panjang_teks(nama)
+
+    cetak("\nSalam kenal, {nama_kapital}!")
+    cetak("Detail Profil: Peran [{peran}] di kota [{kota}]")
+    cetak("Panjang karakter nama: {total_karakter} karakter.")
+
+    // ----------------------------------------------------
+    // 2. INPUT & OUTPUT BERKAS (FILE SYSTEM I/O)
+    // ----------------------------------------------------
+    cetak("\n--- [2] Input & Output Berkas (Disk I/O) ---")
+
+    nama_berkas := "catatan_pengguna.txt"
+    konten_berkas := "DATA PENGGUNA DAPCODE\nNama: {nama}\nPeran: {peran}\nKota: {kota}"
+
+    // Output: Menulis ke berkas disk
+    cetak("Menyimpan profil ke berkas '{nama_berkas}'...")
+    tulis_berkas(nama_berkas, konten_berkas) ? tangkap err {
+        cetak("❌ Gagal menulis berkas: {err}")
+        kembali
+    }
+    cetak("✅ Berkas berhasil disimpan ke disk!")
+
+    // Verifikasi keberadaan berkas
+    ada := ada_berkas(nama_berkas)
+    cetak("Apakah berkas ditemukan di disk? {ada}")
+
+    // Input: Membaca kembali dari berkas disk
+    cetak("Membaca kembali isi berkas dari disk:")
+    isi_dibaca := baca_berkas(nama_berkas) ? tangkap err {
+        cetak("❌ Gagal membaca berkas: {err}")
+        kembali
+    }
+    cetak("----------------------------------------")
+    cetak(isi_dibaca)
+    cetak("----------------------------------------")
+
+    // Pembersihan berkas contoh
+    hapus_berkas(nama_berkas) ? tangkap err {
+        cetak("Peringatan saat membersihkan berkas: {err}")
+    }
+    cetak("🧹 Berkas sementara berhasil dibersihkan.")
+
+    // ----------------------------------------------------
+    // 3. INPUT SISTEM (VARIABEL LINGKUNGAN & CLI ARGS)
+    // ----------------------------------------------------
+    cetak("\n--- [3] Input Sistem & Lingkungan OS ---")
+
+    // Membaca variabel lingkungan sistem operasi
+    pengguna_os := ambil_lingkungan("USERNAME") ? tangkap _ {
+        ambil_lingkungan("USER") ? tangkap _ { "Tamu" }
+    }
+    cetak("Pengguna OS Terdeteksi : {pengguna_os}")
+
+    // Membaca argumen CLI jika ada
+    argumen := ambil_argumen_cli()
+    total_arg := argumen.panjang()
+    cetak("Total Argumen Baris Perintah: {total_arg}")
+
+    cetak("\n==================================================")
+    cetak("🎉 Seluruh demonstrasi Input & Output berhasil!")
+    cetak("==================================================")
+}

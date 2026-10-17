@@ -3563,8 +3563,23 @@ dapcodec dump-ownership program.dap</code></pre>
                     title: "Tahap 3: Parsing Sintaksis (Pratt Parser)",
                     badge: "Frontend Pass",
                     latency: "src/parser/mod.rs • ~0.35 ms",
-                    inputType: "Aliran Token",
-                    input: '[IDENT("nilai"), ASSIGN, LPAREN, INT(10), PLUS, INT(20), RPAREN, STAR, INT(3)]',
+                    inputType: "Aliran Token (Vec<Token>)",
+                    input: `[
+  Token { kind: Ident("nilai"), span: 0..5 },
+  Token { kind: Assign, span: 6..8 },
+  Token { kind: LParen, span: 9..10 },
+  Token { kind: Int(10), span: 10..12 },
+  Token { kind: Plus, span: 13..14 },
+  Token { kind: Int(20), span: 15..17 },
+  Token { kind: RParen, span: 17..18 },
+  Token { kind: Star, span: 19..20 },
+  Token { kind: Int(3), span: 21..22 },
+  Token { kind: Semicolon, span: 22..23 },
+  Token { kind: Ident("cetak"), span: 24..29 },
+  Token { kind: LParen, span: 29..30 },
+  Token { kind: Ident("nilai"), span: 30..35 },
+  Token { kind: RParen, span: 35..36 }
+]`,
                     outputType: "Pohon Sintaksis Abstrak (ast::Program)",
                     output: `Program {
   statements: [
@@ -3591,8 +3606,27 @@ dapcodec dump-ownership program.dap</code></pre>
                     title: "Tahap 4: Pemeriksaan Tipe (Hindley-Milner)",
                     badge: "Middle-End Pass",
                     latency: "src/types/mod.rs • ~0.24 ms",
-                    inputType: "ast::Program (Untyped)",
-                    input: 'Stmt::Assign { name: "nilai", value: Mul(Add(10, 20), 3) }',
+                    inputType: "Pohon Sintaksis Abstrak (ast::Program)",
+                    input: `Program {
+  statements: [
+    Stmt::Assign {
+      name: "nilai",
+      value: Expr::Binary {
+        op: BinOp::Mul,
+        left: Expr::Binary {
+          op: BinOp::Add,
+          left: Expr::Literal(Lit::Int(10)),
+          right: Expr::Literal(Lit::Int(20))
+        },
+        right: Expr::Literal(Lit::Int(3))
+      }
+    },
+    Stmt::Expr(Expr::Call {
+      callee: "cetak",
+      args: [Expr::Variable("nilai")]
+    })
+  ]
+}`,
                     outputType: "Tabel Tipe Simbol & AST Bertipe",
                     output: `SymbolTable {
   "nilai": Type::Int (diinferensikan dari perkalian Int * Int),
@@ -3605,8 +3639,13 @@ TypeCheckResult: OK (0 Galat Tipe, 0 Ambiguitas)`
                     title: "Tahap 5: Analisis Memori Perceus (Deterministic Drop)",
                     badge: "Middle-End Pass",
                     latency: "src/ownership/mod.rs • ~0.15 ms",
-                    inputType: "AST Bertipe",
-                    input: "nilai: Int = 90; cetak(nilai);",
+                    inputType: "Tabel Tipe Simbol & AST Bertipe",
+                    input: `SymbolTable {
+  "nilai": Type::Int (diinferensikan dari perkalian Int * Int),
+  "cetak": Type::Fn(Type::Any) -> Type::Void
+}
+
+TypeCheckResult: OK (0 Galat Tipe, 0 Ambiguitas)`,
                     outputType: "Anotasi Kepemilikan & Drop Sites",
                     output: `// Variabel 'nilai' bertipe Int64 skalar (disimpan di register CPU)
 // Tidak ada alokasi heap dinamis yang perlu di-drop.
@@ -3616,8 +3655,10 @@ OwnershipAnalysis: 0 Heap Allocations, 0 RefCount Overhead`
                     title: "Tahap 6: Intermediate Representation (IR / CFG)",
                     badge: "Middle-End Pass",
                     latency: "src/ir/mod.rs • ~0.28 ms",
-                    inputType: "Annotated AST",
-                    input: "nilai := (10 + 20) * 3; cetak(nilai);",
+                    inputType: "Anotasi Kepemilikan & Drop Sites",
+                    input: `// Variabel 'nilai' bertipe Int64 skalar (disimpan di register CPU)
+// Tidak ada alokasi heap dinamis yang perlu di-drop.
+OwnershipAnalysis: 0 Heap Allocations, 0 RefCount Overhead`,
                     outputType: "ir::IRProgram (3-Address Code BasicBlocks)",
                     output: `function main() {
   bb0:
@@ -3635,8 +3676,18 @@ OwnershipAnalysis: 0 Heap Allocations, 0 RefCount Overhead`
                     title: "Tahap 7: Emisi Kode Akhir (C11 AOT / Native)",
                     badge: "Backend Pass",
                     latency: "src/codegen/mod.rs • ~0.50 ms",
-                    inputType: "ir::IRProgram",
-                    input: "bb0: _t4 = Mul(Add(10, 20), 3); call cetak(_t4);",
+                    inputType: "ir::IRProgram (3-Address Code BasicBlocks)",
+                    input: `function main() {
+  bb0:
+    _t0 = 10
+    _t1 = 20
+    _t2 = Add _t0, _t1        ; _t2 = 30
+    _t3 = 3
+    _t4 = Mul _t2, _t3        ; _t4 = 90
+    nilai = _t4
+    call @cetak(nilai)
+    return
+}`,
                     outputType: "Biner Native / C11 Code",
                     output: `#include "c_runtime.h"
 
@@ -3665,52 +3716,144 @@ cetak(hasil);`,
     jika b == 0 { kembalikan galat("BagiNol"); }
     kembalikan a / b;
 }
-hasil := bagi(100.0, 0.0) tangkap 0.0;`
+hasil := bagi(100.0, 0.0) tangkap 0.0;
+cetak(hasil);`
                 },
                 {
                     title: "Tahap 2: Analisis Leksikal (Lexer)",
                     badge: "Frontend Pass",
                     latency: "src/lexer/mod.rs • ~0.15 ms",
                     inputType: "String UTF-8",
-                    input: "fungsi bagi(...) -> Desimal ! Galat ... tangkap 0.0",
-                    outputType: "Aliran Token",
-                    output: '[FN, IDENT("bagi"), ..., ARROW, IDENT("Desimal"), BANG, IDENT("Galat"), ..., IDENT("tangkap"), FLOAT(0.0)]'
+                    input: `fungsi bagi(a: Desimal, b: Desimal) -> Desimal ! Galat {
+    jika b == 0 { kembalikan galat("BagiNol"); }
+    kembalikan a / b;
+}
+hasil := bagi(100.0, 0.0) tangkap 0.0;
+cetak(hasil);`,
+                    outputType: "Aliran Token (Vec<Token>)",
+                    output: `[
+  Token { kind: Fn, span: 0..6 },
+  Token { kind: Ident("bagi"), span: 7..11 },
+  Token { kind: LParen, span: 11..12 },
+  Token { kind: Ident("a"), span: 12..13 },
+  Token { kind: Colon, span: 13..14 },
+  Token { kind: Ident("Desimal"), span: 15..22 },
+  Token { kind: Comma, span: 22..23 },
+  Token { kind: Ident("b"), span: 24..25 },
+  Token { kind: Colon, span: 25..26 },
+  Token { kind: Ident("Desimal"), span: 27..34 },
+  Token { kind: RParen, span: 34..35 },
+  Token { kind: Arrow, span: 36..38 },
+  Token { kind: Ident("Desimal"), span: 39..46 },
+  Token { kind: Bang, span: 47..48 },
+  Token { kind: Ident("Galat"), span: 49..54 },
+  Token { kind: LBrace, span: 55..56 },
+  // ... badan fungsi bagi ...
+  Token { kind: Ident("hasil"), span: 115..120 },
+  Token { kind: Assign, span: 121..123 },
+  Token { kind: Ident("bagi"), span: 124..128 },
+  Token { kind: LParen, span: 128..129 },
+  Token { kind: Float(100.0), span: 129..134 },
+  Token { kind: Comma, span: 134..135 },
+  Token { kind: Float(0.0), span: 136..139 },
+  Token { kind: RParen, span: 139..140 },
+  Token { kind: Catch, span: 141..148 },
+  Token { kind: Float(0.0), span: 149..152 },
+  Token { kind: Semicolon, span: 152..153 }
+]`
                 },
                 {
                     title: "Tahap 3: Parsing Sintaksis (Pratt Parser)",
                     badge: "Frontend Pass",
                     latency: "src/parser/mod.rs • ~0.40 ms",
-                    inputType: "Aliran Token",
-                    input: "bagi(100.0, 0.0) tangkap 0.0",
-                    outputType: "Pohon Sintaksis AST",
-                    output: `Stmt::Assign {
-  name: "hasil",
-  value: Expr::Catch {
-    try_expr: Expr::Call { callee: "bagi", args: [100.0, 0.0] },
-    fallback_expr: Expr::Literal(0.0)
-  }
+                    inputType: "Aliran Token (Vec<Token>)",
+                    input: `[
+  Token { kind: Fn, span: 0..6 },
+  Token { kind: Ident("bagi"), span: 7..11 },
+  Token { kind: LParen, span: 11..12 },
+  Token { kind: Ident("a"), span: 12..13 },
+  Token { kind: Colon, span: 13..14 },
+  Token { kind: Ident("Desimal"), span: 15..22 },
+  // ... token fungsi & pernyataan ...
+  Token { kind: Ident("hasil"), span: 115..120 },
+  Token { kind: Assign, span: 121..123 },
+  Token { kind: Ident("bagi"), span: 124..128 },
+  Token { kind: LParen, span: 128..129 },
+  Token { kind: Float(100.0), span: 129..134 },
+  Token { kind: Comma, span: 134..135 },
+  Token { kind: Float(0.0), span: 136..139 },
+  Token { kind: RParen, span: 139..140 },
+  Token { kind: Catch, span: 141..148 },
+  Token { kind: Float(0.0), span: 149..152 },
+  Token { kind: Semicolon, span: 152..153 }
+]`,
+                    outputType: "Pohon Sintaksis Abstrak (ast::Program)",
+                    output: `Program {
+  statements: [
+    Stmt::FnDecl {
+      name: "bagi",
+      params: [("a", "Desimal"), ("b", "Desimal")],
+      ret_type: "Desimal ! Galat",
+      body: Block([
+        Stmt::If { cond: Eq("b", 0), then: Return(Error("BagiNol")) },
+        Stmt::Return(Div("a", "b"))
+      ])
+    },
+    Stmt::Assign {
+      name: "hasil",
+      value: Expr::Catch {
+        try_expr: Expr::Call { callee: "bagi", args: [100.0, 0.0] },
+        fallback_expr: Expr::Literal(0.0)
+      }
+    },
+    Stmt::Expr(Expr::Call { callee: "cetak", args: [Expr::Variable("hasil")] })
+  ]
 }`
                 },
                 {
                     title: "Tahap 4: Pemeriksaan Tipe (Hindley-Milner)",
                     badge: "Middle-End Pass",
                     latency: "src/types/mod.rs • ~0.30 ms",
-                    inputType: "AST",
-                    input: "Expr::Catch { try_expr, fallback_expr }",
+                    inputType: "Pohon Sintaksis Abstrak (ast::Program)",
+                    input: `Program {
+  statements: [
+    Stmt::FnDecl {
+      name: "bagi",
+      params: [("a", "Desimal"), ("b", "Desimal")],
+      ret_type: "Desimal ! Galat",
+      body: Block([
+        Stmt::If { cond: Eq("b", 0), then: Return(Error("BagiNol")) },
+        Stmt::Return(Div("a", "b"))
+      ])
+    },
+    Stmt::Assign {
+      name: "hasil",
+      value: Expr::Catch {
+        try_expr: Expr::Call { callee: "bagi", args: [100.0, 0.0] },
+        fallback_expr: Expr::Literal(0.0)
+      }
+    },
+    Stmt::Expr(Expr::Call { callee: "cetak", args: [Expr::Variable("hasil")] })
+  ]
+}`,
                     outputType: "Unifikasi Tipe Error Union",
                     output: `Unifikasi Tipe:
-  try_expr: Type::ErrorUnion(Ok = Float, Err = Galat)
-  fallback_expr: Type::Float
-  Hasil Unifikasi 'tangkap': Type::Float (Galat di-unwrap dengan fallback)
-TypeCheck: SUKSES`
+  try_expr: Type::ErrorUnion(Ok = Desimal, Err = Galat)
+  fallback_expr: Type::Desimal
+  Hasil Unifikasi 'tangkap': Type::Desimal (Galat di-unwrap dengan fallback)
+TypeCheck: SUKSES (0 Galat Tipe)`
                 },
                 {
                     title: "Tahap 5: Analisis Memori Perceus",
                     badge: "Middle-End Pass",
                     latency: "src/ownership/mod.rs • ~0.20 ms",
-                    inputType: "Typed AST",
-                    input: 'jika b == 0 { kembalikan galat("BagiNol"); }',
-                    outputType: "Drop Injection",
+                    inputType: "Unifikasi Tipe Error Union",
+                    input: `Unifikasi Tipe:
+  try_expr: Type::ErrorUnion(Ok = Desimal, Err = Galat)
+  fallback_expr: Type::Desimal
+  Hasil Unifikasi 'tangkap': Type::Desimal (Galat di-unwrap dengan fallback)
+TypeCheck: SUKSES (0 Galat Tipe)`,
+                    outputType: "Drop Injection & Cleanup Sites",
                     output: `// String "BagiNol" pada galat dialokasikan ke struktur Galat;
 // Blok tangkap mengonsumsi dan melepaskan struct Galat seketika:
 Injeksi: dap_drop_error(err) tepat di akhir blok tangkap.`
@@ -3719,8 +3862,10 @@ Injeksi: dap_drop_error(err) tepat di akhir blok tangkap.`
                     title: "Tahap 6: Intermediate Representation (IR / CFG)",
                     badge: "Middle-End Pass",
                     latency: "src/ir/mod.rs • ~0.35 ms",
-                    inputType: "Annotated AST",
-                    input: "hasil := bagi(...) tangkap 0.0",
+                    inputType: "Drop Injection & Cleanup Sites",
+                    input: `// String "BagiNol" pada galat dialokasikan ke struktur Galat;
+// Blok tangkap mengonsumsi dan melepaskan struct Galat seketika:
+Injeksi: dap_drop_error(err) tepat di akhir blok tangkap.`,
                     outputType: "Control Flow Graph dengan Percabangan Galat",
                     output: `bb0:
   _res = call @bagi(100.0, 0.0)
@@ -3742,13 +3887,27 @@ bb_done:
                     title: "Tahap 7: Emisi Kode Akhir (C11 AOT)",
                     badge: "Backend Pass",
                     latency: "src/codegen/mod.rs • ~0.55 ms",
-                    inputType: "IR Program",
-                    input: "br_if_error _res, bb_catch, bb_success",
+                    inputType: "Control Flow Graph dengan Percabangan Galat",
+                    input: `bb0:
+  _res = call @bagi(100.0, 0.0)
+  br_if_error _res, bb_catch, bb_success
+
+bb_catch:
+  dap_drop_error(_res.err)
+  hasil = 0.0
+  goto bb_done
+
+bb_success:
+  hasil = _res.value
+  goto bb_done
+
+bb_done:
+  call @cetak(hasil)`,
                     outputType: "C11 Code dengan Tagged Union",
                     output: `dap_res_f64 _res = dap_fn_bagi(100.0, 0.0);
 double hasil = _res.is_err ? 0.0 : _res.val;
 if (_res.is_err) dap_drop_val(_res.err);
-dap_cetak_f64(hasil); // Output: 0.000000`
+dap_cetak_float(hasil); // Output: 0.0`
                 }
             ],
             perceus_buffer: [
@@ -3766,43 +3925,127 @@ dap_cetak_f64(hasil); // Output: 0.000000`
                     badge: "Frontend Pass",
                     latency: "src/lexer/mod.rs • ~0.10 ms",
                     inputType: "String UTF-8",
-                    input: "data := [1, 2, 3]; data = data.tambah(4);",
-                    outputType: "Aliran Token",
-                    output: '[IDENT("data"), ASSIGN, LBRACKET, INT(1), COMMA, INT(2), COMMA, INT(3), RBRACKET, ...]'
+                    input: "data := [1, 2, 3];\ndata = data.tambah(4);\ncetak(data);",
+                    outputType: "Aliran Token (Vec<Token>)",
+                    output: `[
+  Token { kind: Ident("data"), span: 0..4 },
+  Token { kind: Assign, span: 5..7 },
+  Token { kind: LBracket, span: 8..9 },
+  Token { kind: Int(1), span: 9..10 },
+  Token { kind: Comma, span: 10..11 },
+  Token { kind: Int(2), span: 12..13 },
+  Token { kind: Comma, span: 13..14 },
+  Token { kind: Int(3), span: 15..16 },
+  Token { kind: RBracket, span: 16..17 },
+  Token { kind: Semicolon, span: 17..18 },
+  Token { kind: Ident("data"), span: 19..23 },
+  Token { kind: Equal, span: 24..25 },
+  Token { kind: Ident("data"), span: 26..30 },
+  Token { kind: Dot, span: 30..31 },
+  Token { kind: Ident("tambah"), span: 31..37 },
+  Token { kind: LParen, span: 37..38 },
+  Token { kind: Int(4), span: 38..39 },
+  Token { kind: RParen, span: 39..40 },
+  Token { kind: Semicolon, span: 40..41 },
+  Token { kind: Ident("cetak"), span: 42..47 },
+  Token { kind: LParen, span: 47..48 },
+  Token { kind: Ident("data"), span: 48..52 },
+  Token { kind: RParen, span: 52..53 },
+  Token { kind: Semicolon, span: 53..54 }
+]`
                 },
                 {
                     title: "Tahap 3: Parsing Sintaksis (Pratt Parser)",
                     badge: "Frontend Pass",
                     latency: "src/parser/mod.rs • ~0.30 ms",
-                    inputType: "Aliran Token",
-                    input: "data = data.tambah(4)",
-                    outputType: "AST",
-                    output: `Stmt::Reassign {
-  target: "data",
-  value: Expr::MethodCall {
-    receiver: Expr::Variable("data"),
-    method: "tambah",
-    args: [Expr::Literal(4)]
-  }
+                    inputType: "Aliran Token (Vec<Token>)",
+                    input: `[
+  Token { kind: Ident("data"), span: 0..4 },
+  Token { kind: Assign, span: 5..7 },
+  Token { kind: LBracket, span: 8..9 },
+  Token { kind: Int(1), span: 9..10 },
+  Token { kind: Comma, span: 10..11 },
+  Token { kind: Int(2), span: 12..13 },
+  Token { kind: Comma, span: 13..14 },
+  Token { kind: Int(3), span: 15..16 },
+  Token { kind: RBracket, span: 16..17 },
+  Token { kind: Semicolon, span: 17..18 },
+  Token { kind: Ident("data"), span: 19..23 },
+  Token { kind: Equal, span: 24..25 },
+  Token { kind: Ident("data"), span: 26..30 },
+  Token { kind: Dot, span: 30..31 },
+  Token { kind: Ident("tambah"), span: 31..37 },
+  Token { kind: LParen, span: 37..38 },
+  Token { kind: Int(4), span: 38..39 },
+  Token { kind: RParen, span: 39..40 },
+  Token { kind: Semicolon, span: 40..41 },
+  Token { kind: Ident("cetak"), span: 42..47 },
+  Token { kind: LParen, span: 47..48 },
+  Token { kind: Ident("data"), span: 48..52 },
+  Token { kind: RParen, span: 52..53 },
+  Token { kind: Semicolon, span: 53..54 }
+]`,
+                    outputType: "Pohon Sintaksis Abstrak (ast::Program)",
+                    output: `Program {
+  statements: [
+    Stmt::Assign {
+      name: "data",
+      value: Expr::List([1, 2, 3])
+    },
+    Stmt::Reassign {
+      target: "data",
+      value: Expr::MethodCall {
+        receiver: Expr::Variable("data"),
+        method: "tambah",
+        args: [Expr::Literal(4)]
+      }
+    },
+    Stmt::Expr(Expr::Call {
+      callee: "cetak",
+      args: [Expr::Variable("data")]
+    })
+  ]
 }`
                 },
                 {
                     title: "Tahap 4: Pemeriksaan Tipe (Hindley-Milner)",
                     badge: "Middle-End Pass",
                     latency: "src/types/mod.rs • ~0.25 ms",
-                    inputType: "AST",
-                    input: "data: List[Int].tambah(Int)",
-                    outputType: "Typed AST",
-                    output: `Resolusi Metode: List[T]::tambah(self, item: T) -> List[T]
-Tipe Variabel data: List[Int]`
+                    inputType: "Pohon Sintaksis Abstrak (ast::Program)",
+                    input: `Program {
+  statements: [
+    Stmt::Assign {
+      name: "data",
+      value: Expr::List([1, 2, 3])
+    },
+    Stmt::Reassign {
+      target: "data",
+      value: Expr::MethodCall {
+        receiver: Expr::Variable("data"),
+        method: "tambah",
+        args: [Expr::Literal(4)]
+      }
+    },
+    Stmt::Expr(Expr::Call {
+      callee: "cetak",
+      args: [Expr::Variable("data")]
+    })
+  ]
+}`,
+                    outputType: "Tabel Tipe Simbol & AST Bertipe",
+                    output: `Resolusi Metode: Daftar[T]::tambah(self, item: T) -> Daftar[T]
+Tipe Variabel data: Daftar[Int]
+Status Inferensi: OK (100% Type-Safe)`
                 },
                 {
                     title: "Tahap 5: Analisis Memori Perceus (Zero-Copy Reuse)",
                     badge: "Middle-End Pass",
                     latency: "src/ownership/mod.rs • ~0.18 ms",
-                    inputType: "Typed AST",
-                    input: "data = data.tambah(4)",
-                    outputType: "In-Place Reuse Annotation",
+                    inputType: "Tabel Tipe Simbol & AST Bertipe",
+                    input: `Resolusi Metode: Daftar[T]::tambah(self, item: T) -> Daftar[T]
+Tipe Variabel data: Daftar[Int]
+Status Inferensi: OK (100% Type-Safe)`,
+                    outputType: "Anotasi In-Place Buffer Reuse",
                     output: `🔥 PERCEUS INVARIANT DETECTED:
   Variabel 'data' dikonsumsi terakhir kali pada pemanggilan ini (Last-Use).
   Ref-Count pemegang objek == 1.
@@ -3813,9 +4056,13 @@ Tipe Variabel data: List[Int]`
                     title: "Tahap 6: Intermediate Representation (IR / CFG)",
                     badge: "Middle-End Pass",
                     latency: "src/ir/mod.rs • ~0.25 ms",
-                    inputType: "Annotated AST",
-                    input: "data.tambah(4) [Reuse Token]",
-                    outputType: "IR Program",
+                    inputType: "Anotasi In-Place Buffer Reuse",
+                    input: `🔥 PERCEUS INVARIANT DETECTED:
+  Variabel 'data' dikonsumsi terakhir kali pada pemanggilan ini (Last-Use).
+  Ref-Count pemegang objek == 1.
+  TIDAK DILAKUKAN DUPLIKASI MEMORI (ZERO-COPY CLONE).
+  Buffer kapasitas array yang ada langsung dipakai ulang (In-place buffer reuse)!`,
+                    outputType: "ir::IRProgram (3-Address Code BasicBlocks)",
                     output: `bb0:
   _arr = dap_alloc_list([1, 2, 3])
   ; Reuse token disisipkan ke pemanggilan metode:
@@ -3827,9 +4074,14 @@ Tipe Variabel data: List[Int]`
                     title: "Tahap 7: Emisi Kode Akhir (C11 AOT)",
                     badge: "Backend Pass",
                     latency: "src/codegen/mod.rs • ~0.45 ms",
-                    inputType: "IR Program",
-                    input: "dap_list_append_inplace(_arr, 4)",
-                    outputType: "C11 Native Runtime",
+                    inputType: "ir::IRProgram (3-Address Code BasicBlocks)",
+                    input: `bb0:
+  _arr = dap_alloc_list([1, 2, 3])
+  ; Reuse token disisipkan ke pemanggilan metode:
+  _new_arr = dap_list_append_inplace(_arr, 4)
+  call @cetak(_new_arr)
+  dap_drop(_new_arr) ; Terakhir dilepaskan di sini`,
+                    outputType: "Biner Native / C11 Native Runtime",
                     output: `dap_list_t* data = dap_list_new_3(1, 2, 3);
 // Perceus fast-path: refcount == 1, realloc buffer in-place
 data = dap_list_push_inplace(data, 4);
@@ -3859,36 +4111,127 @@ cetak(hasil);`
                     badge: "Frontend Pass",
                     latency: "src/lexer/mod.rs • ~0.10 ms",
                     inputType: "String UTF-8",
-                    input: "async { ... }; tunggu tugas",
-                    outputType: "Aliran Token",
-                    output: '[ASYNC, LBRACE, ..., RBRACE, SEMICOLON, IDENT("hasil"), ASSIGN, AWAIT, IDENT("tugas")]'
+                    input: `tugas := async {
+    tidur(100);
+    kembalikan 42;
+};
+hasil := tunggu tugas;
+cetak(hasil);`,
+                    outputType: "Aliran Token (Vec<Token>)",
+                    output: `[
+  Token { kind: Ident("tugas"), span: 0..5 },
+  Token { kind: Assign, span: 6..8 },
+  Token { kind: Async, span: 9..14 },
+  Token { kind: LBrace, span: 15..16 },
+  Token { kind: Ident("tidur"), span: 21..26 },
+  Token { kind: LParen, span: 26..27 },
+  Token { kind: Int(100), span: 27..30 },
+  Token { kind: RParen, span: 30..31 },
+  Token { kind: Semicolon, span: 31..32 },
+  Token { kind: Return, span: 37..47 },
+  Token { kind: Int(42), span: 48..50 },
+  Token { kind: Semicolon, span: 50..51 },
+  Token { kind: RBrace, span: 52..53 },
+  Token { kind: Semicolon, span: 53..54 },
+  Token { kind: Ident("hasil"), span: 55..60 },
+  Token { kind: Assign, span: 61..63 },
+  Token { kind: Await, span: 64..70 },
+  Token { kind: Ident("tugas"), span: 71..76 },
+  Token { kind: Semicolon, span: 76..77 },
+  Token { kind: Ident("cetak"), span: 78..83 },
+  Token { kind: LParen, span: 83..84 },
+  Token { kind: Ident("hasil"), span: 84..89 },
+  Token { kind: RParen, span: 89..90 },
+  Token { kind: Semicolon, span: 90..91 }
+]`
                 },
                 {
                     title: "Tahap 3: Parsing Sintaksis (Pratt Parser)",
                     badge: "Frontend Pass",
                     latency: "src/parser/mod.rs • ~0.32 ms",
-                    inputType: "Aliran Token",
-                    input: "Expr::AsyncBlock, Expr::Await",
-                    outputType: "AST",
-                    output: `Expr::AsyncBlock { body: Block([Stmt::Sleep(100), Stmt::Return(42)]) }
-Expr::Await { task: Expr::Variable("tugas") }`
+                    inputType: "Aliran Token (Vec<Token>)",
+                    input: `[
+  Token { kind: Ident("tugas"), span: 0..5 },
+  Token { kind: Assign, span: 6..8 },
+  Token { kind: Async, span: 9..14 },
+  Token { kind: LBrace, span: 15..16 },
+  Token { kind: Ident("tidur"), span: 21..26 },
+  Token { kind: LParen, span: 26..27 },
+  Token { kind: Int(100), span: 27..30 },
+  Token { kind: RParen, span: 30..31 },
+  Token { kind: Semicolon, span: 31..32 },
+  Token { kind: Return, span: 37..47 },
+  Token { kind: Int(42), span: 48..50 },
+  Token { kind: Semicolon, span: 50..51 },
+  Token { kind: RBrace, span: 52..53 },
+  Token { kind: Semicolon, span: 53..54 },
+  Token { kind: Ident("hasil"), span: 55..60 },
+  Token { kind: Assign, span: 61..63 },
+  Token { kind: Await, span: 64..70 },
+  Token { kind: Ident("tugas"), span: 71..76 },
+  Token { kind: Semicolon, span: 76..77 },
+  Token { kind: Ident("cetak"), span: 78..83 },
+  Token { kind: LParen, span: 83..84 },
+  Token { kind: Ident("hasil"), span: 84..89 },
+  Token { kind: RParen, span: 89..90 },
+  Token { kind: Semicolon, span: 90..91 }
+]`,
+                    outputType: "Pohon Sintaksis Abstrak (ast::Program)",
+                    output: `Program {
+  statements: [
+    Stmt::Assign {
+      name: "tugas",
+      value: Expr::AsyncBlock {
+        body: Block([
+          Stmt::Expr(Expr::Call { callee: "tidur", args: [100] }),
+          Stmt::Return(Expr::Literal(42))
+        ])
+      }
+    },
+    Stmt::Assign {
+      name: "hasil",
+      value: Expr::Await { task: Expr::Variable("tugas") }
+    },
+    Stmt::Expr(Expr::Call { callee: "cetak", args: [Expr::Variable("hasil")] })
+  ]
+}`
                 },
                 {
                     title: "Tahap 4: Pemeriksaan Tipe (Hindley-Milner)",
                     badge: "Middle-End Pass",
                     latency: "src/types/mod.rs • ~0.22 ms",
-                    inputType: "AST",
-                    input: "async block -> Task[T]",
-                    outputType: "Typed AST",
+                    inputType: "Pohon Sintaksis Abstrak (ast::Program)",
+                    input: `Program {
+  statements: [
+    Stmt::Assign {
+      name: "tugas",
+      value: Expr::AsyncBlock {
+        body: Block([
+          Stmt::Expr(Expr::Call { callee: "tidur", args: [100] }),
+          Stmt::Return(Expr::Literal(42))
+        ])
+      }
+    },
+    Stmt::Assign {
+      name: "hasil",
+      value: Expr::Await { task: Expr::Variable("tugas") }
+    },
+    Stmt::Expr(Expr::Call { callee: "cetak", args: [Expr::Variable("hasil")] })
+  ]
+}`,
+                    outputType: "Tabel Tipe Simbol & AST Bertipe",
                     output: `tugas: Type::Task(Type::Int)
-hasil: Type::Int (di-unwrap dari Task via 'tunggu')`
+hasil: Type::Int (di-unwrap dari Task via 'tunggu')
+TypeCheck: SUKSES (0 Galat Tipe)`
                 },
                 {
                     title: "Tahap 5: Analisis Memori Perceus",
                     badge: "Middle-End Pass",
                     latency: "src/ownership/mod.rs • ~0.16 ms",
-                    inputType: "Typed AST",
-                    input: "Task Fiber Context",
+                    inputType: "Tabel Tipe Simbol & AST Bertipe",
+                    input: `tugas: Type::Task(Type::Int)
+hasil: Type::Int (di-unwrap dari Task via 'tunggu')
+TypeCheck: SUKSES (0 Galat Tipe)`,
                     outputType: "Fiber Lifetime Tracking",
                     output: "Stack bingkai coroutine dibungkus dalam referensi Rc terkelola; drop context terjadi otomatis saat task selesai."
                 },
@@ -3896,8 +4239,8 @@ hasil: Type::Int (di-unwrap dari Task via 'tunggu')`
                     title: "Tahap 6: Intermediate Representation (IR / CFG)",
                     badge: "Middle-End Pass",
                     latency: "src/ir/mod.rs • ~0.30 ms",
-                    inputType: "Annotated AST",
-                    input: "Coroutine State Machine",
+                    inputType: "Fiber Lifetime Tracking",
+                    input: `Stack bingkai coroutine dibungkus dalam referensi Rc terkelola; drop context terjadi otomatis saat task selesai.`,
                     outputType: "Generator State Machine CFG",
                     output: `struct FiberContext {
   state: u32,
@@ -3911,9 +4254,15 @@ state 1 -> resume saat siap & isi result = 42`
                     title: "Tahap 7: Emisi Kode Akhir (C11 AOT)",
                     badge: "Backend Pass",
                     latency: "src/codegen/mod.rs • ~0.48 ms",
-                    inputType: "IR Program",
-                    input: "Fiber state machine",
-                    outputType: "C11 Runtime Setjmp/Longjmp Fiber",
+                    inputType: "Generator State Machine CFG",
+                    input: `struct FiberContext {
+  state: u32,
+  result: i64
+}
+
+state 0 -> jalankan timer
+state 1 -> resume saat siap & isi result = 42`,
+                    outputType: "Biner Native / C11 Runtime Setjmp/Longjmp Fiber",
                     output: `dap_fiber_t* tugas = dap_spawn_fiber(fiber_worker_fn);
 int64_t hasil = dap_await_fiber(tugas);
 dap_cetak_int(hasil); // Output: 42`

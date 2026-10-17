@@ -848,6 +848,31 @@ static inline DapResult_bool dap_tulis_berkas(const char* jalur, const char* isi
     return res;
 }
 
+static inline const char* dap_masukan(const char* prompt) {
+    if (prompt && prompt[0] != '\0') {
+        fputs(prompt, stdout);
+        fflush(stdout);
+    }
+    char* buf = (char*)malloc(1024);
+    if (!buf) return "";
+    if (!fgets(buf, 1024, stdin)) {
+        free(buf);
+        return "";
+    }
+    size_t len = strlen(buf);
+    if (len > 0 && buf[len - 1] == '\n') {
+        buf[len - 1] = '\0';
+        if (len > 1 && buf[len - 2] == '\r') {
+            buf[len - 2] = '\0';
+        }
+    }
+    return buf;
+}
+
+static inline const char* dap_baca_baris(void) {
+    return dap_masukan("");
+}
+
 static inline bool dap_ada_berkas(const char* jalur) {
     FILE* f = fopen(jalur, "r");
     if (f) {
@@ -3923,6 +3948,22 @@ static inline char* dap_ganti_regex(const char* pola, const char* teks, const ch
                     if name == "tunggu" && !args.is_empty() {
                         let arg_str = self.emit_expr(&args[0].value);
                         return format!("dap_tunggu({})", arg_str);
+                    }
+                    if name == "masukan" {
+                        if args.is_empty() {
+                            return "dap_masukan(\"\")".to_string();
+                        } else {
+                            let p_str = self.emit_expr(&args[0].value);
+                            return format!("dap_masukan({})", p_str);
+                        }
+                    }
+                    if name == "baca_baris" {
+                        if args.is_empty() {
+                            return "dap_baca_baris()".to_string();
+                        } else {
+                            let p_str = self.emit_expr(&args[0].value);
+                            return format!("dap_masukan({})", p_str);
+                        }
                     }
                     if name == "buat_server_http" && args.len() >= 2 {
                         let port_str = self.emit_expr(&args[0].value);
