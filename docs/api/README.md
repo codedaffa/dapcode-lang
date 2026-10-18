@@ -23,6 +23,8 @@
   - [fungsi: `demo_transformasi_koleksi`](#fungsi-demo_transformasi_koleksi) 
   - [fungsi: `demo_lipat_dan_chaining`](#fungsi-demo_lipat_dan_chaining) 
   - [fungsi: `utama`](#fungsi-utama) 
+- [Modul: `demo_input_output`](#modul-demo_input_output) 
+  - [fungsi: `utama`](#fungsi-utama) 
 - [Modul: `demo_kamus`](#modul-demo_kamus) 
   - [fungsi: `demo_kamus_dasar`](#fungsi-demo_kamus_dasar) 
   - [fungsi: `demo_kamus_json_dan_kunci`](#fungsi-demo_kamus_json_dan_kunci) 
@@ -57,6 +59,10 @@
   - [fungsi: `jumlah_deret`](#fungsi-jumlah_deret) 
 - [Modul: `utama`](#modul-utama) 
   - [fungsi: `utama`](#fungsi-utama) 
+- [Modul: `tes`](#modul-tes) 
+  - [fungsi: `sapaan`](#fungsi-sapaan) 
+  - [fungsi: `utama`](#fungsi-utama) 
+  - [uji: `hasil cetak`](#uji-hasil-cetak) 
 - [Modul: `uji_basis_data`](#modul-uji_basis_data) 
   - [fungsi: `demo_database_dasar`](#fungsi-demo_database_dasar) 
   - [fungsi: `demo_transaksi_acid`](#fungsi-demo_transaksi_acid) 
@@ -235,6 +241,25 @@ fungsi utama() -> u64
 ```
 
 **Nilai Kembalian:** `u64`
+
+---
+
+## 📦 Modul `demo_input_output`
+
+**Berkas:** `.\examples\demo_input_output.dap`  
+
+### ⚡ Fungsi
+
+#### `fungsi utama`
+
+```dap
+fungsi utama()
+```
+
+========================================================
+Program Demo Resmi: Input & Output (I/O) DapCode
+Mendemonstrasikan I/O Terminal, I/O Berkas, & I/O Sistem
+========================================================
 
 ---
 
@@ -523,6 +548,32 @@ fungsi jumlah_deret() -> u64
 ```dap
 fungsi utama()
 ```
+
+---
+
+## 📦 Modul `tes`
+
+**Berkas:** `.\examples\tes.dap`  
+
+### ⚡ Fungsi
+
+#### `fungsi sapaan`
+
+```dap
+fungsi sapaan() -> Teks
+```
+
+**Nilai Kembalian:** `Teks`
+
+#### `fungsi utama`
+
+```dap
+fungsi utama()
+```
+
+### 🧪 Pengujian Unit (Test Cases)
+
+- `uji "hasil cetak"` (baris 9)
 
 ---
 

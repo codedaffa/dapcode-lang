@@ -2,8 +2,13 @@
     "name": "dapcode-lang",
     "displayName": "DapCode Language Support",
     "description": "Syntax highlighting, LSP with Code Actions & Quick Fixes, interactive Debugger (DAP) with breakpoints & variable inspection, Go to Definition, outline symbols, snippets, doc generator, test runner, and interactive REPL for DapCode (.dap)",
-    "version": "0.7.3",
+    "version": "0.7.4",
     "publisher": "dapcode-core",
+    "icon": "icons/dapcode.png",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/codedaffa/dapcode-lang"
+    },
     "engines": {
         "vscode": "^1.75.0"
     },
@@ -51,7 +56,11 @@
                 "extensions": [
                     ".dap"
                 ],
-                "configuration": "./language-configuration.json"
+                "configuration": "./language-configuration.json",
+                "icon": {
+                    "light": "./icons/dapcode-light.svg",
+                    "dark": "./icons/dapcode.svg"
+                }
             }
         ],
         "grammars": [

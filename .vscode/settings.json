@@ -2,6 +2,16 @@
     "files.associations": {
         "*.dap": "dapcode"
     },
+    "material-icon-theme.files.associations": {
+        "*.dap": "rust"
+    },
+    "vsicons.associations.files": [
+        {
+            "icon": "code",
+            "extensions": ["dap"],
+            "format": "svg"
+        }
+    ],
     "[dapcode]": {
         "editor.tabSize": 4,
         "editor.insertSpaces": true,

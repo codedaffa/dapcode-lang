@@ -1,3 +1,5 @@
 .vscode/**
 *.vsix
+*.ps1
+generate_brand_icons.js
 .DS_Store
