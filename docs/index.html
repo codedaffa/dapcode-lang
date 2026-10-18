@@ -632,6 +632,7 @@
             padding: 20px 24px;
             margin-bottom: 16px;
             position: relative;
+            scroll-margin-top: 32px;
         }
 
         .guide-step-header {
@@ -1564,12 +1565,15 @@
                 <div class="nav-group-title">Tooling & Ekosistem</div>
                 <a href="#stdlib-internals" class="nav-item">
                     <span>• Ekosistem Baterai Stdlib</span>
+                    <span class="nav-badge">stdlib</span>
                 </a>
                 <a href="#lsp-dap" class="nav-item">
                     <span>• LSP Server & DAP Debugger</span>
+                    <span class="nav-badge">tooling</span>
                 </a>
                 <a href="#dappkg-internals" class="nav-item">
                     <span>• Manajer Paket (dappkg)</span>
+                    <span class="nav-badge">pkg</span>
                 </a>
             </div>
         </nav>
@@ -3098,6 +3102,203 @@
                 </div>
             </section>
 
+            <!-- SECTION: BACKEND INTERPRETER -->
+            <section id="backend-interpreter" class="section">
+                <div class="section-header">
+                    <h2>🎯 Target 1: Runtime Tree-Walk Interpreter &amp; Konkurensi</h2>
+                    <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">src/eval/</span>
+                </div>
+                <p class="lead-text">Backend interpreter DapCode mengeksekusi pohon sintaksis abstrak (AST) dan IR secara langsung tanpa waktu tunggu kompilasi biner. Sangat ideal untuk pengembangan cepat, REPL interaktif, dan lingkungan scripting dinamis.</p>
+
+                <div class="alert alert-info">
+                    <div>
+                        <strong>Eksekusi Instan:</strong> Jalankan berkas kode sumber langsung dari terminal menggunakan perintah <code>dapcodec run program.dap</code> atau buka konsol interaktif melalui <code>dapcodec repl</code>.
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 20px 0;">
+                    <div class="backend-box">
+                        <h4><span>🧠</span> Struktur Nilai Dinamis (eval::Value)</h4>
+                        <p>Mengelola nilai runtime fleksibel: integer <code>Int(u64)</code>, desimal <code>Float(f64)</code>, string <code>String(String)</code>, boolean <code>Bool(bool)</code>, koleksi dinamis <code>List</code> &amp; <code>Map</code>, instansiasi <code>Struct</code>, serta handler tugas asynchronous <code>Task(TaskId)</code>.</p>
+                    </div>
+                    <div class="backend-box">
+                        <h4><span>🌳</span> Lexical Environment Berantai</h4>
+                        <p>Menangani cakupan variabel bertingkat (*lexical scoping*) menggunakan pointer referensi ke cakupan induk (*parent environment*), memastikan isolasi variabel lokal dalam fungsi, percabangan, dan blok loop.</p>
+                    </div>
+                    <div class="backend-box">
+                        <h4><span>⚡</span> Colorless Coroutine (jalan_paralel)</h4>
+                        <p>Konkurensi modern tanpa fungsi berwarna (*function coloring*). Blok <code>jalan_paralel { ... }</code> meluncurkan tugas asynchronously ke thread pool runtime, dan disinkronkan kembali menggunakan <code>tunggu</code>.</p>
+                    </div>
+                </div>
+
+                <div class="code-container">
+                    <div class="code-header">
+                        <span>Contoh Konkurensi &amp; Eksekusi di Interpreter (src/eval/mod.rs)</span>
+                        <button class="code-copy-btn" onclick="copyCode(this)">Salin</button>
+                    </div>
+                    <pre><code><span class="comm">/// Contoh kode DapCode konkurensi mandiri</span>
+<span class="kw">fungsi</span> <span class="fn">ambil_data</span>(id: <span class="typ">u64</span>) -&gt; <span class="typ">teks</span> {
+    <span class="comm">// Simulasi operasi I/O jaringan</span>
+    <span class="kw">kembali</span> <span class="str">"Data pengguna #{id}"</span>
+}
+
+<span class="kw">fungsi</span> <span class="fn">utama</span>() {
+    <span class="comm">// Meluncurkan tugas coroutine di thread pool background</span>
+    tugas1 := <span class="kw">jalan_paralel</span> { ambil_data(101) }
+    tugas2 := <span class="kw">jalan_paralel</span> { ambil_data(102) }
+
+    <span class="comm">// Menunggu hasil kedua tugas secara deterministik</span>
+    hasil1 := <span class="kw">tunggu</span> tugas1
+    hasil2 := <span class="kw">tunggu</span> tugas2
+
+    cetak(<span class="str">"Hasil 1: {hasil1}"</span>)
+    cetak(<span class="str">"Hasil 2: {hasil2}"</span>)
+}</code></pre>
+                </div>
+            </section>
+
+            <!-- SECTION: BACKEND C11 -->
+            <section id="backend-c11" class="section">
+                <div class="section-header">
+                    <h2>⚡ Target 2: Ahead-Of-Time (AOT) C11 Transpiler &amp; Native Engine</h2>
+                    <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">src/codegen/</span>
+                </div>
+                <p class="lead-text">Backend AOT mentranspilasikan AST dan IR DapCode ke kode sumber C11 ISO murni berkecepatan tinggi, yang kemudian dikompilasi menggunakan compiler native sistem (GCC, Clang, atau MSVC) menjadi file biner mesin mandiri (<code>.exe</code> di Windows, ELF di Linux, Mach-O di macOS).</p>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Komponen Codegen</th>
+                                <th>Peran &amp; Implementasi di src/codegen/</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Runtime C Tersemat (<code>c_runtime.h</code>)</strong></td>
+                                <td>Menyediakan pustaka runtime C minimalis dengan alokasi memori Perceus ref-counted untuk <code>DapString</code>, <code>DapList</code>, <code>DapMap</code>, dan error union propagation.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Otomasi Toolchain Native</strong></td>
+                                <td>Secara cerdas mendeteksi keberadaan GCC (MinGW), Clang, atau Microsoft Visual C++ (<code>cl.exe</code>) di PATH sistem, lalu mengompilasi kode C dengan optimasi <code>-O2</code> / <code>/O2</code>.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Zero External Dependencies</strong></td>
+                                <td>Biner hasil kompilasi adalah aplikasi native mandiri tanpa memerlukan instalasi interpreter, virtual machine, atau runtime tambahan di komputer target.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="code-container">
+                    <div class="code-header">
+                        <span>Perintah Kompilasi Biner Native C11</span>
+                        <button class="code-copy-btn" onclick="copyCode(this)">Salin</button>
+                    </div>
+                    <pre><code><span class="comm"># Kompilasi langsung menjadi biner berekstensi .exe (Windows)</span>
+dapcodec build program.dap -o program.exe
+
+<span class="comm"># Kompilasi dan emit kode sumber C11 mentah untuk diinspeksi</span>
+dapcodec build program.dap --emit-c program.c
+
+<span class="comm"># Jalankan biner native hasil kompilasi</span>
+./program.exe</code></pre>
+                </div>
+            </section>
+
+            <!-- SECTION: BACKEND WASM -->
+            <section id="backend-wasm" class="section">
+                <div class="section-header">
+                    <h2>🌐 Target 3: Pure Rust Standalone WebAssembly (Wasm32)</h2>
+                    <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc;">src/wasm/</span>
+                </div>
+                <p class="lead-text">Generator WebAssembly mandiri 100% Rust tanpa dependensi LLVM atau Emscripten. Menghasilkan modul biner WebAssembly standar (<code>.wasm</code>) yang ringan, cepat, dan siap dijalankan langsung di peramban web modern, Node.js, atau runtime Wasmtime/Wasmer.</p>
+
+                <div class="diagram-card" style="margin-bottom: 24px;">
+                    <div class="diagram-header">
+                        <div class="diagram-title"><span>📦</span> Arsitektur Seksi Biner Wasm32 (LEB128 Binary Emitter)</div>
+                        <span class="type-tag">Binary Spec</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px;">
+                        <div style="background: var(--bg-card); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                            <div style="font-size: 0.8rem; color: var(--primary); font-weight: 700; margin-bottom: 4px;">Seksi 1: Type Section</div>
+                            <div style="font-size: 0.82rem; color: var(--text-muted);">Mendeklarasikan tanda tangan fungsi (parameter &amp; hasil).</div>
+                        </div>
+                        <div style="background: var(--bg-card); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                            <div style="font-size: 0.8rem; color: var(--secondary); font-weight: 700; margin-bottom: 4px;">Seksi 2: Import Section</div>
+                            <div style="font-size: 0.82rem; color: var(--text-muted);">Fungsi interop host: konsol print, canvas draw, waktu.</div>
+                        </div>
+                        <div style="background: var(--bg-card); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                            <div style="font-size: 0.8rem; color: var(--success); font-weight: 700; margin-bottom: 4px;">Seksi 3: Function Section</div>
+                            <div style="font-size: 0.82rem; color: var(--text-muted);">Memetakan indeks fungsi ke tanda tangan tipe.</div>
+                        </div>
+                        <div style="background: var(--bg-card); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                            <div style="font-size: 0.8rem; color: var(--warning); font-weight: 700; margin-bottom: 4px;">Seksi 7: Export Section</div>
+                            <div style="font-size: 0.82rem; color: var(--text-muted);">Mengekspor fungsi titik masuk <code>utama</code> ke JavaScript.</div>
+                        </div>
+                        <div style="background: var(--bg-card); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                            <div style="font-size: 0.8rem; color: #ec4899; font-weight: 700; margin-bottom: 4px;">Seksi 10: Code Section</div>
+                            <div style="font-size: 0.82rem; color: var(--text-muted);">Opcode bytecode Wasm32 (i32.add, call, loop, br_if).</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="code-container">
+                    <div class="code-header">
+                        <span>Kompilasi WebAssembly &amp; Pemuatan via JavaScript</span>
+                        <button class="code-copy-btn" onclick="copyCode(this)">Salin</button>
+                    </div>
+                    <pre><code><span class="comm"># 1. Kompilasi program DapCode ke berkas .wasm murni</span>
+dapcodec wasm program.dap -o program.wasm
+
+<span class="comm">// 2. Instansiasi dan jalankan di browser atau Node.js</span>
+<span class="kw">const</span> response = <span class="kw">await</span> fetch(<span class="str">'program.wasm'</span>);
+<span class="kw">const</span> bytes = <span class="kw">await</span> response.arrayBuffer();
+<span class="kw">const</span> { instance } = <span class="kw">await</span> WebAssembly.instantiate(bytes, {
+    env: {
+        dap_cetak: (ptr, len) =&gt; { <span class="comm">/* Host I/O Print */</span> }
+    }
+});
+instance.exports.utama();</code></pre>
+                </div>
+            </section>
+
+            <!-- SECTION: BACKEND MOBILE -->
+            <section id="backend-mobile" class="section">
+                <div class="section-header">
+                    <h2>📱 Target 4: Mobile Progressive Web App (PWA) &amp; Hybrid Android Bundler</h2>
+                    <span class="badge" style="background: rgba(52, 211, 153, 0.15); color: #34d399;">src/mobile/</span>
+                </div>
+                <p class="lead-text">Modul <code>src/mobile/mod.rs</code> membundel biner WebAssembly DapCode menjadi Progressive Web App (PWA) modern yang dapat diinstal langsung di layar beranda ponsel, serta menyediakan template Android Studio terintegrasi untuk pembuatan berkas APK native.</p>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 20px 0;">
+                    <div class="backend-box">
+                        <h4><span>📲</span> Bundel PWA Full Offline</h4>
+                        <p>Secara otomatis menghasilkan berkas <code>manifest.webmanifest</code>, Service Worker (<code>sw.js</code>) untuk caching offline penuh tanpa kuota, dan aset ikon aplikasi resolusi tinggi (SVG, PNG 192px &amp; 512px).</p>
+                    </div>
+                    <div class="backend-box">
+                        <h4><span>🤖</span> Template Android Studio (Gradle)</h4>
+                        <p>Menghasilkan struktur proyek Android lengkap dengan aktivitas WebView berkecepatan tinggi yang memanfaatkan akselerasi GPU perangkat keras, siap di-build menjadi biner <code>.apk</code>.</p>
+                    </div>
+                    <div class="backend-box">
+                        <h4><span>📶</span> Wi-Fi Dev Server &amp; QR Code</h4>
+                        <p>Menjalankan dev-server HTTP lokal dan merender kode QR grafis ASCII langsung di terminal (<code>dapcodec mobile serve</code>) agar pengembang dapat menguji aplikasi langsung di smartphone fisik.</p>
+                    </div>
+                </div>
+
+                <div class="code-container">
+                    <div class="code-header">
+                        <span>Perintah Bundling &amp; Dev-Server Mobile</span>
+                        <button class="code-copy-btn" onclick="copyCode(this)">Salin</button>
+                    </div>
+                    <pre><code><span class="comm"># 1. Bangun bundel aplikasi PWA &amp; proyek Android</span>
+dapcodec mobile build program.dap --app-name "Kalkulator DapCode" --out ./dist-mobile
+
+<span class="comm"># 2. Luncurkan server lokal dengan pemindaian QR Code terminal di Wi-Fi</span>
+dapcodec mobile serve ./dist-mobile --port 8080</code></pre>
+                </div>
+            </section>
+
             <!-- SECTION 5: HOW TO GUIDES -->
             <section id="guides" class="section">
                 <div class="section-header">
@@ -3143,10 +3344,27 @@
                 </div>
 
                 <!-- Guide 3 -->
-                <div id="guide-testing" class="guide-step">
+                <div id="guide-lsp" class="guide-step">
                     <div class="guide-step-header">
                         <div class="step-circle">3</div>
-                        <h4>Menjalankan & Menulis Pengujian Otomatis</h4>
+                        <h4>Menambahkan Diagnostik Peringatan &amp; Quick Fix Otomatis di LSP</h4>
+                    </div>
+                    <div class="guide-step-body">
+                        <p>Contoh: Mendeteksi penggunaan operator penugasan <code>=</code> pada variabel yang belum dideklarasikan dan menawarkan perbaikan instan menjadi <code>:=</code> (Walrus operator):</p>
+                        <ol style="margin-left: 20px; margin-top: 8px;">
+                            <li><strong>src/lsp/mod.rs</strong>: Pada fungsi <code>generate_diagnostics</code>, periksa pohon AST untuk menemukan <code>Stmt::Assign</code> terhadap variabel yang belum terdaftar di tabel simbol.</li>
+                            <li><strong>src/lsp/mod.rs</strong>: Buat objek <code>lsp_types::Diagnostic</code> dengan tingkat keparahan <code>DiagnosticSeverity::Warning</code> dan rentang baris/kolom <code>span</code> yang relevan.</li>
+                            <li><strong>src/lsp/mod.rs</strong>: Pada penangan <code>handle_code_action</code>, buat <code>CodeAction</code> berjenis <em>quickfix</em> yang berisi <code>WorkspaceEdit</code> untuk mengganti tanda <code>=</code> menjadi <code>:=</code> secara otomatis saat pengguna menekan <kbd>Ctrl</kbd> + <kbd>.</kbd> di VS Code / Antigravity.</li>
+                            <li><strong>tests/lsp_test.rs</strong>: Tulis pengujian verifikasi respons JSON-RPC LSP untuk memastikan tindakan perbaikan otomatis berjalan sempurna.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Guide 4 -->
+                <div id="guide-testing" class="guide-step">
+                    <div class="guide-step-header">
+                        <div class="step-circle">4</div>
+                        <h4>Menjalankan &amp; Menulis Pengujian Otomatis</h4>
                     </div>
                     <div class="guide-step-body">
                         <p>Semua perubahan wajib lolos verifikasi seluruh paket pengujian:</p>
@@ -3155,7 +3373,7 @@
                                 <span>Terminal (PowerShell / Bash)</span>
                                 <button class="code-copy-btn" onclick="copyCode(this)">Salin</button>
                             </div>
-                            <pre><code><span class="comm"># Jalankan seluruh 34 suite pengujian integrasi & unit</span>
+                            <pre><code><span class="comm"># Jalankan seluruh 34 suite pengujian integrasi &amp; unit</span>
 cargo test
 
 <span class="comm"># Uji spesifik modul ownership / codegen / lsp</span>
@@ -3172,7 +3390,161 @@ dapcodec dump-ownership program.dap</code></pre>
                 </div>
             </section>
 
-        </main>
+            <!-- SECTION: STDLIB INTERNALS -->
+            <section id="stdlib-internals" class="section">
+                <div class="section-header">
+                    <h2>📦 Ekosistem Pustaka Standar Tersemat (Batteries Included)</h2>
+                    <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">stdlib</span>
+                </div>
+                <p class="lead-text">DapCode menyediakan pustaka standar bawaan (*batteries included*) berkecepatan tinggi yang terintegrasi langsung di dalam runtime tanpa memerlukan pustaka pihak ketiga.</p>
+
+                <div class="module-grid">
+                    <div class="module-card">
+                        <div class="module-header">
+                            <span class="module-name">src/db/ (Database ACID)</span>
+                            <span class="module-size">Key-Value Engine</span>
+                        </div>
+                        <p class="module-desc">Engine database Key-Value tersemat dengan transaksi atomik (<code>mulai_transaksi</code>, <code>komit</code>, <code>batal</code>), Write-Ahead Logging (WAL) untuk ketahanan crash, pencarian awalan (*prefix scan*), dan ekspor JSON.</p>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-header">
+                            <span class="module-name">src/net/ (HTTP &amp; WebSocket)</span>
+                            <span class="module-size">RFC 6455 &amp; REST</span>
+                        </div>
+                        <p class="module-desc">Server jaringan mikroservis mandiri: router rute dinamis dengan parameter jalur (<code>/api/produk/:id</code>), penanganan CORS otomatis, serta implementasi penuh jabat tangan dan frame WebSocket.</p>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-header">
+                            <span class="module-name">src/regex/ (Reguler Ekspresi)</span>
+                            <span class="module-size">Zero-Dependency NFA</span>
+                        </div>
+                        <p class="module-desc">Mesin pencocokan pola regex berbasis NFA backtracker mandiri: karakter sembarang (<code>.</code>), kuantifier greedy (<code>*</code>, <code>+</code>, <code>?</code>, <code>{n,m}</code>), grup penangkap <code>(...)</code>, dan kelas karakter (<code>\d</code>, <code>\w</code>, <code>\s</code>).</p>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-header">
+                            <span class="module-name">src/time/ (Kalender &amp; Waktu)</span>
+                            <span class="module-size">Civil Calendar</span>
+                        </div>
+                        <p class="module-desc">Penghitungan waktu presisi tinggi berbasis algoritma Howard Hinnant untuk kalender sipil: penentuan tahun kabisat, hari dalam seminggu, format standar ISO 8601, serta pemformatan tanggal kustom.</p>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-header">
+                            <span class="module-name">src/crypto/ (Kriptografi)</span>
+                            <span class="module-size">FIPS 180-4 &amp; Base64</span>
+                        </div>
+                        <p class="module-desc">Fasilitas keamanan kriptografi standar: fungsi hashing SHA-256 (FIPS 180-4), hashing MD5 (RFC 1321), serta encoder/dekoder teks dan biner Base64 (RFC 4648).</p>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-header">
+                            <span class="module-name">src/json/ (Parser &amp; Serializer)</span>
+                            <span class="module-size">Recursive Descent</span>
+                        </div>
+                        <p class="module-desc">Pengurai JSON mandiri berkecepatan tinggi yang memetakan objek JSON langsung ke tipe data aljabar DapCode (<code>Daftar</code>, <code>Kamus</code>, angka, teks) serta serialisasi objek kembali ke teks JSON.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: LSP & DAP -->
+            <section id="lsp-dap" class="section">
+                <div class="section-header">
+                    <h2>🛠️ Ekosistem Perkakas: LSP Server &amp; DAP Debugger</h2>
+                    <span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818cf8;">tooling</span>
+                </div>
+                <p class="lead-text">DapCode dilengkapi perkakas pengembangan modern berstandar industri: Language Server Protocol (LSP) untuk intelijensi editor, Debug Adapter Protocol (DAP) untuk inspeksi breakpoint grafis, dan pemformat kode bawaan.</p>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 20px 0;">
+                    <div class="backend-box">
+                        <h4><span>💡</span> Language Server Protocol (src/lsp/)</h4>
+                        <p>Dijalankan melalui <code>dapcodec lsp</code> via protokol JSON-RPC standar stdio: diagnosa galat real-time saat mengetik, autocompletion nama fungsi dan kata kunci, hover docs lengkap, serta navigasi <em>Go To Definition</em>.</p>
+                    </div>
+                    <div class="backend-box">
+                        <h4><span>🐞</span> Debug Adapter &amp; CLI Debugger (src/debug/)</h4>
+                        <p>Server DAP untuk antarmuka debug grafis di VS Code serta konsol interaktif terminal (<code>dapcodec debug berkas.dap</code>) dengan titik henti (<code>b</code>), langkah demi langkah (<code>n</code>, <code>s</code>), inspeksi variabel (<code>p</code>), dan continue (<code>c</code>).</p>
+                    </div>
+                    <div class="backend-box">
+                        <h4><span>✨</span> Formatter &amp; Doc Generator (src/fmt/ &amp; src/doc/)</h4>
+                        <p>Memformat kode sumber secara seragam dan konsisten (<code>dapcodec fmt</code>), mode CI/CD (<code>dapcodec fmt --check</code>), serta generator dokumentasi HTML interaktif dari komentar doc-comments (<code>dapcodec doc</code>).</p>
+                    </div>
+                </div>
+
+                <div class="code-container">
+                    <div class="code-header">
+                        <span>Perintah CLI Tooling Pengembang</span>
+                        <button class="code-copy-btn" onclick="copyCode(this)">Salin</button>
+                    </div>
+                    <pre><code><span class="comm"># 1. Jalankan LSP Server di latar belakang (digunakan oleh ekstensi editor)</span>
+dapcodec lsp
+
+<span class="comm"># 2. Buka sesi debugger interaktif terminal dengan breakpoint</span>
+dapcodec debug program.dap
+(dap-debug) b 14          <span class="comm"># Pasang breakpoint di baris 14</span>
+(dap-debug) c             <span class="comm"># Lanjutkan eksekusi hingga breakpoint</span>
+(dap-debug) p nama        <span class="comm"># Cetak nilai variabel 'nama'</span>
+(dap-debug) n             <span class="comm"># Langkah ke baris berikutnya</span>
+
+<span class="comm"># 3. Format seluruh berkas kode sumber di proyek</span>
+dapcodec fmt src/</code></pre>
+                </div>
+            </section>
+
+            <!-- SECTION: DAPPKG INTERNALS -->
+            <section id="dappkg-internals" class="section">
+                <div class="section-header">
+                    <h2>📦 Manajer Paket dappkg &amp; Sistem Modul Multi-Berkas</h2>
+                    <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">src/modules/</span>
+                </div>
+                <p class="lead-text">Modul <code>src/modules/mod.rs</code> menyediakan sistem pemuatan modul terisolasi, resolusi jalur kanonikal, serta manajer paket resmi <code>dappkg</code> untuk tata kelola proyek berskala besar.</p>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fitur Manajer Paket</th>
+                                <th>Deskripsi &amp; Mekanisme Penanganan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Pemuatan Modul Kanonikal</strong></td>
+                                <td>Sintaksis <code>impor "nama_modul"</code> atau <code>impor "jalur/ke/modul.dap"</code>. Pemuat mendeteksi dependensi melingkar (*circular dependency cycle*) secara dini sebelum analisis tipe dilakukan.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Manifes <code>DapCode.toml</code></strong></td>
+                                <td>Mendefinisikan metadata paket: nama paket, versi SemVer, berkas titik masuk utama (<code>berkas_utama = "src/utama.dap"</code>), dan daftar pustaka dependensi.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Kunci Hash <code>DapCode.lock</code></strong></td>
+                                <td>Mengunci versi paket dan hash SHA-256 integritas konten untuk menjamin hasil kompilasi yang deterministik dan identik (*reproducible builds*).</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Mode Vendor Mandiri</strong></td>
+                                <td>Perintah <code>dappkg vendor</code> mendownload seluruh pustaka ke direktori lokal <code>vendor/</code> agar proyek dapat dikompilasi secara offline tanpa koneksi internet.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="code-container">
+                    <div class="code-header">
+                        <span>Contoh Berkas Manifes DapCode.toml</span>
+                        <button class="code-copy-btn" onclick="copyCode(this)">Salin</button>
+                    </div>
+                    <pre><code>[paket]
+nama = "aplikasi_pelanggan"
+versi = "1.0.0"
+penulis = ["Daffa &lt;daffa@dapcode.id&gt;"]
+berkas_utama = "src/utama.dap"
+
+[dependensi]
+dap_http = "0.4.0"
+dap_kripto = "0.2.1"</code></pre>
+                </div>
+            </section>
     </div>
 
     <script>
@@ -3210,14 +3582,14 @@ dapcodec dump-ownership program.dap</code></pre>
         });
 
         // Active link highlighting on scroll
-        window.addEventListener('scroll', () => {
-            const sections = document.querySelectorAll('section');
-            const navLinks = document.querySelectorAll('.nav-item');
-            
+        const scrollTargets = document.querySelectorAll('section[id], .guide-step[id]');
+        const navLinks = document.querySelectorAll('.nav-item');
+
+        function updateActiveNav() {
             let current = '';
-            sections.forEach(section => {
+            scrollTargets.forEach(section => {
                 const sectionTop = section.offsetTop;
-                if (pageYOffset >= sectionTop - 120) {
+                if (window.pageYOffset >= sectionTop - 140) {
                     current = section.getAttribute('id');
                 }
             });
@@ -3228,7 +3600,11 @@ dapcodec dump-ownership program.dap</code></pre>
                     link.classList.add('active');
                 }
             });
-        });
+        }
+
+        window.addEventListener('scroll', updateActiveNav, { passive: true });
+        window.addEventListener('DOMContentLoaded', updateActiveNav);
+        updateActiveNav();
     </script>
     <!-- ===== DAPCODE COMPILER INTERACTIVE VISUAL ENGINE ===== -->
     <script>
