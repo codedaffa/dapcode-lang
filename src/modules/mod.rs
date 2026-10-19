@@ -273,15 +273,27 @@ target/
     }
 }
 
+pub type CustomFileReader = Box<dyn Fn(&Path) -> Option<String> + Send + Sync>;
+
 pub struct ModuleLoader {
     visited: HashSet<PathBuf>,
+    pub file_reader: Option<CustomFileReader>,
 }
 
 impl ModuleLoader {
     pub fn new() -> Self {
         ModuleLoader {
             visited: HashSet::new(),
+            file_reader: None,
         }
+    }
+
+    pub fn with_file_reader<F>(mut self, reader: F) -> Self
+    where
+        F: Fn(&Path) -> Option<String> + Send + Sync + 'static,
+    {
+        self.file_reader = Some(Box::new(reader));
+        self
     }
 
     /// Recursively loads an entry file and all its imported dependencies into a unified Program AST
@@ -300,13 +312,27 @@ impl ModuleLoader {
 
         self.visited.insert(canonical_entry.clone());
 
-        let src = fs::read_to_string(&canonical_entry).map_err(|e| {
-            Diagnostic::error(format!(
-                "Gagal membaca berkas '{}': {}",
-                canonical_entry.display(),
-                e
-            ))
-        })?;
+        let src = if let Some(ref reader) = self.file_reader {
+            if let Some(s) = reader(&canonical_entry) {
+                s
+            } else {
+                fs::read_to_string(&canonical_entry).map_err(|e| {
+                    Diagnostic::error(format!(
+                        "Gagal membaca berkas '{}': {}",
+                        canonical_entry.display(),
+                        e
+                    ))
+                })?
+            }
+        } else {
+            fs::read_to_string(&canonical_entry).map_err(|e| {
+                Diagnostic::error(format!(
+                    "Gagal membaca berkas '{}': {}",
+                    canonical_entry.display(),
+                    e
+                ))
+            })?
+        };
 
         let (file_id, _) = source_map.add_file(
             canonical_entry.to_string_lossy().to_string(),
@@ -317,6 +343,21 @@ impl ModuleLoader {
         let tokens = lexer.tokenize()?;
         let mut parser = Parser::new(tokens, file_id);
         let current_program = parser.parse_program()?;
+
+        let prog = self.load_program_from_ast(&canonical_entry, current_program, file_id, source_map)?;
+        Ok((file_id, prog))
+    }
+
+    /// Recursively loads dependencies for an already-parsed Program AST into a unified Program AST
+    pub fn load_program_from_ast(
+        &mut self,
+        entry_path: &Path,
+        current_program: Program,
+        _file_id: usize,
+        source_map: &mut SourceMap,
+    ) -> Result<Program> {
+        let canonical_entry = fs::canonicalize(entry_path).unwrap_or_else(|_| entry_path.to_path_buf());
+        self.visited.insert(canonical_entry.clone());
 
         let parent_dir = canonical_entry.parent().unwrap_or_else(|| Path::new("."));
 
@@ -346,16 +387,13 @@ impl ModuleLoader {
             }
         }
 
-        Ok((
-            file_id,
-            Program {
-                decls: all_decls,
-                span: current_program.span,
-            },
-        ))
+        Ok(Program {
+            decls: all_decls,
+            span: current_program.span,
+        })
     }
 
-    fn resolve_import_path(&self, import_str: &str, parent_dir: &Path, span: Span) -> Result<PathBuf> {
+    pub fn resolve_import_path(&self, import_str: &str, parent_dir: &Path, span: Span) -> Result<PathBuf> {
         // 1. Cek jalur berkas relatif terlebih dahulu
         let mut rel_path = PathBuf::from(import_str);
         if rel_path.extension().is_none() {

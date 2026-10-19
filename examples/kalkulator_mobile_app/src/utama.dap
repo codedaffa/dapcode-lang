@@ -124,39 +124,48 @@ fungsi render() -> Unit {
     gambar_status_bar(w)
     gambar_app_bar(w, "Kalkulator DapCode")
 
-    // 5. Tata Letak Responsif Keypad & Display (Fleksibel Terhadap Ukuran Layar)
+    // 5. Tata Letak Responsif Keypad & Display (Fleksibel Mengikuti Ukuran Frame)
     margin_x := 14.0
     gap := 8.0
     cols := 4.0
-    usable_w := w - margin_x * 2.0
+    rows := 5.0
+
+    // Pada frame yang lebar (Desktop, Tablet, Lanskap), pusatkan antarmuka secara dinamis
+    app_w := w
+    offset_x := 0.0
+    jika w > 440.0 {
+        app_w = 400.0
+        offset_x = (w - app_w) / 2.0
+    }
+
+    usable_w := app_w - margin_x * 2.0
     btn_w := (usable_w - gap * (cols - 1.0)) / cols
 
-    footer_h := 36.0
-    keypad_bottom := h - footer_h - 10.0
+    // Area vertikal dinamis antara app bar dan footer
+    avail_h := h - 80.0 - 32.0
+    jika avail_h < 180.0 { avail_h = 180.0 }
 
-    // Keypad 5 Baris
-    rows := 5.0
-    keypad_h := btn_w * 5.0
-    jika keypad_h > (keypad_bottom - 170.0) {
-        keypad_h = keypad_bottom - 170.0
-    }
+    // Display tampilan kalkulator proporsional
+    disp_h := avail_h * 0.26
+    jika disp_h < 46.0 { disp_h = 46.0 }
+    jika disp_h > 120.0 { disp_h = 120.0 }
+    disp_y := 84.0
+
+    // Keypad berada tepat di bawah display
+    keypad_y := disp_y + disp_h + 10.0
+    keypad_h := (h - 32.0) - keypad_y - 8.0
+    jika keypad_h < 120.0 { keypad_h = 120.0 }
     btn_h := (keypad_h - gap * (rows - 1.0)) / rows
-    keypad_y := keypad_bottom - keypad_h
-
-    // Display Layar Tampilan di Atas Keypad
-    disp_y := 86.0
-    disp_h := keypad_y - disp_y - 12.0
-    jika disp_h < 50.0 { disp_h = 50.0 }
 
     tampilan := kanvas_ambil_teks("tampilan")
     riwayat := kanvas_ambil_teks("riwayat")
-    gambar_layar_tampilan(w, disp_y, disp_h, riwayat, tampilan)
+    gambar_layar_tampilan(offset_x + margin_x, disp_y, usable_w, disp_h, riwayat, tampilan)
 
     // Baris 0: [ C ] [ +/- ] [ % ] [ / ]
-    bx0 := margin_x + 0.0 * (btn_w + gap)
-    bx1 := margin_x + 1.0 * (btn_w + gap)
-    bx2 := margin_x + 2.0 * (btn_w + gap)
-    bx3 := margin_x + 3.0 * (btn_w + gap)
+    bx0 := offset_x + margin_x + 0.0 * (btn_w + gap)
+    bx1 := offset_x + margin_x + 1.0 * (btn_w + gap)
+    bx2 := offset_x + margin_x + 2.0 * (btn_w + gap)
+    bx3 := offset_x + margin_x + 3.0 * (btn_w + gap)
     by0 := keypad_y + 0.0 * (btn_h + gap)
 
     gambar_tombol("C", bx0, by0, btn_w, btn_h, 1, mx, my, klik)
@@ -229,7 +238,7 @@ fungsi render() -> Unit {
 
     // 6. Footer Info
     kanvas_warna_isi(0.4, 0.6, 0.85, 0.7)
-    kanvas_teks("Sentuh tombol untuk menghitung • 60 FPS", margin_x, h - 14.0, 9.0)
+    kanvas_teks_tengah("Sentuh tombol untuk menghitung • 60 FPS", w / 2.0, h - 14.0, 9.0)
 }
 
 fungsi utama() -> u64 {

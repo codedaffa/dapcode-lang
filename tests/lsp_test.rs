@@ -282,3 +282,27 @@ fn test_lsp_code_action_missing_utama() {
     assert!(resp.contains("fungsi utama()"));
 }
 
+#[test]
+fn test_lsp_diagnostics_with_imported_modules() {
+    let mut server = LspServer::new();
+    let kalkulator_path = std::path::Path::new("examples/kalkulator_mobile_app/src/utama.dap");
+    if kalkulator_path.exists() {
+        let abs_path = std::fs::canonicalize(kalkulator_path).unwrap();
+        let uri = LspServer::path_to_uri(&abs_path.to_string_lossy());
+        let text = std::fs::read_to_string(&abs_path).unwrap();
+        let open_msg = format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{}","text":"{}"}}}}}}"#,
+            uri,
+            text.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n").replace('\r', "")
+        );
+        let notif = server.process_message(&open_msg);
+        assert!(notif.is_some());
+        let notif_str = notif.unwrap();
+        assert!(
+            notif_str.contains("\"diagnostics\":[]"),
+            "Expected 0 diagnostics for kalkulator_mobile_app/src/utama.dap with imports, got: {}",
+            notif_str
+        );
+    }
+}
+

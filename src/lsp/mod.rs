@@ -234,6 +234,80 @@ impl LspServer {
         let _ = stdout.flush();
     }
 
+    fn check_program_with_imports(
+        &self,
+        uri: &str,
+        prog: Program,
+        file_id: usize,
+        sm: &mut SourceMap,
+    ) -> std::result::Result<(), crate::diag::Diagnostic> {
+        let path_str = Self::uri_to_path(uri);
+        let file_path = std::path::Path::new(&path_str);
+        let has_imports = prog.decls.iter().any(|d| matches!(d, Decl::Import(_)));
+
+        let prog_to_check = if has_imports {
+            let mut loader = crate::modules::ModuleLoader::new();
+            let docs = self.documents.clone();
+            loader = loader.with_file_reader(move |p| {
+                let req_path = Self::uri_to_path(&p.to_string_lossy()).to_lowercase();
+                for (doc_uri, content) in &docs {
+                    if Self::uri_to_path(doc_uri).to_lowercase() == req_path {
+                        return Some(content.clone());
+                    }
+                }
+                None
+            });
+            loader.load_program_from_ast(file_path, prog, file_id, sm)?
+        } else {
+            prog
+        };
+
+        let mut checker = TypeChecker::new(file_id);
+        checker.check_program(&prog_to_check)?;
+        Ok(())
+    }
+
+    fn handle_diagnostic_for_doc(
+        &self,
+        diag: &crate::diag::Diagnostic,
+        file_id: usize,
+        _uri: &str,
+        sm: &SourceMap,
+    ) -> Vec<String> {
+        let is_current_file = diag
+            .span
+            .map(|s| s.file_id == file_id)
+            .unwrap_or(true);
+
+        if is_current_file {
+            vec![self.diag_to_lsp_json(diag, sm)]
+        } else if let Some(span) = diag.span {
+            if let Some(err_file) = sm.get_file(span.file_id) {
+                // Notifikasi berkas dependensi impor secara terpisah
+                let other_uri = Self::path_to_uri(&err_file.path.to_string_lossy());
+                let other_json = self.diag_to_lsp_json(diag, sm);
+                let notif = format!(
+                    r#"{{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{{"uri":"{}","diagnostics":[{}]}}}}"#,
+                    other_uri, other_json
+                );
+                self.send_response(&notif);
+
+                // Di berkas saat ini, tampilkan pemberitahuan pada baris awal
+                let clean_msg = format!("Galat pada dependensi '{}': {}", err_file.path.display(), diag.message)
+                    .replace('"', "\\\"")
+                    .replace('\n', " ");
+                vec![format!(
+                    r#"{{"range":{{"start":{{"line":0,"character":0}},"end":{{"line":0,"character":5}}}},"severity":1,"message":"{}"}}"#,
+                    clean_msg
+                )]
+            } else {
+                vec![self.diag_to_lsp_json(diag, sm)]
+            }
+        } else {
+            vec![self.diag_to_lsp_json(diag, sm)]
+        }
+    }
+
     fn build_diagnostics_notification(&self, uri: &str, text: &str) -> String {
         let mut sm = SourceMap::new();
         let (file_id, _) = sm.add_file(uri, text.to_string());
@@ -243,14 +317,10 @@ impl LspServer {
             Ok(tokens) => {
                 let mut parser = Parser::new(tokens, file_id);
                 match parser.parse_program() {
-                    Ok(prog) => {
-                        let mut checker = TypeChecker::new(file_id);
-                        if let Err(diag) = checker.check_program(&prog) {
-                            vec![self.diag_to_lsp_json(&diag, &sm)]
-                        } else {
-                            vec![]
-                        }
-                    }
+                    Ok(prog) => match self.check_program_with_imports(uri, prog, file_id, &mut sm) {
+                        Ok(()) => vec![],
+                        Err(diag) => self.handle_diagnostic_for_doc(&diag, file_id, uri, &sm),
+                    },
                     Err(diag) => vec![self.diag_to_lsp_json(&diag, &sm)],
                 }
             }
@@ -304,7 +374,26 @@ impl LspServer {
                 if let Ok(tokens) = lexer.tokenize() {
                     let mut parser = Parser::new(tokens, file_id);
                     if let Ok(prog) = parser.parse_program() {
-                        for decl in &prog.decls {
+                        let path_str = Self::uri_to_path(uri);
+                        let file_path = std::path::Path::new(&path_str);
+                        let has_imports = prog.decls.iter().any(|d| matches!(d, Decl::Import(_)));
+                        let prog_to_search = if has_imports {
+                            let mut loader = crate::modules::ModuleLoader::new();
+                            let docs = self.documents.clone();
+                            loader = loader.with_file_reader(move |p| {
+                                let req_path = Self::uri_to_path(&p.to_string_lossy()).to_lowercase();
+                                for (doc_uri, content) in &docs {
+                                    if Self::uri_to_path(doc_uri).to_lowercase() == req_path {
+                                        return Some(content.clone());
+                                    }
+                                }
+                                None
+                            });
+                            loader.load_program_from_ast(file_path, prog.clone(), file_id, &mut sm).unwrap_or(prog)
+                        } else {
+                            prog
+                        };
+                        for decl in &prog_to_search.decls {
                             match decl {
                                 Decl::Fn(f) if f.name == word => {
                                     let params = f
@@ -578,11 +667,14 @@ impl LspServer {
             "kanvas_tebal_garis" => Some("### `fungsi kanvas_tebal_garis(tebal: f64) -> Unit`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMengatur ketebalan garis (line width) dalam satuan piksel.".to_string()),
             "kanvas_persegi" => Some("### `fungsi kanvas_persegi(x: f64, y: f64, lebar: f64, tinggi: f64) -> Unit`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMenggambar persegi padat terisi warna pada koordinat (x, y) dengan ukuran lebar dan tinggi.".to_string()),
             "kanvas_bingkai_persegi" => Some("### `fungsi kanvas_bingkai_persegi(x: f64, y: f64, lebar: f64, tinggi: f64) -> Unit`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMenggambar garis bingkai outline persegi pada koordinat (x, y) dengan ukuran lebar dan tinggi.".to_string()),
+            "kanvas_persegi_bulat" => Some("### `fungsi kanvas_persegi_bulat(x: f64, y: f64, lebar: f64, tinggi: f64, radius: f64) -> Unit`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMenggambar persegi dengan sudut membulat padat terisi warna pada koordinat (x, y) dengan ukuran lebar, tinggi, dan radius lengkungan sudut.".to_string()),
+            "kanvas_bingkai_persegi_bulat" => Some("### `fungsi kanvas_bingkai_persegi_bulat(x: f64, y: f64, lebar: f64, tinggi: f64, radius: f64) -> Unit`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMenggambar garis bingkai tepi persegi dengan sudut membulat pada koordinat (x, y) dengan ukuran lebar, tinggi, dan radius lengkungan sudut.".to_string()),
             "kanvas_lingkaran" => Some("### `fungsi kanvas_lingkaran(x: f64, y: f64, radius: f64) -> Unit`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMenggambar lingkaran padat terisi warna dengan titik pusat (x, y) dan jari-jari radius.".to_string()),
             "kanvas_bingkai_lingkaran" => Some("### `fungsi kanvas_bingkai_lingkaran(x: f64, y: f64, radius: f64) -> Unit`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMenggambar garis tepi lingkaran dengan titik pusat (x, y) dan jari-jari radius.".to_string()),
             "kanvas_garis" => Some("### `fungsi kanvas_garis(x1: f64, y1: f64, x2: f64, y2: f64) -> Unit`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMenggambar garis lurus dari titik koordinat (x1, y1) menuju (x2, y2).".to_string()),
             "kanvas_titik" => Some("### `fungsi kanvas_titik(x: f64, y: f64, ukuran: f64) -> Unit`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMenggambar sebuah titik pada koordinat (x, y) dengan diameter ukuran piksel.".to_string()),
             "kanvas_teks" => Some("### `fungsi kanvas_teks(teks: Teks, x: f64, y: f64, ukuran: f64) -> Unit`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMenuliskan teks string pada koordinat kanvas (x, y) dengan ukuran font dalam piksel.".to_string()),
+            "kanvas_teks_tengah" => Some("### `fungsi kanvas_teks_tengah(teks: Teks, cx: f64, cy: f64, ukuran: f64) -> Unit`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMenuliskan teks string dengan posisi tengah horizontal dan vertikal pada koordinat pusat (cx, cy) dengan ukuran font dalam piksel.".to_string()),
             "kanvas_lebar" => Some("### `fungsi kanvas_lebar() -> f64`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMengembalikan lebar elemen kanvas aktif dalam satuan piksel.".to_string()),
             "kanvas_tinggi" => Some("### `fungsi kanvas_tinggi() -> f64`\\n\\n**Pustaka Grafis DapCode - Canvas 2D WebAssembly**\\n\\nMengembalikan tinggi elemen kanvas aktif dalam satuan piksel.".to_string()),
             "kanvas_mouse_x" => Some("### `fungsi kanvas_mouse_x() -> f64`\\n\\n**Pustaka Grafis DapCode - Interaktivitas Input Kanvas**\\n\\nMendapatkan posisi koordinat horizontal (X) kursor mouse pada kanvas.".to_string()),
@@ -750,11 +842,14 @@ impl LspServer {
             ("kanvas_tebal_garis", "kanvas_tebal_garis(${1:2.0})", 3, "Atur ketebalan garis gambar (piksel)"),
             ("kanvas_persegi", "kanvas_persegi(${1:x}, ${2:y}, ${3:lebar}, ${4:tinggi})", 3, "Gambar persegi padat terisi warna"),
             ("kanvas_bingkai_persegi", "kanvas_bingkai_persegi(${1:x}, ${2:y}, ${3:lebar}, ${4:tinggi})", 3, "Gambar garis tepi outline persegi"),
+            ("kanvas_persegi_bulat", "kanvas_persegi_bulat(${1:x}, ${2:y}, ${3:lebar}, ${4:tinggi}, ${5:radius})", 3, "Gambar persegi sudut bulat terisi warna"),
+            ("kanvas_bingkai_persegi_bulat", "kanvas_bingkai_persegi_bulat(${1:x}, ${2:y}, ${3:lebar}, ${4:tinggi}, ${5:radius})", 3, "Gambar garis tepi outline persegi sudut bulat"),
             ("kanvas_lingkaran", "kanvas_lingkaran(${1:x}, ${2:y}, ${3:radius})", 3, "Gambar lingkaran padat terisi warna"),
             ("kanvas_bingkai_lingkaran", "kanvas_bingkai_lingkaran(${1:x}, ${2:y}, ${3:radius})", 3, "Gambar garis tepi lingkaran"),
             ("kanvas_garis", "kanvas_garis(${1:x1}, ${2:y1}, ${3:x2}, ${4:y2})", 3, "Gambar garis lurus dari (x1, y1) ke (x2, y2)"),
             ("kanvas_titik", "kanvas_titik(${1:x}, ${2:y}, ${3:ukuran})", 3, "Gambar sebuah titik dengan diameter piksel"),
             ("kanvas_teks", "kanvas_teks(\"${1:teks}\", ${2:x}, ${3:y}, ${4:16.0})", 3, "Tulis teks pada kanvas dengan ukuran piksel"),
+            ("kanvas_teks_tengah", "kanvas_teks_tengah(\"${1:teks}\", ${2:cx}, ${3:cy}, ${4:16.0})", 3, "Tulis teks rata tengah di (cx, cy) dengan ukuran piksel"),
             ("kanvas_lebar", "kanvas_lebar()", 3, "Ambil dimensi lebar kanvas piksel"),
             ("kanvas_tinggi", "kanvas_tinggi()", 3, "Ambil dimensi tinggi kanvas piksel"),
             ("kanvas_mouse_x", "kanvas_mouse_x()", 3, "Ambil posisi koordinat X kursor mouse"),
@@ -828,17 +923,36 @@ impl LspServer {
             if let Ok(tokens) = lexer.tokenize() {
                 let mut parser = Parser::new(tokens, file_id);
                 if let Ok(prog) = parser.parse_program() {
-                    for decl in &prog.decls {
+                    let path_str = Self::uri_to_path(uri);
+                    let file_path = std::path::Path::new(&path_str);
+                    let has_imports = prog.decls.iter().any(|d| matches!(d, Decl::Import(_)));
+                    let prog_to_search = if has_imports {
+                        let mut loader = crate::modules::ModuleLoader::new();
+                        let docs = self.documents.clone();
+                        loader = loader.with_file_reader(move |p| {
+                            let req_path = Self::uri_to_path(&p.to_string_lossy()).to_lowercase();
+                            for (doc_uri, content) in &docs {
+                                if Self::uri_to_path(doc_uri).to_lowercase() == req_path {
+                                    return Some(content.clone());
+                                }
+                            }
+                            None
+                        });
+                        loader.load_program_from_ast(file_path, prog.clone(), file_id, &mut sm).unwrap_or(prog)
+                    } else {
+                        prog
+                    };
+                    for decl in &prog_to_search.decls {
                         match decl {
                             Decl::Fn(f) => {
                                 items.push(format!(
-                                    r#"{{"label":"{}","kind":3,"detail":"Fungsi lokal","insertText":"{}()"}}"#,
+                                    r#"{{"label":"{}","kind":3,"detail":"Fungsi","insertText":"{}()"}}"#,
                                     f.name, f.name
                                 ));
                             }
                             Decl::Struct(s) => {
                                 items.push(format!(
-                                    r#"{{"label":"{}","kind":7,"detail":"Struktur lokal","insertText":"{}"}}"#,
+                                    r#"{{"label":"{}","kind":7,"detail":"Struktur","insertText":"{}"}}"#,
                                     s.name, s.name
                                 ));
                             }
@@ -1564,8 +1678,7 @@ impl LspServer {
                 let mut parser = Parser::new(tokens, file_id);
                 match parser.parse_program() {
                     Ok(prog) => {
-                        let mut checker = TypeChecker::new(file_id);
-                        if let Err(diag) = checker.check_program(&prog) {
+                        if let Err(diag) = self.check_program_with_imports(uri, prog, file_id, &mut sm) {
                             let (sl, sc, _, _) = diag.span.map(|s| Self::span_to_lsp_range(s, &sm)).unwrap_or((0, 0, 0, 0));
                             diag_items.push(DiagItem {
                                 message: diag.message,

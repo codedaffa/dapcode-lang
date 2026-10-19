@@ -2390,16 +2390,64 @@ impl Evaluator {
                         || name == "kanvas_tebal_garis"
                         || name == "kanvas_persegi"
                         || name == "kanvas_bingkai_persegi"
+                        || name == "kanvas_persegi_bulat"
+                        || name == "kanvas_bingkai_persegi_bulat"
                         || name == "kanvas_lingkaran"
                         || name == "kanvas_bingkai_lingkaran"
                         || name == "kanvas_garis"
                         || name == "kanvas_titik"
                         || name == "kanvas_teks"
+                        || name == "kanvas_teks_tengah"
+                        || name == "kanvas_simpan_teks"
+                        || name == "kanvas_simpan_angka"
+                        || name == "kanvas_simpan_u64"
                     {
                         for arg in args {
                             let _ = self.eval_expr(&arg.value, env)?;
                         }
                         return Ok(Value::Unit);
+                    }
+                    if name == "kanvas_ambil_teks" {
+                        if !args.is_empty() {
+                            let _ = self.eval_expr(&args[0].value, env)?;
+                        }
+                        return Ok(Value::String(String::new()));
+                    }
+                    if name == "kanvas_ambil_angka" {
+                        if !args.is_empty() {
+                            let _ = self.eval_expr(&args[0].value, env)?;
+                        }
+                        return Ok(Value::Float(0.0));
+                    }
+                    if name == "kanvas_ambil_u64" {
+                        if !args.is_empty() {
+                            let _ = self.eval_expr(&args[0].value, env)?;
+                        }
+                        return Ok(Value::Int(0));
+                    }
+                    if name == "ke_desimal" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'ke_desimal' membutuhkan 1 argumen: (teks)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        if let Value::String(s) = val {
+                            return Ok(Value::Float(s.parse::<f64>().unwrap_or(0.0)));
+                        }
+                        return Ok(Value::Float(0.0));
+                    }
+                    if name == "format_desimal" {
+                        if args.len() != 1 {
+                            return Err(Diagnostic::error("'format_desimal' membutuhkan 1 argumen: (angka)").with_span(*span));
+                        }
+                        let val = self.eval_expr(&args[0].value, env)?;
+                        if let Value::Float(f) = val {
+                            if f.fract() == 0.0 && !f.is_nan() && !f.is_infinite() {
+                                return Ok(Value::String(format!("{:.0}", f)));
+                            } else {
+                                return Ok(Value::String(format!("{}", f)));
+                            }
+                        }
+                        return Ok(Value::String(format!("{:?}", val)));
                     }
 
                     // Standard Library: Web Audio Synthesizer

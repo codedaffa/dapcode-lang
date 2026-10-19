@@ -51,11 +51,14 @@ void dap_kanvas_warna_garis(f64 r, f64 g, f64 b, f64 a);
 void dap_kanvas_tebal_garis(f64 tebal);
 void dap_kanvas_persegi(f64 x, f64 y, f64 lebar, f64 tinggi);
 void dap_kanvas_bingkai_persegi(f64 x, f64 y, f64 lebar, f64 tinggi);
+void dap_kanvas_persegi_bulat(f64 x, f64 y, f64 lebar, f64 tinggi, f64 radius);
+void dap_kanvas_bingkai_persegi_bulat(f64 x, f64 y, f64 lebar, f64 tinggi, f64 radius);
 void dap_kanvas_lingkaran(f64 x, f64 y, f64 radius);
 void dap_kanvas_bingkai_lingkaran(f64 x, f64 y, f64 radius);
 void dap_kanvas_garis(f64 x1, f64 y1, f64 x2, f64 y2);
 void dap_kanvas_titik(f64 x, f64 y, f64 ukuran);
 void dap_kanvas_teks(const char* teks, f64 x, f64 y, f64 ukuran);
+void dap_kanvas_teks_tengah(const char* teks, f64 cx, f64 cy, f64 ukuran);
 f64 dap_kanvas_lebar(void);
 f64 dap_kanvas_tinggi(void);
 f64 dap_kanvas_mouse_x(void);
@@ -371,6 +374,168 @@ void dap_kanvas_bingkai_persegi(f64 x, f64 y, f64 lebar, f64 tinggi) {
 #endif
 }
 
+void dap_kanvas_persegi_bulat(f64 x, f64 y, f64 lebar, f64 tinggi, f64 radius) {
+    if (radius <= 0.0) {
+        dap_kanvas_persegi(x, y, lebar, tinggi);
+        return;
+    }
+    if (radius > lebar * 0.5) radius = lebar * 0.5;
+    if (radius > tinggi * 0.5) radius = tinggi * 0.5;
+
+    const int segs = 8;
+    double cx = x + lebar * 0.5;
+    double cy = y + tinggi * 0.5;
+
+#if defined(__ANDROID__) || defined(__APPLE__)
+    if (!g_program) return;
+    glUseProgram(g_program);
+    glUniform2f(g_u_resolution, (float)dap_kanvas_width, (float)dap_kanvas_height);
+    glUniform1i(g_u_use_texture, 0);
+
+    float vertices[128];
+    int idx = 0;
+    vertices[idx++] = (float)cx;
+    vertices[idx++] = (float)cy;
+
+    double crx = x + lebar - radius, cry = y + radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = -M_PI * 0.5 + (M_PI * 0.5) * (double)i / (double)segs;
+        vertices[idx++] = (float)(crx + radius * cos(a));
+        vertices[idx++] = (float)(cry + radius * sin(a));
+    }
+    crx = x + lebar - radius; cry = y + tinggi - radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = (M_PI * 0.5) * (double)i / (double)segs;
+        vertices[idx++] = (float)(crx + radius * cos(a));
+        vertices[idx++] = (float)(cry + radius * sin(a));
+    }
+    crx = x + radius; cry = y + tinggi - radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = M_PI * 0.5 + (M_PI * 0.5) * (double)i / (double)segs;
+        vertices[idx++] = (float)(crx + radius * cos(a));
+        vertices[idx++] = (float)(cry + radius * sin(a));
+    }
+    crx = x + radius; cry = y + radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = M_PI + (M_PI * 0.5) * (double)i / (double)segs;
+        vertices[idx++] = (float)(crx + radius * cos(a));
+        vertices[idx++] = (float)(cry + radius * sin(a));
+    }
+    vertices[idx++] = vertices[2];
+    vertices[idx++] = vertices[3];
+
+    glEnableVertexAttribArray(g_a_pos);
+    glVertexAttribPointer(g_a_pos, 2, GL_FLOAT, GL_FALSE, 0, vertices);
+    glVertexAttrib4fv(g_a_color, current_fill_color);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, idx / 2);
+    glDisableVertexAttribArray(g_a_pos);
+#else
+    glColor4fv(current_fill_color);
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2d(cx, cy);
+
+    double crx = x + lebar - radius, cry = y + radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = -M_PI * 0.5 + (M_PI * 0.5) * (double)i / (double)segs;
+        glVertex2d(crx + radius * cos(a), cry + radius * sin(a));
+    }
+    crx = x + lebar - radius; cry = y + tinggi - radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = (M_PI * 0.5) * (double)i / (double)segs;
+        glVertex2d(crx + radius * cos(a), cry + radius * sin(a));
+    }
+    crx = x + radius; cry = y + tinggi - radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = M_PI * 0.5 + (M_PI * 0.5) * (double)i / (double)segs;
+        glVertex2d(crx + radius * cos(a), cry + radius * sin(a));
+    }
+    crx = x + radius; cry = y + radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = M_PI + (M_PI * 0.5) * (double)i / (double)segs;
+        glVertex2d(crx + radius * cos(a), cry + radius * sin(a));
+    }
+    glVertex2d(x + lebar - radius, y);
+    glEnd();
+#endif
+}
+
+void dap_kanvas_bingkai_persegi_bulat(f64 x, f64 y, f64 lebar, f64 tinggi, f64 radius) {
+    if (radius <= 0.0) {
+        dap_kanvas_bingkai_persegi(x, y, lebar, tinggi);
+        return;
+    }
+    if (radius > lebar * 0.5) radius = lebar * 0.5;
+    if (radius > tinggi * 0.5) radius = tinggi * 0.5;
+
+    const int segs = 8;
+#if defined(__ANDROID__) || defined(__APPLE__)
+    if (!g_program) return;
+    glUseProgram(g_program);
+    glUniform2f(g_u_resolution, (float)dap_kanvas_width, (float)dap_kanvas_height);
+    glUniform1i(g_u_use_texture, 0);
+
+    float vertices[128];
+    int idx = 0;
+    double crx = x + lebar - radius, cry = y + radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = -M_PI * 0.5 + (M_PI * 0.5) * (double)i / (double)segs;
+        vertices[idx++] = (float)(crx + radius * cos(a));
+        vertices[idx++] = (float)(cry + radius * sin(a));
+    }
+    crx = x + lebar - radius; cry = y + tinggi - radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = (M_PI * 0.5) * (double)i / (double)segs;
+        vertices[idx++] = (float)(crx + radius * cos(a));
+        vertices[idx++] = (float)(cry + radius * sin(a));
+    }
+    crx = x + radius; cry = y + tinggi - radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = M_PI * 0.5 + (M_PI * 0.5) * (double)i / (double)segs;
+        vertices[idx++] = (float)(crx + radius * cos(a));
+        vertices[idx++] = (float)(cry + radius * sin(a));
+    }
+    crx = x + radius; cry = y + radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = M_PI + (M_PI * 0.5) * (double)i / (double)segs;
+        vertices[idx++] = (float)(crx + radius * cos(a));
+        vertices[idx++] = (float)(cry + radius * sin(a));
+    }
+
+    glEnableVertexAttribArray(g_a_pos);
+    glVertexAttribPointer(g_a_pos, 2, GL_FLOAT, GL_FALSE, 0, vertices);
+    glVertexAttrib4fv(g_a_color, current_stroke_color);
+    glLineWidth(current_line_width);
+    glDrawArrays(GL_LINE_LOOP, 0, idx / 2);
+    glDisableVertexAttribArray(g_a_pos);
+#else
+    glColor4fv(current_stroke_color);
+    glLineWidth(current_line_width);
+    glBegin(GL_LINE_LOOP);
+
+    double crx = x + lebar - radius, cry = y + radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = -M_PI * 0.5 + (M_PI * 0.5) * (double)i / (double)segs;
+        glVertex2d(crx + radius * cos(a), cry + radius * sin(a));
+    }
+    crx = x + lebar - radius; cry = y + tinggi - radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = (M_PI * 0.5) * (double)i / (double)segs;
+        glVertex2d(crx + radius * cos(a), cry + radius * sin(a));
+    }
+    crx = x + radius; cry = y + tinggi - radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = M_PI * 0.5 + (M_PI * 0.5) * (double)i / (double)segs;
+        glVertex2d(crx + radius * cos(a), cry + radius * sin(a));
+    }
+    crx = x + radius; cry = y + radius;
+    for (int i = 0; i <= segs; i++) {
+        double a = M_PI + (M_PI * 0.5) * (double)i / (double)segs;
+        glVertex2d(crx + radius * cos(a), cry + radius * sin(a));
+    }
+    glEnd();
+#endif
+}
+
 void dap_kanvas_lingkaran(f64 x, f64 y, f64 radius) {
     const int segments = 48;
 #if defined(__ANDROID__) || defined(__APPLE__)
@@ -464,23 +629,216 @@ void dap_kanvas_titik(f64 x, f64 y, f64 ukuran) {
     dap_kanvas_lingkaran(x, y, ukuran * 0.5);
 }
 
-void dap_kanvas_teks(const char* teks, f64 x, f64 y, f64 ukuran) {
-    if (!teks) return;
-    size_t len = strlen(teks);
-    float scale = (float)ukuran / 8.0f;
-    float cur_x = (float)x;
+/* ===========================================================================
+ * Font Bitmap 5x7 ASCII (Karakter 32 ' ' sampai 126 '~')
+ * Ringan, Cepat, Mandiri 100% tanpa dependensi pustaka font eksternal.
+ * =========================================================================== */
+static const uint8_t g_dap_font_5x7[95][5] = {
+    {0x00, 0x00, 0x00, 0x00, 0x00}, // 32 ' '
+    {0x00, 0x00, 0x5F, 0x00, 0x00}, // 33 '!'
+    {0x00, 0x07, 0x00, 0x07, 0x00}, // 34 '"'
+    {0x14, 0x7F, 0x14, 0x7F, 0x14}, // 35 '#'
+    {0x24, 0x2A, 0x7F, 0x2A, 0x12}, // 36 '$'
+    {0x23, 0x13, 0x08, 0x64, 0x62}, // 37 '%'
+    {0x36, 0x49, 0x55, 0x22, 0x50}, // 38 '&'
+    {0x00, 0x05, 0x03, 0x00, 0x00}, // 39 '\''
+    {0x00, 0x1C, 0x22, 0x41, 0x00}, // 40 '('
+    {0x00, 0x41, 0x22, 0x1C, 0x00}, // 41 ')'
+    {0x14, 0x08, 0x3E, 0x08, 0x14}, // 42 '*'
+    {0x08, 0x08, 0x3E, 0x08, 0x08}, // 43 '+'
+    {0x00, 0x50, 0x30, 0x00, 0x00}, // 44 ','
+    {0x08, 0x08, 0x08, 0x08, 0x08}, // 45 '-'
+    {0x00, 0x60, 0x60, 0x00, 0x00}, // 46 '.'
+    {0x20, 0x10, 0x08, 0x04, 0x02}, // 47 '/'
+    {0x3E, 0x51, 0x49, 0x45, 0x3E}, // 48 '0'
+    {0x00, 0x42, 0x7F, 0x40, 0x00}, // 49 '1'
+    {0x42, 0x61, 0x51, 0x49, 0x46}, // 50 '2'
+    {0x21, 0x41, 0x45, 0x4B, 0x31}, // 51 '3'
+    {0x18, 0x14, 0x12, 0x7F, 0x10}, // 52 '4'
+    {0x27, 0x45, 0x45, 0x45, 0x39}, // 53 '5'
+    {0x3C, 0x4A, 0x49, 0x49, 0x30}, // 54 '6'
+    {0x01, 0x71, 0x09, 0x05, 0x03}, // 55 '7'
+    {0x36, 0x49, 0x49, 0x49, 0x36}, // 56 '8'
+    {0x06, 0x49, 0x49, 0x29, 0x1E}, // 57 '9'
+    {0x00, 0x36, 0x36, 0x00, 0x00}, // 58 ':'
+    {0x00, 0x56, 0x36, 0x00, 0x00}, // 59 ';'
+    {0x08, 0x14, 0x22, 0x41, 0x00}, // 60 '<'
+    {0x14, 0x14, 0x14, 0x14, 0x14}, // 61 '='
+    {0x00, 0x41, 0x22, 0x14, 0x08}, // 62 '>'
+    {0x02, 0x01, 0x51, 0x09, 0x06}, // 63 '?'
+    {0x32, 0x49, 0x79, 0x41, 0x3E}, // 64 '@'
+    {0x7E, 0x11, 0x11, 0x11, 0x7E}, // 65 'A'
+    {0x7F, 0x49, 0x49, 0x49, 0x36}, // 66 'B'
+    {0x3E, 0x41, 0x41, 0x41, 0x22}, // 67 'C'
+    {0x7F, 0x41, 0x41, 0x22, 0x1C}, // 68 'D'
+    {0x7F, 0x49, 0x49, 0x49, 0x41}, // 69 'E'
+    {0x7F, 0x09, 0x09, 0x09, 0x01}, // 70 'F'
+    {0x3E, 0x41, 0x49, 0x49, 0x7A}, // 71 'G'
+    {0x7F, 0x08, 0x08, 0x08, 0x7F}, // 72 'H'
+    {0x00, 0x41, 0x7F, 0x41, 0x00}, // 73 'I'
+    {0x20, 0x40, 0x41, 0x3F, 0x01}, // 74 'J'
+    {0x7F, 0x08, 0x14, 0x22, 0x41}, // 75 'K'
+    {0x7F, 0x40, 0x40, 0x40, 0x40}, // 76 'L'
+    {0x7F, 0x02, 0x0C, 0x02, 0x7F}, // 77 'M'
+    {0x7F, 0x04, 0x08, 0x10, 0x7F}, // 78 'N'
+    {0x3E, 0x41, 0x41, 0x41, 0x3E}, // 79 'O'
+    {0x7F, 0x09, 0x09, 0x09, 0x06}, // 80 'P'
+    {0x3E, 0x41, 0x51, 0x21, 0x5E}, // 81 'Q'
+    {0x7F, 0x09, 0x19, 0x29, 0x46}, // 82 'R'
+    {0x46, 0x49, 0x49, 0x49, 0x31}, // 83 'S'
+    {0x01, 0x01, 0x7F, 0x01, 0x01}, // 84 'T'
+    {0x3F, 0x40, 0x40, 0x40, 0x3F}, // 85 'U'
+    {0x1F, 0x20, 0x40, 0x20, 0x1F}, // 86 'V'
+    {0x3F, 0x40, 0x38, 0x40, 0x3F}, // 87 'W'
+    {0x63, 0x14, 0x08, 0x14, 0x63}, // 88 'X'
+    {0x07, 0x08, 0x70, 0x08, 0x07}, // 89 'Y'
+    {0x61, 0x51, 0x49, 0x45, 0x43}, // 90 'Z'
+    {0x00, 0x7F, 0x41, 0x41, 0x00}, // 91 '['
+    {0x02, 0x04, 0x08, 0x10, 0x20}, // 92 '\\'
+    {0x00, 0x41, 0x41, 0x7F, 0x00}, // 93 ']'
+    {0x04, 0x02, 0x01, 0x02, 0x04}, // 94 '^'
+    {0x40, 0x40, 0x40, 0x40, 0x40}, // 95 '_'
+    {0x00, 0x01, 0x02, 0x04, 0x00}, // 96 '`'
+    {0x20, 0x54, 0x54, 0x54, 0x78}, // 97 'a'
+    {0x7F, 0x48, 0x44, 0x44, 0x38}, // 98 'b'
+    {0x38, 0x44, 0x44, 0x44, 0x20}, // 99 'c'
+    {0x38, 0x44, 0x44, 0x48, 0x7F}, // 100 'd'
+    {0x38, 0x54, 0x54, 0x54, 0x18}, // 101 'e'
+    {0x08, 0x7E, 0x09, 0x01, 0x02}, // 102 'f'
+    {0x08, 0x14, 0x54, 0x54, 0x3C}, // 103 'g'
+    {0x7F, 0x08, 0x04, 0x04, 0x78}, // 104 'h'
+    {0x00, 0x44, 0x7D, 0x40, 0x00}, // 105 'i'
+    {0x20, 0x40, 0x44, 0x3D, 0x00}, // 106 'j'
+    {0x7F, 0x10, 0x28, 0x44, 0x00}, // 107 'k'
+    {0x00, 0x41, 0x7F, 0x40, 0x00}, // 108 'l'
+    {0x7C, 0x04, 0x18, 0x04, 0x78}, // 109 'm'
+    {0x7C, 0x08, 0x04, 0x04, 0x78}, // 110 'n'
+    {0x38, 0x44, 0x44, 0x44, 0x38}, // 111 'o'
+    {0x7C, 0x14, 0x14, 0x14, 0x08}, // 112 'p'
+    {0x08, 0x14, 0x14, 0x18, 0x7C}, // 113 'q'
+    {0x7C, 0x08, 0x04, 0x04, 0x08}, // 114 'r'
+    {0x48, 0x54, 0x54, 0x54, 0x20}, // 115 's'
+    {0x04, 0x3F, 0x44, 0x40, 0x20}, // 116 't'
+    {0x3C, 0x40, 0x40, 0x20, 0x7C}, // 117 'u'
+    {0x1C, 0x20, 0x40, 0x20, 0x1C}, // 118 'v'
+    {0x3C, 0x40, 0x30, 0x40, 0x3C}, // 119 'w'
+    {0x44, 0x28, 0x10, 0x28, 0x44}, // 120 'x'
+    {0x0C, 0x50, 0x50, 0x50, 0x3C}, // 121 'y'
+    {0x44, 0x64, 0x54, 0x4C, 0x44}, // 122 'z'
+    {0x00, 0x08, 0x36, 0x41, 0x00}, // 123 '{'
+    {0x00, 0x00, 0x7F, 0x00, 0x00}, // 124 '|'
+    {0x00, 0x41, 0x36, 0x08, 0x00}, // 125 '}'
+    {0x08, 0x08, 0x2A, 0x1C, 0x08}  // 126 '~'
+};
 
-    for (size_t i = 0; i < len; i++) {
-        char c = teks[i];
+void dap_kanvas_teks(const char* teks, f64 x, f64 y, f64 ukuran) {
+    if (!teks || !*teks) return;
+    if (ukuran <= 0.0) ukuran = 12.0;
+
+    float px_h = (float)ukuran / 7.0f;
+    float px_w = px_h;
+    float top_y = (float)y - 7.0f * px_h;
+    float cur_x = (float)x;
+    size_t len = strlen(teks);
+
+#if !defined(__ANDROID__) && !defined(__APPLE__)
+    glColor4fv(current_fill_color);
+    glBegin(GL_QUADS);
+#endif
+
+    for (size_t i = 0; i < len; ) {
+        unsigned char c = (unsigned char)teks[i];
         if (c == '\n') {
             cur_x = (float)x;
-            y += ukuran * 1.2;
+            top_y += (float)ukuran * 1.25f;
+            i++;
             continue;
         }
-        // Gambar kotak representasi karakter (prosedural)
-        dap_kanvas_persegi(cur_x, y, ukuran * 0.6, ukuran);
-        cur_x += ukuran * 0.7f;
+
+        const uint8_t* glyph = NULL;
+        static const uint8_t g_bullet[5] = {0x00, 0x1C, 0x1C, 0x1C, 0x00};
+        static const uint8_t g_mult[5]   = {0x22, 0x14, 0x08, 0x14, 0x22};
+        static const uint8_t g_div[5]    = {0x08, 0x08, 0x2A, 0x08, 0x08};
+
+        if (c == 0xE2 && i + 2 < len && (unsigned char)teks[i+1] == 0x80 && (unsigned char)teks[i+2] == 0xA2) {
+            glyph = g_bullet;
+            i += 3;
+        } else if (c == 0xC3 && i + 1 < len && (unsigned char)teks[i+1] == 0x97) {
+            glyph = g_mult;
+            i += 2;
+        } else if (c == 0xC3 && i + 1 < len && (unsigned char)teks[i+1] == 0xB7) {
+            glyph = g_div;
+            i += 2;
+        } else if (c >= 32 && c <= 126) {
+            glyph = g_dap_font_5x7[c - 32];
+            i += 1;
+        } else {
+            glyph = g_dap_font_5x7['?' - 32];
+            i += 1;
+        }
+
+        for (int col = 0; col < 5; col++) {
+            uint8_t bits = glyph[col];
+            int r = 0;
+            while (r < 7) {
+                if (bits & (1 << r)) {
+                    int start_r = r;
+                    while (r < 7 && (bits & (1 << r))) {
+                        r++;
+                    }
+                    int count = r - start_r;
+                    float rx = cur_x + (float)col * px_w;
+                    float ry = top_y + (float)start_r * px_h;
+                    float rw = px_w;
+                    float rh = (float)count * px_h;
+
+#if !defined(__ANDROID__) && !defined(__APPLE__)
+                    glVertex2f(rx, ry);
+                    glVertex2f(rx + rw, ry);
+                    glVertex2f(rx + rw, ry + rh);
+                    glVertex2f(rx, ry + rh);
+#else
+                    dap_kanvas_persegi(rx, ry, rw, rh);
+#endif
+                } else {
+                    r++;
+                }
+            }
+        }
+        cur_x += 6.0f * px_w;
     }
+
+#if !defined(__ANDROID__) && !defined(__APPLE__)
+    glEnd();
+#endif
+}
+
+void dap_kanvas_teks_tengah(const char* teks, f64 cx, f64 cy, f64 ukuran) {
+    if (!teks || !*teks) return;
+    if (ukuran <= 0.0) ukuran = 12.0;
+    float px_h = (float)ukuran / 7.0f;
+    float px_w = px_h;
+    size_t len = strlen(teks);
+
+    size_t char_count = 0;
+    for (size_t i = 0; i < len; ) {
+        unsigned char c = (unsigned char)teks[i];
+        if (c == 0xE2 && i + 2 < len && (unsigned char)teks[i+1] == 0x80 && (unsigned char)teks[i+2] == 0xA2) {
+            char_count++;
+            i += 3;
+        } else if (c == 0xC3 && i + 1 < len) {
+            char_count++;
+            i += 2;
+        } else {
+            char_count++;
+            i += 1;
+        }
+    }
+    if (char_count == 0) return;
+    float total_w = (float)char_count * (6.0f * px_w) - px_w;
+    float start_x = (float)cx - total_w * 0.5f;
+    float baseline_y = (float)cy + (3.2f * px_h);
+    dap_kanvas_teks(teks, start_x, baseline_y, ukuran);
 }
 
 f64 dap_kanvas_lebar(void) { return dap_kanvas_width; }

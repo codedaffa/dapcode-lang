@@ -10,6 +10,7 @@ let messageBuffer = '';
 let reqId = 1;
 const pendingRequests = new Map();
 let outputChannel = null;
+let globalContext = null;
 
 function log(msg) {
     if (outputChannel) {
@@ -160,7 +161,14 @@ function getTargetDapFilePath(uri) {
 }
 
 function sendLspMessage(msg) {
-    if (!lspProcess || lspProcess.killed) return;
+    if (!lspProcess || lspProcess.killed) {
+        if (globalContext) {
+            startLspServer(globalContext);
+        } else {
+            return;
+        }
+    }
+    if (!lspProcess || !lspProcess.stdin || !lspProcess.stdin.writable) return;
     const body = JSON.stringify(msg);
     const header = `Content-Length: ${Buffer.byteLength(body, 'utf8')}\r\n\r\n`;
     try {
@@ -328,6 +336,7 @@ function stopLspServer() {
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
+    globalContext = context;
     outputChannel = vscode.window.createOutputChannel('DapCode');
     diagnosticCollection = vscode.languages.createDiagnosticCollection('dapcode');
     context.subscriptions.push(outputChannel);
@@ -736,6 +745,16 @@ function activate(context) {
     );
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('dapcode.restartLsp', () => {
+            if (diagnosticCollection) {
+                diagnosticCollection.clear();
+            }
+            startLspServer(context);
+            vscode.window.showInformationMessage('DapCode: Language Server (LSP) berhasil dimuat ulang!');
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('dapcode.buildMobile', (uri) => {
             const filePath = getTargetDapFilePath(uri) || lastKnownDapFilePath;
             if (!filePath || !fs.existsSync(filePath)) {
@@ -784,12 +803,6 @@ function activate(context) {
     context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(updateMobileStatusBar));
     updateMobileStatusBar();
 
-    context.subscriptions.push(
-        vscode.commands.registerCommand('dapcode.restartLsp', () => {
-            startLspServer(context);
-            vscode.window.showInformationMessage('DapCode Language Server telah dimulai ulang.');
-        })
-    );
 
     // 7. Debug Adapter Protocol (DAP) Factory
     context.subscriptions.push(
@@ -856,9 +869,10 @@ function activate(context) {
                             break;
                         case 'openExternal': {
                             const compiler = findCompilerPath();
-                            const terminal =
-                                vscode.window.activeTerminal ||
-                                vscode.window.createTerminal('DapCode Playground');
+                            let terminal = vscode.window.terminals.find((t) => t.name === 'DapCode Web Playground');
+                            if (!terminal) {
+                                terminal = vscode.window.createTerminal('DapCode Web Playground');
+                            }
                             terminal.show();
                             runInTerminal(terminal, compiler, 'playground', '', '--open');
                             break;
@@ -1270,11 +1284,14 @@ function getPlaygroundWebviewHtml() {
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 8px 12px;
+            padding: 8px 10px;
+        }
+        .toolbar > * {
+            flex-shrink: 0;
         }
         button, select {
             background: rgba(30, 41, 59, 0.85);
@@ -1706,7 +1723,6 @@ function getPlaygroundWebviewHtml() {
         <div class="toolbar-divider"></div>
 
         <div style="display: flex; align-items: center; gap: 5px;">
-            <label for="frame-select" style="font-size: 11px; color: var(--accent-cyan); font-weight: 600;">📐 Frame:</label>
             <select id="frame-select" title="Pilih ukuran frame kanvas">
                 <option value="autofit">Auto-Fit (Responsif Kontainer)</option>
                 <option value="desktop">Desktop (800 × 480)</option>
@@ -1734,6 +1750,7 @@ function getPlaygroundWebviewHtml() {
             </div>
         </div>
 
+        <button id="btn-open-web" class="btn-ghost" title="Buka DapCode Live Playground di peramban web eksternal (Browser)">🌐 Buka di Web</button>
         <button id="btn-mobile-export" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: white;" title="Bangun berkas DapCode aktif ini ke proyek Mobile Native (Android &amp; iOS)">📱 Bangun Mobile Native</button>
     </div>
 
@@ -2109,6 +2126,26 @@ fungsi utama() -> u64 {
                     commandCount++;
                     ctx.strokeRect(x, y, w, h);
                 },
+                kanvas_persegi_bulat: (x, y, w, h, r) => {
+                    commandCount++;
+                    ctx.beginPath();
+                    if (ctx.roundRect) {
+                        ctx.roundRect(x, y, w, h, r);
+                    } else {
+                        ctx.rect(x, y, w, h);
+                    }
+                    ctx.fill();
+                },
+                kanvas_bingkai_persegi_bulat: (x, y, w, h, r) => {
+                    commandCount++;
+                    ctx.beginPath();
+                    if (ctx.roundRect) {
+                        ctx.roundRect(x, y, w, h, r);
+                    } else {
+                        ctx.strokeRect(x, y, w, h);
+                    }
+                    ctx.stroke();
+                },
                 kanvas_lingkaran: (x, y, r) => {
                     commandCount++;
                     ctx.beginPath();
@@ -2138,8 +2175,19 @@ fungsi utama() -> u64 {
                     commandCount++;
                     const mem = getMemory();
                     const str = decodeWasmStr(mem, ptr, len);
-                    ctx.font = \`\${Math.round(u)}px sans-serif\`;
+                    ctx.font = Math.round(u) + "px sans-serif";
                     ctx.fillText(str, x, y);
+                },
+                kanvas_teks_tengah: (ptr, len, cx, cy, u) => {
+                    commandCount++;
+                    const mem = getMemory();
+                    const str = decodeWasmStr(mem, ptr, len);
+                    ctx.font = Math.round(u) + "px sans-serif";
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(str, cx, cy);
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'alphabetic';
                 },
                 // Ukuran kanvas dinamis sesuai frame preset yang dipilih
                 kanvas_lebar: () => (canvas ? canvas.width : 360.0),
@@ -2502,8 +2550,18 @@ fungsi utama() -> u64 {
         async function runWasmBytes(wasmBytes) {
             commandCount = 0;
             let memRef = null;
+            const hostEnv = createHostImports(() => memRef);
+            const envProxy = new Proxy(hostEnv, {
+                get(target, prop) {
+                    if (prop in target) {
+                        return target[prop];
+                    }
+                    console.warn("[WASM Host] Warning: import '" + String(prop) + "' belum diimplementasikan, menggunakan callable fallback.");
+                    return () => 0;
+                }
+            });
             const imports = {
-                env: createHostImports(() => memRef)
+                env: envProxy
             };
 
             const tStart = performance.now();
@@ -2747,6 +2805,13 @@ fungsi utama() -> u64 {
                         code: code,
                     });
                 });
+            });
+        }
+
+        const btnOpenWeb = document.getElementById("btn-open-web");
+        if (btnOpenWeb) {
+            btnOpenWeb.addEventListener("click", () => {
+                vscode.postMessage({ command: "openExternal" });
             });
         }
 

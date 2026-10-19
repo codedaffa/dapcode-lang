@@ -1,127 +1,168 @@
 // ============================================================================
-// 📱 Komponen Antarmuka Layar Sentuh & GPU
+// 📱 Komponen Antarmuka Layar Sentuh & GPU (Desain Modern Flutter / iOS Pro)
+// Mendukung Kanvas Sudut Membulat, Teks Presisi GPU, & Skema Warna Premium
 // ============================================================================
 
 fungsi gambar_status_bar(w: f64) -> Unit {
-    kanvas_warna_isi(0.04, 0.06, 0.12, 0.95)
+    kanvas_warna_isi(0.04, 0.06, 0.10, 0.95)
     kanvas_persegi(0.0, 0.0, w, 24.0)
     
-    // Jam
-    kanvas_warna_isi(0.9, 0.95, 1.0, 0.9)
+    // Teks Jam
+    kanvas_warna_isi(0.92, 0.95, 1.0, 0.95)
     kanvas_teks("09:41", 14.0, 16.0, 10.5)
     
-    // Ikon Sinyal
-    kanvas_warna_isi(0.2, 0.85, 0.5, 0.9)
-    kanvas_persegi(w - 56.0, 8.0, 3.0, 8.0)
-    kanvas_persegi(w - 50.0, 6.0, 3.0, 10.0)
-    kanvas_persegi(w - 44.0, 4.0, 3.0, 12.0)
+    // Ikon Sinyal Seluler (4 Bar Bertingkat)
+    kanvas_warna_isi(0.20, 0.85, 0.50, 0.95)
+    kanvas_persegi_bulat(w - 62.0, 12.0, 2.5, 5.0, 1.0)
+    kanvas_persegi_bulat(w - 56.0, 10.0, 2.5, 7.0, 1.0)
+    kanvas_persegi_bulat(w - 50.0, 8.0, 2.5, 9.0, 1.0)
+    kanvas_persegi_bulat(w - 44.0, 6.0, 2.5, 11.0, 1.0)
     
-    // Ikon Baterai
-    kanvas_warna_garis(0.9, 0.95, 1.0, 0.7)
+    // Ikon Kapsul Baterai
+    kanvas_warna_garis(0.90, 0.95, 1.0, 0.75)
     kanvas_tebal_garis(1.0)
-    kanvas_bingkai_persegi(w - 30.0, 5.0, 18.0, 10.0)
-    kanvas_warna_isi(0.2, 0.9, 0.5, 0.9)
-    kanvas_persegi(w - 28.0, 7.0, 12.0, 6.0)
+    kanvas_bingkai_persegi_bulat(w - 32.0, 6.0, 18.0, 10.0, 3.0)
+    kanvas_warna_isi(0.20, 0.88, 0.55, 0.95)
+    kanvas_persegi_bulat(w - 30.0, 8.0, 12.0, 6.0, 2.0)
+    kanvas_persegi(w - 14.0, 9.0, 1.5, 4.0)
 }
 
 fungsi gambar_app_bar(w: f64, judul: Teks) -> Unit {
-    kanvas_warna_isi(0.06, 0.10, 0.20, 0.98)
+    kanvas_warna_isi(0.06, 0.09, 0.16, 0.98)
     kanvas_persegi(0.0, 24.0, w, 54.0)
     
-    kanvas_warna_isi(0.12, 0.55, 0.95, 0.9)
+    // Garis Aksen Bawah App Bar
+    kanvas_warna_isi(0.12, 0.45, 0.85, 0.8)
     kanvas_persegi(0.0, 77.0, w, 1.5)
     
+    // Judul Aplikasi
     kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
     kanvas_teks(judul, 14.0, 48.0, 15.0)
     
-    kanvas_warna_isi(0.02, 0.45, 0.85, 0.4)
-    kanvas_persegi(14.0, 56.0, 150.0, 14.0)
-    kanvas_warna_garis(0.25, 0.75, 1.0, 0.8)
+    // Badge Status Pill "DIRECT GPU • 60 FPS"
+    kanvas_warna_isi(0.06, 0.28, 0.58, 0.45)
+    kanvas_persegi_bulat(14.0, 56.0, 156.0, 14.0, 7.0)
+    kanvas_warna_garis(0.25, 0.65, 1.0, 0.7)
     kanvas_tebal_garis(1.0)
-    kanvas_bingkai_persegi(14.0, 56.0, 150.0, 14.0)
+    kanvas_bingkai_persegi_bulat(14.0, 56.0, 156.0, 14.0, 7.0)
     
-    kanvas_warna_isi(0.4, 0.9, 1.0, 1.0)
-    kanvas_teks("DIRECT GPU 60 FPS • FLUTTER STYLE", 18.0, 67.0, 8.5)
+    kanvas_warna_isi(0.45, 0.90, 1.0, 1.0)
+    kanvas_teks_tengah("DIRECT GPU • 60 FPS NATIVE", 14.0 + 78.0, 63.0, 8.0)
 }
 
-fungsi gambar_layar_tampilan(w: f64, sy: f64, sh: f64, riwayat: Teks, tampilan: Teks) -> Unit {
-    sx := 14.0
-    sw := w - 28.0
+fungsi gambar_layar_tampilan(sx: f64, sy: f64, sw: f64, sh: f64, riwayat: Teks, tampilan: Teks) -> Unit {
+    rad := sh * 0.16
+    jika rad > 16.0 { rad = 16.0 }
+    jika rad < 6.0 { rad = 6.0 }
 
-    // Kotak Display Glassmorphic
-    kanvas_warna_isi(0.07, 0.11, 0.22, 0.95)
-    kanvas_persegi(sx, sy, sw, sh)
+    // Kotak Display Glassmorphic dengan Sudut Membulat Halus
+    kanvas_warna_isi(0.07, 0.11, 0.19, 0.95)
+    kanvas_persegi_bulat(sx, sy, sw, sh, rad)
 
-    kanvas_warna_garis(0.22, 0.48, 0.85, 0.6)
-    kanvas_tebal_garis(1.5)
-    kanvas_bingkai_persegi(sx, sy, sw, sh)
+    kanvas_warna_garis(0.20, 0.36, 0.62, 0.6)
+    kanvas_tebal_garis(1.2)
+    kanvas_bingkai_persegi_bulat(sx, sy, sw, sh, rad)
 
-    kanvas_warna_isi(0.2, 0.9, 0.4, 0.8)
-    kanvas_lingkaran(sx + 14.0, sy + 18.0, 3.5)
-    kanvas_warna_isi(0.5, 0.75, 0.95, 0.8)
-    kanvas_teks("Display Aktif", sx + 24.0, sy + 21.0, 9.0)
+    // Indikator Titik Status Hijau
+    kanvas_warna_isi(0.15, 0.88, 0.45, 0.9)
+    kanvas_lingkaran(sx + 16.0, sy + 16.0, 3.5)
+    kanvas_warna_isi(0.55, 0.75, 0.95, 0.85)
+    kanvas_teks("Display Aktif", sx + 26.0, sy + 19.0, 9.0)
 
-    // Riwayat
-    kanvas_warna_isi(0.55, 0.72, 0.95, 0.85)
-    kanvas_teks(riwayat, sx + 14.0, sy + sh * 0.45, 12.0)
+    // Ukuran Font Responsif Mengikuti Tinggi Display
+    sz_riwayat := sh * 0.20
+    jika sz_riwayat > 13.0 { sz_riwayat = 13.0 }
+    jika sz_riwayat < 9.0 { sz_riwayat = 9.0 }
 
-    // Angka Utama
+    sz_tampilan := sh * 0.34
+    jika sz_tampilan > 24.0 { sz_tampilan = 24.0 }
+    jika sz_tampilan < 13.0 { sz_tampilan = 13.0 }
+
+    // Riwayat Operasi Sebelumnya (Baris Atas)
+    kanvas_warna_isi(0.55, 0.72, 0.92, 0.85)
+    kanvas_teks(riwayat, sx + 16.0, sy + sh * 0.48, sz_riwayat)
+
+    // Angka Utama / Hasil (Baris Bawah Besar & Jelas)
     kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
-    kanvas_teks(tampilan, sx + 14.0, sy + sh * 0.85, 20.0)
+    kanvas_teks(tampilan, sx + 16.0, sy + sh * 0.84, sz_tampilan)
 }
 
 fungsi gambar_tombol(label: Teks, bx: f64, by: f64, bw: f64, bh: f64, jenis: u64, mx: f64, my: f64, klik: u64) -> Unit {
     hover := (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh)
     ditekan := hover && (klik == 1)
+    radius := bh * 0.26
+    jika radius > 14.0 { radius = 14.0 }
+    jika radius < 4.0 { radius = 4.0 }
 
+    // Pemilihan warna latar belakang tombol (Gaya Elegan iOS / Flutter)
     jika jenis == 3 {
-        // Tombol Sama Dengan (=)
+        // Tombol Sama Dengan (=): Aksen Emerald Hijau Modern
         jika ditekan {
-            kanvas_warna_isi(0.20, 0.90, 0.60, 1.0)
+            kanvas_warna_isi(0.18, 0.90, 0.58, 1.0)
         } selain_itu jika hover {
-            kanvas_warna_isi(0.16, 0.78, 0.50, 1.0)
+            kanvas_warna_isi(0.12, 0.78, 0.48, 1.0)
         } selain_itu {
-            kanvas_warna_isi(0.12, 0.68, 0.42, 0.95)
+            kanvas_warna_isi(0.06, 0.68, 0.40, 0.95)
         }
     } selain_itu jika jenis == 2 {
-        // Tombol Operator (+, -, *, /)
+        // Tombol Operator (+, -, *, /): Aksen Amber / Oranye Dinamis
         jika ditekan {
-            kanvas_warna_isi(0.35, 0.78, 1.0, 1.0)
+            kanvas_warna_isi(1.0, 0.72, 0.25, 1.0)
         } selain_itu jika hover {
-            kanvas_warna_isi(0.20, 0.65, 0.95, 1.0)
+            kanvas_warna_isi(0.98, 0.60, 0.14, 1.0)
         } selain_itu {
-            kanvas_warna_isi(0.08, 0.50, 0.88, 0.95)
+            kanvas_warna_isi(0.92, 0.50, 0.08, 0.95)
         }
     } selain_itu jika jenis == 1 {
-        // Tombol Fungsi (C, +/-, %, <)
+        // Tombol Fungsi (C, +/-, %, <): Slate Gray Modern
         jika ditekan {
-            kanvas_warna_isi(0.35, 0.40, 0.55, 1.0)
+            kanvas_warna_isi(0.40, 0.46, 0.58, 1.0)
         } selain_itu jika hover {
-            kanvas_warna_isi(0.28, 0.32, 0.44, 1.0)
+            kanvas_warna_isi(0.30, 0.36, 0.48, 1.0)
         } selain_itu {
-            kanvas_warna_isi(0.18, 0.22, 0.32, 0.95)
+            kanvas_warna_isi(0.22, 0.27, 0.38, 0.95)
         }
     } selain_itu {
-        // Tombol Angka (0-9, .)
+        // Tombol Angka (0-9, .): Dark Obsidian Mewah
         jika ditekan {
-            kanvas_warna_isi(0.25, 0.30, 0.42, 1.0)
+            kanvas_warna_isi(0.28, 0.35, 0.48, 1.0)
         } selain_itu jika hover {
-            kanvas_warna_isi(0.18, 0.23, 0.35, 1.0)
+            kanvas_warna_isi(0.19, 0.25, 0.36, 1.0)
         } selain_itu {
-            kanvas_warna_isi(0.10, 0.14, 0.24, 0.95)
+            kanvas_warna_isi(0.12, 0.16, 0.25, 0.95)
         }
     }
 
-    kanvas_persegi(bx, by, bw, bh)
+    // Gambar Persegi Sudut Membulat (Squircle)
+    kanvas_persegi_bulat(bx, by, bw, bh, radius)
 
-    kanvas_warna_garis(0.25, 0.45, 0.75, 0.45)
+    // Garis Outline / Border Halus
+    jika jenis == 3 {
+        kanvas_warna_garis(0.30, 0.90, 0.60, 0.6)
+    } selain_itu jika jenis == 2 {
+        kanvas_warna_garis(1.0, 0.75, 0.35, 0.55)
+    } selain_itu jika jenis == 1 {
+        kanvas_warna_garis(0.40, 0.50, 0.65, 0.45)
+    } selain_itu {
+        kanvas_warna_garis(0.24, 0.32, 0.46, 0.40)
+    }
     kanvas_tebal_garis(1.0)
-    kanvas_bingkai_persegi(bx, by, bw, bh)
+    kanvas_bingkai_persegi_bulat(bx, by, bw, bh, radius)
 
-    kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
-    tx := bx + bw / 2.0 - 5.0
-    ty := by + bh / 2.0 + 5.0
-    kanvas_teks(label, tx, ty, 13.0)
+    // Label Teks Terpusat Sempurna (Presisi Tengah Horizontal & Vertikal)
+    jika jenis == 1 {
+        kanvas_warna_isi(0.50, 0.90, 1.0, 1.0)
+    } selain_itu {
+        kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
+    }
+
+    font_sz := bh * 0.36
+    jika font_sz > 22.0 { font_sz = 22.0 }
+    jika font_sz < 10.0 { font_sz = 10.0 }
+    jika label == "+/-" || label == "DEL" || label == "<" {
+        font_sz = font_sz * 0.85
+    }
+    kanvas_teks_tengah(label, bx + bw / 2.0, by + bh / 2.0, font_sz)
 }
 
 fungsi tombol_ditekan(bx: f64, by: f64, bw: f64, bh: f64, mx: f64, my: f64, baru_klik: Bool) -> Bool {

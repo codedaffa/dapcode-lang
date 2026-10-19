@@ -936,6 +936,14 @@ impl TypeChecker {
             (vec![Type::F64, Type::F64, Type::F64, Type::F64], Type::Unit),
         );
         self.functions.insert(
+            "kanvas_persegi_bulat".to_string(),
+            (vec![Type::F64, Type::F64, Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_bingkai_persegi_bulat".to_string(),
+            (vec![Type::F64, Type::F64, Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
             "kanvas_lingkaran".to_string(),
             (vec![Type::F64, Type::F64, Type::F64], Type::Unit),
         );
@@ -953,6 +961,10 @@ impl TypeChecker {
         );
         self.functions.insert(
             "kanvas_teks".to_string(),
+            (vec![Type::String, Type::F64, Type::F64, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_teks_tengah".to_string(),
             (vec![Type::String, Type::F64, Type::F64, Type::F64], Type::Unit),
         );
         self.functions.insert(

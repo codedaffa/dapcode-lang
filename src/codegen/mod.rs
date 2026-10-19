@@ -1310,11 +1310,14 @@ static inline void dap_kanvas_warna_garis(f64 r, f64 g, f64 b, f64 a) { (void)r;
 static inline void dap_kanvas_tebal_garis(f64 tebal) { (void)tebal; }
 static inline void dap_kanvas_persegi(f64 x, f64 y, f64 lebar, f64 tinggi) { (void)x; (void)y; (void)lebar; (void)tinggi; }
 static inline void dap_kanvas_bingkai_persegi(f64 x, f64 y, f64 lebar, f64 tinggi) { (void)x; (void)y; (void)lebar; (void)tinggi; }
+static inline void dap_kanvas_persegi_bulat(f64 x, f64 y, f64 lebar, f64 tinggi, f64 radius) { (void)x; (void)y; (void)lebar; (void)tinggi; (void)radius; }
+static inline void dap_kanvas_bingkai_persegi_bulat(f64 x, f64 y, f64 lebar, f64 tinggi, f64 radius) { (void)x; (void)y; (void)lebar; (void)tinggi; (void)radius; }
 static inline void dap_kanvas_lingkaran(f64 x, f64 y, f64 radius) { (void)x; (void)y; (void)radius; }
 static inline void dap_kanvas_bingkai_lingkaran(f64 x, f64 y, f64 radius) { (void)x; (void)y; (void)radius; }
 static inline void dap_kanvas_garis(f64 x1, f64 y1, f64 x2, f64 y2) { (void)x1; (void)y1; (void)x2; (void)y2; }
 static inline void dap_kanvas_titik(f64 x, f64 y, f64 ukuran) { (void)x; (void)y; (void)ukuran; }
 static inline void dap_kanvas_teks(const char* teks, f64 x, f64 y, f64 ukuran) { (void)teks; (void)x; (void)y; (void)ukuran; }
+static inline void dap_kanvas_teks_tengah(const char* teks, f64 cx, f64 cy, f64 ukuran) { (void)teks; (void)cx; (void)cy; (void)ukuran; }
 static inline f64 dap_kanvas_lebar(void) { return 800.0; }
 static inline f64 dap_kanvas_tinggi(void) { return 600.0; }
 static inline f64 dap_kanvas_mouse_x(void) { return 400.0; }

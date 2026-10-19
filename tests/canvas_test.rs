@@ -160,6 +160,8 @@ const imports = {{
         kanvas_tebal_garis: (t) => log.push(['tebal_garis', t]),
         kanvas_persegi: (x, y, w, h) => log.push(['persegi', x, y, w, h]),
         kanvas_bingkai_persegi: (x, y, w, h) => log.push(['bingkai_persegi', x, y, w, h]),
+        kanvas_persegi_bulat: (x, y, w, h, r) => log.push(['persegi_bulat', x, y, w, h, r]),
+        kanvas_bingkai_persegi_bulat: (x, y, w, h, r) => log.push(['bingkai_persegi_bulat', x, y, w, h, r]),
         kanvas_lingkaran: (x, y, r) => log.push(['lingkaran', x, y, r]),
         kanvas_bingkai_lingkaran: (x, y, r) => log.push(['bingkai_lingkaran', x, y, r]),
         kanvas_garis: (x1, y1, x2, y2) => log.push(['garis', x1, y1, x2, y2]),
@@ -168,6 +170,11 @@ const imports = {{
             const arr = new Uint8Array(wasmInstance.exports.memory.buffer, ptr, len);
             const str = new TextDecoder().decode(arr);
             log.push(['teks', str, x, y, s]);
+        }},
+        kanvas_teks_tengah: (ptr, len, cx, cy, s) => {{
+            const arr = new Uint8Array(wasmInstance.exports.memory.buffer, ptr, len);
+            const str = new TextDecoder().decode(arr);
+            log.push(['teks_tengah', str, cx, cy, s]);
         }},
         kanvas_lebar: () => 800.0,
         kanvas_tinggi: () => 600.0,

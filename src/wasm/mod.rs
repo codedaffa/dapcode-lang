@@ -386,24 +386,49 @@ impl WasmEmitter {
             }
         }
 
-        if called.contains("kanvas_teks") {
-            let sig_canvas_teks = self.get_or_add_sig(
-                vec![WasmType::I32, WasmType::I32, WasmType::F64, WasmType::F64, WasmType::F64],
-                vec![],
-            );
-            let func_idx = self.imports.len() as u32;
-            self.imports.push(("env".to_string(), "kanvas_teks".to_string(), sig_canvas_teks));
-            self.func_table.insert(
-                "kanvas_teks".to_string(),
-                (
-                    func_idx,
-                    sig_canvas_teks,
-                    FuncSignature {
-                        params: vec![WasmType::I32, WasmType::I32, WasmType::F64, WasmType::F64, WasmType::F64],
-                        results: vec![],
-                    },
-                ),
-            );
+        let canvas_5_fns = [
+            "kanvas_persegi_bulat",
+            "kanvas_bingkai_persegi_bulat",
+        ];
+        let sig_canvas_5 = self.get_or_add_sig(vec![WasmType::F64, WasmType::F64, WasmType::F64, WasmType::F64, WasmType::F64], vec![]);
+        for name in &canvas_5_fns {
+            if called.contains(*name) {
+                let func_idx = self.imports.len() as u32;
+                self.imports.push(("env".to_string(), name.to_string(), sig_canvas_5));
+                self.func_table.insert(
+                    name.to_string(),
+                    (
+                        func_idx,
+                        sig_canvas_5,
+                        FuncSignature {
+                            params: vec![WasmType::F64, WasmType::F64, WasmType::F64, WasmType::F64, WasmType::F64],
+                            results: vec![],
+                        },
+                    ),
+                );
+            }
+        }
+
+        for name in &["kanvas_teks", "kanvas_teks_tengah"] {
+            if called.contains(*name) {
+                let sig_canvas_teks = self.get_or_add_sig(
+                    vec![WasmType::I32, WasmType::I32, WasmType::F64, WasmType::F64, WasmType::F64],
+                    vec![],
+                );
+                let func_idx = self.imports.len() as u32;
+                self.imports.push(("env".to_string(), name.to_string(), sig_canvas_teks));
+                self.func_table.insert(
+                    name.to_string(),
+                    (
+                        func_idx,
+                        sig_canvas_teks,
+                        FuncSignature {
+                            params: vec![WasmType::I32, WasmType::I32, WasmType::F64, WasmType::F64, WasmType::F64],
+                            results: vec![],
+                        },
+                    ),
+                );
+            }
         }
 
         // Web Audio Synthesizer imports
@@ -1361,7 +1386,7 @@ impl WasmEmitter {
                         return Ok(WasmType::I32);
                     }
 
-                    if name == "kanvas_teks" && args.len() == 4 {
+                    if (name == "kanvas_teks" || name == "kanvas_teks_tengah") && args.len() == 4 {
                         let arg0 = &args[0].value;
                         if let Expr::Lit(Literal::String(s), _) = arg0 {
                             let (off, len) = self.intern_string(s);
@@ -1394,7 +1419,7 @@ impl WasmEmitter {
                             }
                         }
 
-                        if let Some((func_idx, _, _)) = self.func_table.get("kanvas_teks").cloned() {
+                        if let Some((func_idx, _, _)) = self.func_table.get(name).cloned() {
                             out.push(0x10); // call
                             encode_u32_leb128(func_idx, out);
                         }
@@ -1638,11 +1663,14 @@ const importObject = {{
         kanvas_tebal_garis: () => {{}},
         kanvas_persegi: () => {{}},
         kanvas_bingkai_persegi: () => {{}},
+        kanvas_persegi_bulat: () => {{}},
+        kanvas_bingkai_persegi_bulat: () => {{}},
         kanvas_lingkaran: () => {{}},
         kanvas_bingkai_lingkaran: () => {{}},
         kanvas_garis: () => {{}},
         kanvas_titik: () => {{}},
         kanvas_teks: () => {{}},
+        kanvas_teks_tengah: () => {{}},
         kanvas_lebar: () => 800.0,
         kanvas_tinggi: () => 480.0,
         kanvas_mouse_x: () => 0.0,
@@ -1845,7 +1873,6 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
             <div class="canvas-header">
                 <span class="canvas-title">🎨 Kanvas 2D Interaktif</span>
                 <div class="frame-controls">
-                    <label for="frame-select" style="font-size: 0.85rem; color: var(--muted);">Frame:</label>
                     <select id="frame-select" class="frame-select">
                         <option value="desktop_std" selected>Desktop (800×480)</option>
                         <option value="desktop_hd">Desktop HD (960×540)</option>
@@ -2019,6 +2046,18 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
                         kanvas_tebal_garis: (t) => {{ if (ctx) ctx.lineWidth = t; }},
                         kanvas_persegi: (x, y, w, h) => {{ if (ctx) ctx.fillRect(x, y, w, h); }},
                         kanvas_bingkai_persegi: (x, y, w, h) => {{ if (ctx) ctx.strokeRect(x, y, w, h); }},
+                        kanvas_persegi_bulat: (x, y, w, h, r) => {{
+                            if (!ctx) return;
+                            ctx.beginPath();
+                            if (ctx.roundRect) {{ ctx.roundRect(x, y, w, h, r); }} else {{ ctx.rect(x, y, w, h); }}
+                            ctx.fill();
+                        }},
+                        kanvas_bingkai_persegi_bulat: (x, y, w, h, r) => {{
+                            if (!ctx) return;
+                            ctx.beginPath();
+                            if (ctx.roundRect) {{ ctx.roundRect(x, y, w, h, r); }} else {{ ctx.strokeRect(x, y, w, h); }}
+                            ctx.stroke();
+                        }},
                         kanvas_lingkaran: (x, y, rad) => {{ if (!ctx) return; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill(); }},
                         kanvas_bingkai_lingkaran: (x, y, rad) => {{ if (!ctx) return; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.stroke(); }},
                         kanvas_garis: (x1, y1, x2, y2) => {{ if (!ctx) return; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }},
@@ -2029,6 +2068,17 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
                             const sz = (typeof s === 'number' && s > 0) ? Math.round(s) : 14;
                             ctx.font = sz + 'px sans-serif';
                             ctx.fillText(str, x, y);
+                        }},
+                        kanvas_teks_tengah: (ptr, len, cx, cy, s) => {{
+                            if (!ctx) return;
+                            const str = decodeStr(ptr);
+                            const sz = (typeof s === 'number' && s > 0) ? Math.round(s) : 14;
+                            ctx.font = sz + 'px sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(str, cx, cy);
+                            ctx.textAlign = 'left';
+                            ctx.textBaseline = 'alphabetic';
                         }},
                         kanvas_lebar: () => (canvas ? canvas.width : 800.0),
                         kanvas_tinggi: () => (canvas ? canvas.height : 480.0),

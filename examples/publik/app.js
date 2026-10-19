@@ -776,6 +776,28 @@ fungsi utama() -> u64 {
                 if (!ctx) return;
                 ctx.strokeRect(x, y, w, h);
             },
+            kanvas_persegi_bulat: (x, y, w, h, r) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                    ctx.roundRect(x, y, w, h, r);
+                } else {
+                    ctx.rect(x, y, w, h);
+                }
+                ctx.fill();
+            },
+            kanvas_bingkai_persegi_bulat: (x, y, w, h, r) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                    ctx.roundRect(x, y, w, h, r);
+                } else {
+                    ctx.strokeRect(x, y, w, h);
+                }
+                ctx.stroke();
+            },
             kanvas_lingkaran: (x, y, radius) => {
                 totalCanvasCommands++;
                 if (!ctx) return;
@@ -812,6 +834,18 @@ fungsi utama() -> u64 {
                 const text = mem ? new TextDecoder().decode(new Uint8Array(mem.buffer, ptr, len)) : "";
                 ctx.font = `${Math.round(ukuran)}px sans-serif`;
                 ctx.fillText(text, x, y);
+            },
+            kanvas_teks_tengah: (ptr, len, cx, cy, ukuran) => {
+                totalCanvasCommands++;
+                if (!ctx) return;
+                const mem = getMemory();
+                const text = mem ? new TextDecoder().decode(new Uint8Array(mem.buffer, ptr, len)) : "";
+                ctx.font = `${Math.round(ukuran)}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(text, cx, cy);
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'alphabetic';
             },
             kanvas_lebar: () => (canvas ? canvas.width : 800.0),
             kanvas_tinggi: () => (canvas ? canvas.height : 480.0),
@@ -1245,6 +1279,12 @@ fungsi utama() -> u64 {
                     ...createCanvasImports(() => canvasWasmMemory),
                 },
             };
+            canvasImports.env = new Proxy(canvasImports.env, {
+                get(target, prop) {
+                    if (prop in target) return target[prop];
+                    return () => 0;
+                }
+            });
 
             const { instance } = await WebAssembly.instantiate(bytes, canvasImports);
             canvasWasmInstance = instance;
