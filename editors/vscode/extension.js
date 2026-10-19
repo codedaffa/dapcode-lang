@@ -1168,26 +1168,34 @@ function getPlaygroundWebviewHtml() {
             width: 100%;
             box-sizing: border-box;
         }
-        .header-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 6px 8px;
-            width: 100%;
-        }
         .header-brand {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             font-weight: 700;
-            font-size: 13px;
+            font-size: 14px;
             color: var(--text-main);
-            white-space: nowrap;
+            line-height: 1.3;
+        }
+        .header-sub {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            width: 100%;
+        }
+        .header-badge {
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            color: var(--accent-cyan);
+            padding: 3px 8px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-family: monospace;
+            max-width: 180px;
             overflow: hidden;
             text-overflow: ellipsis;
-            min-width: 0;
-            flex-shrink: 1;
+            white-space: nowrap;
         }
         .status-container {
             display: inline-flex;
@@ -1226,27 +1234,6 @@ function getPlaygroundWebviewHtml() {
             background: rgba(56, 189, 248, 0.15);
             border-color: rgba(56, 189, 248, 0.4);
             color: #7dd3fc;
-        }
-        .header-sub {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 6px 8px;
-            width: 100%;
-        }
-        .header-badge {
-            background: rgba(56, 189, 248, 0.12);
-            border: 1px solid rgba(56, 189, 248, 0.3);
-            color: var(--accent-cyan);
-            padding: 2px 8px;
-            border-radius: 9999px;
-            font-size: 11px;
-            font-family: monospace;
-            max-width: 60%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
         }
         .dot {
             width: 8px;
@@ -1652,19 +1639,17 @@ function getPlaygroundWebviewHtml() {
 </head>
 <body>
     <div class="header">
-        <div class="header-top">
-            <div class="header-brand">
-                <span style="font-size: 15px;">🎨</span>
-                <span>DapCode Live Canvas</span>
-            </div>
-            <div class="status-container" id="status-container">
-                <span class="dot" id="status-dot"></span>
-                <span id="status-text">Siap</span>
-            </div>
+        <div class="header-brand">
+            <span style="font-size: 16px;">🎨</span>
+            <span>DapCode Live Canvas &amp; Playground</span>
         </div>
         <div class="header-sub">
             <span class="header-badge" id="active-filename" title="Berkas yang sedang aktif di editor">tanpa_nama.dap</span>
             <button id="btn-toggle-guide" class="btn-ghost" title="Tampilkan/sembunyikan panduan kanvas">📖 Cara Pakai</button>
+            <div class="status-container" id="status-container">
+                <span class="dot" id="status-dot"></span>
+                <span id="status-text">Siap</span>
+            </div>
         </div>
     </div>
 
