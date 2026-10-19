@@ -5,3 +5,6 @@
 *.c
 !examples/*.c
 catatan_*.txt
+.gradle/
+**/build/
+

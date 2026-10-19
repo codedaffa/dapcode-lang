@@ -82,22 +82,25 @@
             </div>
         </section>
 
-        <section class="api-demo canvas-section">
+        <section class="api-demo canvas-section" id="playground-section">
             <div class="ws-header-row">
                 <div>
                     <h2>🎨 Web Playground &amp; Canvas 2D Interaktif</h2>
-                    <p class="section-desc">Tulis atau edit kode DapCode langsung di peramban web, kompilasi ke biner WebAssembly (.wasm) secara live, dan visualisasikan hasilnya secara real-time pada Canvas 2D.</p>
+                    <p class="section-desc">Tulis kode DapCode Anda secara dinamis, kompilasi ke WebAssembly (.wasm) secara live, dan visualisasikan pada Kanvas 2D yang responsif sesui ukuran frame target.</p>
                 </div>
-                <div class="ws-status-badge connected" id="canvas-badge">
-                    <span class="status-pulse" id="canvas-pulse"></span>
-                    <span id="canvas-status-text">Playground Siap</span>
+                <div class="header-badges">
+                    <span class="frame-dim-badge" id="frame-dim-badge">800 × 480 px (5:3)</span>
+                    <div class="ws-status-badge connected" id="canvas-badge">
+                        <span class="status-pulse" id="canvas-pulse"></span>
+                        <span id="canvas-status-text">Playground Siap</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Playground Controls & Toolbar -->
+            <!-- Playground Controls & Toolbar Utama -->
             <div class="playground-toolbar">
                 <div class="toolbar-left">
-                    <label for="preset-selector" class="toolbar-label">Pilih Contoh Kode:</label>
+                    <label for="preset-selector" class="toolbar-label">Muat Template Contoh:</label>
                     <select id="preset-selector" class="preset-select">
                         <option value="tata_surya">🌌 1. Tata Surya Orbit 2D (Standar)</option>
                         <option value="spiral_archimedes">🌀 2. Pola Spiral Geometri Archimedes</option>
@@ -107,10 +110,50 @@
                     </select>
                 </div>
                 <div class="toolbar-right">
+                    <button id="btn-toggle-wide" class="btn outline btn-sm" title="Alihkan Lebar Tampilan Penuh / Normal">⛶ Lebar Penuh</button>
                     <button id="btn-compile-run" class="btn primary highlight">
                         <span class="btn-icon">⚡</span> Kompilasi &amp; Jalankan (Ctrl+Enter)
                     </button>
                     <button id="btn-reset-code" class="btn outline">↺ Reset</button>
+                </div>
+            </div>
+
+            <!-- Toolbar Pengaturan Frame & Resolusi Layar Dinamis -->
+            <div class="playground-frame-toolbar">
+                <div class="frame-toolbar-left">
+                    <span class="toolbar-label">📐 Ukuran Frame:</span>
+                    <select id="frame-preset-selector" class="preset-select frame-select">
+                        <option value="desktop_std" selected>💻 Desktop Standar (800 × 480)</option>
+                        <option value="desktop_hd">🖥️ Desktop HD (960 × 540)</option>
+                        <option value="mobile_portrait">📱 Ponsel Potret (360 × 640)</option>
+                        <option value="mobile_iphone">📱 Ponsel Modern (390 × 844)</option>
+                        <option value="mobile_landscape">📱 Ponsel Lanskap (640 × 360)</option>
+                        <option value="tablet_portrait">📟 Tablet Potret (768 × 1024)</option>
+                        <option value="tablet_landscape">📟 Tablet Lanskap (768 × 576)</option>
+                        <option value="persegi">⬛ Persegi (500 × 500)</option>
+                        <option value="auto_fit">🔄 Dinamis Wadah (Auto-Fit)</option>
+                        <option value="custom">⚙️ Kustom Resolusi...</option>
+                    </select>
+
+                    <button id="btn-flip-orientation" class="btn outline btn-sm" title="Putar Orientasi Frame (Tukar Lebar &amp; Tinggi)">
+                        🔄 Putar Frame
+                    </button>
+                    <button id="btn-toggle-bezel" class="btn outline btn-sm" title="Alihkan Tampilan Bingkai Fisik Perangkat">
+                        📱 Bingkai Mockup
+                    </button>
+                </div>
+
+                <!-- Input Resolusi Kustom (Tampil saat 'custom' dipilih) -->
+                <div class="custom-res-row" id="custom-res-row" style="display: none;">
+                    <div class="custom-input-group">
+                        <label for="custom-width">L:</label>
+                        <input type="number" id="custom-width" min="200" max="2560" value="800" class="res-input" placeholder="Lebar">
+                        <span>×</span>
+                        <label for="custom-height">T:</label>
+                        <input type="number" id="custom-height" min="200" max="2560" value="480" class="res-input" placeholder="Tinggi">
+                        <span>px</span>
+                        <button id="btn-apply-custom" class="btn primary btn-sm">Terapkan</button>
+                    </div>
                 </div>
             </div>
 
@@ -138,9 +181,16 @@
 
                 <!-- Canvas Column -->
                 <div class="canvas-column">
-                    <div class="canvas-wrapper">
-                        <canvas id="dap-canvas" width="800" height="480"></canvas>
-                        <div class="canvas-coords-overlay" id="coords-overlay">X: 0, Y: 0</div>
+                    <div class="canvas-viewport" id="canvas-viewport">
+                        <div class="device-frame-mockup" id="device-frame-mockup">
+                            <div class="device-notch" id="device-notch"></div>
+                            <div class="canvas-wrapper" id="canvas-wrapper">
+                                <canvas id="dap-canvas" width="800" height="480"></canvas>
+                                <div class="canvas-coords-overlay" id="coords-overlay">X: 0, Y: 0</div>
+                                <div class="canvas-watermark" id="canvas-watermark">800 × 480</div>
+                            </div>
+                            <div class="device-chin" id="device-chin"></div>
+                        </div>
                     </div>
 
                     <div class="canvas-meta-bar">

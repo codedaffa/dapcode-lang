@@ -24,7 +24,7 @@
             display: flex;
             justify-content: center;
         }
-        .container { width: 100%; max-width: 800px; }
+        .container { width: 100%; max-width: 860px; }
         .header { margin-bottom: 2rem; }
         .badge {
             display: inline-block;
@@ -50,6 +50,72 @@
             margin-bottom: 1.5rem;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
         }
+        .canvas-card {
+            background: #0b1120;
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            padding: 1.25rem;
+        }
+        .canvas-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 0.85rem;
+        }
+        .canvas-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .frame-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .frame-select {
+            background: #1e293b;
+            color: #f8fafc;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            padding: 0.35rem 0.65rem;
+            border-radius: 0.4rem;
+            font-size: 0.85rem;
+            outline: none;
+            cursor: pointer;
+        }
+        .dim-badge {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--primary);
+            background: rgba(56, 189, 248, 0.1);
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+        .canvas-viewport {
+            width: 100%;
+            background: #060913;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            border-radius: 0.6rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0.75rem;
+            overflow: hidden;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.7);
+        }
+        #canvas {
+            display: block;
+            max-width: 100%;
+            max-height: 60vh;
+            width: auto;
+            height: auto;
+            border-radius: 6px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+            touch-action: none;
+            cursor: crosshair;
+        }
         .btn-group { display: flex; gap: 0.75rem; margin-bottom: 1.25rem; }
         button {
             background: linear-gradient(135deg, #0284c7, #2563eb);
@@ -74,7 +140,7 @@
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 0.95rem;
             line-height: 1.6;
-            min-height: 220px;
+            min-height: 160px;
             white-space: pre-wrap;
             color: #4ade80;
             box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
@@ -89,6 +155,27 @@
             <p class="subtitle">Modul biner <code>demo_kanvas.wasm</code> dijalankan secara native di mesin peramban web Anda.</p>
         </div>
 
+        <div class="card canvas-card" id="canvas-card">
+            <div class="canvas-header">
+                <span class="canvas-title">🎨 Kanvas 2D Interaktif</span>
+                <div class="frame-controls">
+                    <label for="frame-select" style="font-size: 0.85rem; color: var(--muted);">Frame:</label>
+                    <select id="frame-select" class="frame-select">
+                        <option value="desktop_std" selected>Desktop (800×480)</option>
+                        <option value="desktop_hd">Desktop HD (960×540)</option>
+                        <option value="mobile_portrait">Ponsel (360×640)</option>
+                        <option value="mobile_landscape">Ponsel Lanskap (640×360)</option>
+                        <option value="tablet">Tablet (768×576)</option>
+                        <option value="persegi">Persegi (500×500)</option>
+                    </select>
+                    <span id="canvas-dim-badge" class="dim-badge">800 × 480 px</span>
+                </div>
+            </div>
+            <div class="canvas-viewport" id="canvas-viewport">
+                <canvas id="canvas" width="800" height="480"></canvas>
+            </div>
+        </div>
+
         <div class="card">
             <div class="btn-group">
                 <button id="btn-run">▶ Jalankan Program</button>
@@ -100,6 +187,79 @@
 
     <script>
         const terminal = document.getElementById('terminal');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas ? canvas.getContext('2d') : null;
+        const frameSelect = document.getElementById('frame-select');
+        const dimBadge = document.getElementById('canvas-dim-badge');
+
+        let mouseX = 400.0, mouseY = 240.0, mouseClick = 0n;
+
+        function updateCanvasPointer(cx, cy) {
+            if (!canvas) return;
+            const r = canvas.getBoundingClientRect();
+            if (r.width <= 0 || r.height <= 0) return;
+            mouseX = Math.max(0, Math.min(canvas.width, (cx - r.left) * (canvas.width / r.width)));
+            mouseY = Math.max(0, Math.min(canvas.height, (cy - r.top) * (canvas.height / r.height)));
+        }
+
+        if (canvas) {
+            canvas.addEventListener('mousemove', (e) => {
+                updateCanvasPointer(e.clientX, e.clientY);
+                if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+            });
+            canvas.addEventListener('mousedown', (e) => {
+                mouseClick = 1n;
+                updateCanvasPointer(e.clientX, e.clientY);
+                if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+            });
+            canvas.addEventListener('mouseup', () => {
+                mouseClick = 0n;
+                if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+            });
+            canvas.addEventListener('touchstart', (e) => {
+                const t = e.touches[0];
+                if (t) {
+                    mouseClick = 1n;
+                    updateCanvasPointer(t.clientX, t.clientY);
+                    if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+                }
+                e.preventDefault();
+            }, { passive: false });
+            canvas.addEventListener('touchmove', (e) => {
+                const t = e.touches[0];
+                if (t) {
+                    updateCanvasPointer(t.clientX, t.clientY);
+                    if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+                }
+                e.preventDefault();
+            }, { passive: false });
+            canvas.addEventListener('touchend', (e) => {
+                mouseClick = 0n;
+                if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+                e.preventDefault();
+            }, { passive: false });
+        }
+
+        function setFrame(w, h) {
+            if (!canvas) return;
+            canvas.width = w;
+            canvas.height = h;
+            if (dimBadge) dimBadge.textContent = w + ' × ' + h + ' px';
+            if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+        }
+
+        if (frameSelect) {
+            frameSelect.addEventListener('change', (e) => {
+                const v = e.target.value;
+                if (v === 'desktop_std') setFrame(800, 480);
+                else if (v === 'desktop_hd') setFrame(960, 540);
+                else if (v === 'mobile_portrait') setFrame(360, 640);
+                else if (v === 'mobile_landscape') setFrame(640, 360);
+                else if (v === 'tablet') setFrame(768, 576);
+                else if (v === 'persegi') setFrame(500, 500);
+            });
+        }
+
         function log(msg) {
             const time = new Date().toLocaleTimeString();
             terminal.textContent += `\n[${time}] ${msg}`;
@@ -136,25 +296,40 @@
                         log2: Math.log2,
                         exp: Math.exp,
                         tanda: Math.sign,
-                        kanvas_bersihkan: (r, g, b, a) => log('[Kanvas] Bersihkan (' + r + ', ' + g + ', ' + b + ', ' + a + ')'),
-                        kanvas_warna_isi: () => undefined,
-                        kanvas_warna_garis: () => undefined,
-                        kanvas_tebal_garis: () => undefined,
-                        kanvas_persegi: (x, y, w, h) => log('[Kanvas] Persegi (' + x + ', ' + y + ', ' + w + ', ' + h + ')'),
-                        kanvas_bingkai_persegi: () => undefined,
-                        kanvas_lingkaran: (x, y, rad) => log('[Kanvas] Lingkaran (' + x + ', ' + y + ', r=' + rad + ')'),
-                        kanvas_bingkai_lingkaran: () => undefined,
-                        kanvas_garis: () => undefined,
-                        kanvas_titik: () => undefined,
-                        kanvas_teks: (ptr, len, x, y) => {
-                            const arr = new Uint8Array(memory.buffer, ptr, len);
-                            log('[Kanvas Teks] "' + new TextDecoder().decode(arr) + '" pada (' + x + ', ' + y + ')');
+                        kanvas_bersihkan: (r, g, b, a) => {
+                            if (!ctx) return;
+                            ctx.fillStyle = 'rgba(' + Math.round(r * 255) + ',' + Math.round(g * 255) + ',' + Math.round(b * 255) + ',' + a + ')';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
                         },
-                        kanvas_lebar: () => 800.0,
-                        kanvas_tinggi: () => 600.0,
-                        kanvas_mouse_x: () => 400.0,
-                        kanvas_mouse_y: () => 300.0,
-                        kanvas_mouse_klik: () => 0n,
+                        kanvas_warna_isi: (r, g, b, a) => {
+                            if (!ctx) return;
+                            ctx.fillStyle = 'rgba(' + Math.round(r * 255) + ',' + Math.round(g * 255) + ',' + Math.round(b * 255) + ',' + a + ')';
+                        },
+                        kanvas_warna_garis: (r, g, b, a) => {
+                            if (!ctx) return;
+                            ctx.strokeStyle = 'rgba(' + Math.round(r * 255) + ',' + Math.round(g * 255) + ',' + Math.round(b * 255) + ',' + a + ')';
+                        },
+                        kanvas_tebal_garis: (t) => { if (ctx) ctx.lineWidth = t; },
+                        kanvas_persegi: (x, y, w, h) => { if (ctx) ctx.fillRect(x, y, w, h); },
+                        kanvas_bingkai_persegi: (x, y, w, h) => { if (ctx) ctx.strokeRect(x, y, w, h); },
+                        kanvas_lingkaran: (x, y, rad) => { if (!ctx) return; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill(); },
+                        kanvas_bingkai_lingkaran: (x, y, rad) => { if (!ctx) return; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.stroke(); },
+                        kanvas_garis: (x1, y1, x2, y2) => { if (!ctx) return; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); },
+                        kanvas_titik: (x, y, rad) => { if (!ctx) return; ctx.beginPath(); ctx.arc(x, y, rad / 2, 0, Math.PI * 2); ctx.fill(); },
+                        kanvas_teks: (ptr, len, x, y, s) => {
+                            if (!ctx) return;
+                            const arr = new Uint8Array(memory.buffer, ptr, len);
+                            const str = new TextDecoder().decode(arr);
+                            const sz = (typeof s === 'number' && s > 0) ? Math.round(s) : 14;
+                            ctx.font = sz + 'px sans-serif';
+                            ctx.fillText(str, x, y);
+                        },
+                        kanvas_lebar: () => (canvas ? canvas.width : 800.0),
+                        kanvas_tinggi: () => (canvas ? canvas.height : 480.0),
+                        kanvas_mouse_x: () => mouseX,
+                        kanvas_mouse_y: () => mouseY,
+                        kanvas_mouse_klik: () => mouseClick,
+                        kanvas_tombol_ditekan: () => 0n,
                         kanvas_tombol_ditekan: () => 0n,
                         kanvas_delta_waktu: () => 0.0166,
                         waktu_sekarang_ms: () => BigInt(Date.now()),

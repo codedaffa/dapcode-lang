@@ -195,12 +195,14 @@ impl<'a> CodeGenerator<'a> {
 
         // 5. Emit main entry point
         self.out.push_str(
-            r#"int main(int argc, char** argv) {
+            r#"#ifndef DAPCODE_NO_MAIN
+int main(int argc, char** argv) {
     _dap_cli_argc = argc;
     _dap_cli_argv = argv;
     dap_utama();
     return 0;
 }
+#endif
 "#,
         );
 
@@ -1298,7 +1300,10 @@ static inline const char* dap_waktu_format(u64 epoch, const char* pola) {
     return out;
 }
 
-// Standard Library: HTML5 Canvas 2D Stubs (untuk kompilasi C native)
+#ifdef DAPCODE_CUSTOM_CANVAS
+#include "dapcode_engine.h"
+#else
+// Standard Library: HTML5 Canvas 2D Stubs (untuk kompilasi C native mandiri)
 static inline void dap_kanvas_bersihkan(f64 r, f64 g, f64 b, f64 a) { (void)r; (void)g; (void)b; (void)a; }
 static inline void dap_kanvas_warna_isi(f64 r, f64 g, f64 b, f64 a) { (void)r; (void)g; (void)b; (void)a; }
 static inline void dap_kanvas_warna_garis(f64 r, f64 g, f64 b, f64 a) { (void)r; (void)g; (void)b; (void)a; }
@@ -1317,6 +1322,27 @@ static inline f64 dap_kanvas_mouse_y(void) { return 300.0; }
 static inline uint64_t dap_kanvas_mouse_klik(void) { return 0; }
 static inline uint64_t dap_kanvas_tombol_ditekan(uint64_t kode) { (void)kode; return 0; }
 static inline f64 dap_kanvas_delta_waktu(void) { return 0.0166; }
+static inline void dap_kanvas_simpan_teks(const char* k, const char* v) { (void)k; (void)v; }
+static inline const char* dap_kanvas_ambil_teks(const char* k) { (void)k; return ""; }
+static inline void dap_kanvas_simpan_angka(const char* k, f64 v) { (void)k; (void)v; }
+static inline f64 dap_kanvas_ambil_angka(const char* k) { (void)k; return 0.0; }
+static inline void dap_kanvas_simpan_u64(const char* k, uint64_t v) { (void)k; (void)v; }
+static inline uint64_t dap_kanvas_ambil_u64(const char* k) { (void)k; return 0; }
+#endif
+
+static inline f64 dap_ke_desimal(const char* s) {
+    return s ? atof(s) : 0.0;
+}
+
+static inline const char* dap_format_desimal(f64 n) {
+    char* b = (char*)malloc(64);
+    if (floor(n) == n && !isnan(n) && !isinf(n)) {
+        snprintf(b, 64, "%.0f", n);
+    } else {
+        snprintf(b, 64, "%.6g", n);
+    }
+    return b;
+}
 
 static inline void dap_audio_mainkan_nada(f64 frekuensi, f64 durasi, f64 volume) {
     (void)frekuensi; (void)durasi; (void)volume;

@@ -1,0 +1,52 @@
+// ============================================================================
+// 🧪 Pengujian Unit Otomatis (Automated Unit Tests)
+// Menguji logika bisnis kalkulator secara terisolasi tanpa engine grafis
+// ============================================================================
+
+impor "../src/logika/kalkulator.dap"
+
+uji "Operasi penjumlahan dasar" {
+    hasil := hitung_aritmatika(15.0, "+", 27.0)
+    pastikan_sama(hasil, 42.0)
+}
+
+uji "Operasi pengurangan" {
+    hasil := hitung_aritmatika(100.0, "-", 35.0)
+    pastikan_sama(hasil, 65.0)
+}
+
+uji "Operasi perkalian" {
+    hasil := hitung_aritmatika(6.0, "*", 7.0)
+    pastikan_sama(hasil, 42.0)
+}
+
+uji "Operasi pembagian normal" {
+    hasil := hitung_aritmatika(88.0, "/", 4.0)
+    pastikan_sama(hasil, 22.0)
+}
+
+uji "Operasi pembagian dengan nol" {
+    hasil := hitung_aritmatika(50.0, "/", 0.0)
+    pastikan_sama(hasil, 0.0)
+}
+
+uji "Kalkulasi persentase" {
+    hasil := hitung_persen(250.0)
+    pastikan_sama(hasil, 2.5)
+}
+
+uji "Kalkulasi negasi tanda angka" {
+    hasil := hitung_negasi(42.0)
+    pastikan_sama(hasil, -42.0)
+
+    balik := hitung_negasi(-10.0)
+    pastikan_sama(balik, 10.0)
+}
+
+uji "Potong digit terakhir (Backspace)" {
+    hasil := potong_digit_terakhir(1234.0)
+    pastikan_sama(hasil, 123.0)
+
+    satu_digit := potong_digit_terakhir(9.0)
+    pastikan_sama(satu_digit, 0.0)
+}

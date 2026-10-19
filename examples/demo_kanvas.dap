@@ -1,6 +1,7 @@
 // ========================================================
 // 🎨 Demo Grafis Interaktif HTML5 Canvas 2D via WebAssembly
 // DapCode Pure-Rust WebAssembly Compiler
+// Tampilan Dinamis Responsif: Sesuai Ukuran Frame Layar
 // ========================================================
 
 fungsi gambar_tata_surya() -> Unit {
@@ -9,80 +10,114 @@ fungsi gambar_tata_surya() -> Unit {
     cx := w / 2.0
     cy := h / 2.0
 
+    // Hitung dimensi minimum frame untuk skala proporsional
+    dim_min := w
+    jika h < w {
+        dim_min = h
+    }
+    skala := dim_min / 480.0
+    jika skala < 0.55 {
+        skala = 0.55
+    }
+
     // 1. Bersihkan kanvas dengan warna latar belakang kosmik gelap
     kanvas_bersihkan(0.04, 0.06, 0.12, 1.0)
 
-    // 2. Gambar kisi-kisi bintang acak / titik konstelasi
+    // 2. Gambar kisi-kisi bintang acak terdistribusi proporsional dalam batas frame
     kanvas_warna_isi(0.8, 0.9, 1.0, 0.7)
-    kanvas_titik(cx - 200.0, cy - 120.0, 3.0)
-    kanvas_titik(cx + 180.0, cy - 100.0, 2.5)
-    kanvas_titik(cx - 150.0, cy + 130.0, 3.5)
-    kanvas_titik(cx + 220.0, cy + 90.0, 2.0)
-    kanvas_titik(cx - 80.0, cy - 160.0, 2.0)
-    kanvas_titik(cx + 100.0, cy + 150.0, 3.0)
+    kanvas_titik(w * 0.15, h * 0.18, 2.5 * skala)
+    kanvas_titik(w * 0.85, h * 0.22, 2.0 * skala)
+    kanvas_titik(w * 0.20, h * 0.82, 3.0 * skala)
+    kanvas_titik(w * 0.80, h * 0.78, 2.0 * skala)
+    kanvas_titik(w * 0.50, h * 0.12, 2.0 * skala)
+    kanvas_titik(w * 0.35, h * 0.65, 2.5 * skala)
+    kanvas_titik(w * 0.90, h * 0.50, 2.0 * skala)
 
-    // 3. Garis radar / sumbu silang kartesius tipis
+    // 3. Garis radar / sumbu silang kartesius dibatasi batas aman frame
+    panjang_x := (w / 2.0) - 24.0
+    panjang_y := (h / 2.0) - 24.0
     kanvas_warna_garis(0.2, 0.35, 0.55, 0.3)
     kanvas_tebal_garis(1.0)
-    kanvas_garis(cx - 260.0, cy, cx + 260.0, cy)
-    kanvas_garis(cx, cy - 180.0, cx, cy + 180.0)
+    kanvas_garis(cx - panjang_x, cy, cx + panjang_x, cy)
+    kanvas_garis(cx, cy - panjang_y, cx, cy + panjang_y)
 
-    // 4. Orbit sirkular konsentris
-    kanvas_warna_garis(0.25, 0.5, 0.8, 0.4)
+    // 4. Orbit sirkular konsentris proporsional (tidak pernah terpotong)
+    r1 := 48.0 * skala
+    r2 := 90.0 * skala
+    r3 := 138.0 * skala
+
+    kanvas_warna_garis(0.25, 0.5, 0.8, 0.35)
     kanvas_tebal_garis(1.5)
-    kanvas_bingkai_lingkaran(cx, cy, 60.0)
-    kanvas_bingkai_lingkaran(cx, cy, 110.0)
-    kanvas_bingkai_lingkaran(cx, cy, 170.0)
+    kanvas_bingkai_lingkaran(cx, cy, r1)
+    kanvas_bingkai_lingkaran(cx, cy, r2)
+    kanvas_bingkai_lingkaran(cx, cy, r3)
 
     // 5. Bintang pusat (Matahari / Inti Reaktor)
     // Lapisan aura luar
     kanvas_warna_isi(1.0, 0.8, 0.2, 0.3)
-    kanvas_lingkaran(cx, cy, 32.0)
+    kanvas_lingkaran(cx, cy, 28.0 * skala)
     // Inti utama
     kanvas_warna_isi(1.0, 0.5, 0.0, 0.9)
-    kanvas_lingkaran(cx, cy, 22.0)
+    kanvas_lingkaran(cx, cy, 18.0 * skala)
     kanvas_warna_isi(1.0, 0.95, 0.4, 1.0)
-    kanvas_lingkaran(cx, cy, 12.0)
+    kanvas_lingkaran(cx, cy, 10.0 * skala)
 
     // 6. Planet 1 (Merkurius / Dalam - Biru Cyan)
-    p1_x := cx + 60.0 * cos(0.8)
-    p1_y := cy + 60.0 * sin(0.8)
+    p1_x := cx + r1 * cos(0.8)
+    p1_y := cy + r1 * sin(0.8)
     kanvas_warna_isi(0.2, 0.85, 0.95, 1.0)
-    kanvas_lingkaran(p1_x, p1_y, 7.0)
+    kanvas_lingkaran(p1_x, p1_y, 6.0 * skala)
 
     // 7. Planet 2 (Bumi / Sedang - Hijau Emerald dengan Cincin Garis)
-    p2_x := cx + 110.0 * cos(2.3)
-    p2_y := cy + 110.0 * sin(2.3)
+    p2_x := cx + r2 * cos(2.3)
+    p2_y := cy + r2 * sin(2.3)
     kanvas_warna_isi(0.2, 0.9, 0.5, 1.0)
-    kanvas_lingkaran(p2_x, p2_y, 11.0)
+    kanvas_lingkaran(p2_x, p2_y, 9.0 * skala)
     kanvas_warna_garis(0.4, 1.0, 0.7, 0.6)
-    kanvas_tebal_garis(2.0)
-    kanvas_bingkai_lingkaran(p2_x, p2_y, 17.0)
+    kanvas_tebal_garis(1.5)
+    kanvas_bingkai_lingkaran(p2_x, p2_y, 14.0 * skala)
 
     // 8. Planet 3 (Raksasa Gas / Luar - Ungu Violet)
-    p3_x := cx + 170.0 * cos(4.2)
-    p3_y := cy + 170.0 * sin(4.2)
+    p3_x := cx + r3 * cos(4.2)
+    p3_y := cy + r3 * sin(4.2)
     kanvas_warna_isi(0.7, 0.3, 0.95, 1.0)
-    kanvas_lingkaran(p3_x, p3_y, 16.0)
+    kanvas_lingkaran(p3_x, p3_y, 13.0 * skala)
 
-    // 9. Kartu Status HUD di pojok kiri atas
+    // 9. Kartu Status HUD Dinamis di pojok kiri atas
+    hud_w := 200.0 * skala
+    jika hud_w > w * 0.45 {
+        hud_w = w * 0.45
+    }
+    jika hud_w < 120.0 {
+        hud_w = 120.0
+    }
+    hud_h := 54.0 * skala
+    jika hud_h < 38.0 {
+        hud_h = 38.0
+    }
+
     kanvas_warna_isi(0.08, 0.12, 0.22, 0.85)
-    kanvas_persegi(20.0, 20.0, 220.0, 70.0)
+    kanvas_persegi(15.0, 15.0, hud_w, hud_h)
     kanvas_warna_garis(0.22, 0.65, 0.95, 0.75)
-    kanvas_tebal_garis(1.5)
-    kanvas_bingkai_persegi(20.0, 20.0, 220.0, 70.0)
+    kanvas_tebal_garis(1.2)
+    kanvas_bingkai_persegi(15.0, 15.0, hud_w, hud_h)
 
     // 10. Teks HUD Informasi
+    font_s1 := 12.0 * skala
+    jika font_s1 < 9.0 { font_s1 = 9.0 }
+    font_s2 := 10.0 * skala
+    jika font_s2 < 8.0 { font_s2 = 8.0 }
+
     kanvas_warna_isi(0.95, 0.98, 1.0, 1.0)
-    kanvas_teks("DapCode 2D Canvas Engine", 32.0, 44.0, 14.0)
+    kanvas_teks("DapCode 2D Canvas", 22.0, 15.0 + (hud_h * 0.42), font_s1)
     kanvas_warna_isi(0.4, 0.85, 1.0, 0.9)
-    kanvas_teks("Target: WebAssembly Native", 32.0, 68.0, 12.0)
+    kanvas_teks("Target: WebAssembly", 22.0, 15.0 + (hud_h * 0.80), font_s2)
 
-    // Label watermark di sudut kanan bawah
+    // Label watermark di sudut kanan bawah (posisi relatif terhadap batas w dan h)
     kanvas_warna_isi(0.5, 0.6, 0.8, 0.6)
-    kanvas_teks("DapCode v0.5.0", w - 120.0, h - 20.0, 11.0)
+    kanvas_teks("DapCode v0.5.0", w - (80.0 * skala) - 10.0, h - 12.0, font_s2)
 
-    cetak("Grafis HTML5 Canvas 2D berhasil dirender dari DapCode WebAssembly!")
+    cetak("Grafis HTML5 Canvas 2D dinamis berhasil dirender dari DapCode WebAssembly!")
 }
 
 fungsi utama() -> u64 {

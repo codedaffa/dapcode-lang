@@ -42,32 +42,70 @@ function findCompilerPath() {
         }
     }
 
+    // Search in user cargo bin and well-known paths across system
+    const homeDir = os.homedir();
+    const globalCandidates = [
+        path.join(homeDir, '.cargo', 'bin', 'dapcodec.exe'),
+        'D:\\dapcode-lang\\target\\release\\dapcodec.exe',
+        'D:\\dapcode-lang\\target\\debug\\dapcodec.exe',
+        path.join(homeDir, '.cargo', 'bin', 'dapcodec'),
+    ];
+    for (const c of globalCandidates) {
+        if (fs.existsSync(c)) {
+            return c;
+        }
+    }
+
     return customPath || 'dapcodec';
 }
 
+let lastKnownDapFilePath = null;
+let lastKnownDapDocument = null;
+
 function getActiveOrVisibleDapDocument(target) {
     if (target) {
-        if (target.document) return target.document;
-        if (target.fileName && typeof target.getText === 'function') return target;
+        if (target.document) {
+            lastKnownDapDocument = target.document;
+            lastKnownDapFilePath = target.document.fileName;
+            return target.document;
+        }
+        if (target.fileName && typeof target.getText === 'function') {
+            lastKnownDapDocument = target;
+            lastKnownDapFilePath = target.fileName;
+            return target;
+        }
         if (target.fsPath) {
             const found = vscode.workspace.textDocuments.find((d) => d.fileName === target.fsPath);
-            if (found) return found;
+            if (found) {
+                lastKnownDapDocument = found;
+                lastKnownDapFilePath = found.fileName;
+                return found;
+            }
         }
     }
     const activeEditor = vscode.window.activeTextEditor;
-    if (activeEditor && (activeEditor.document.languageId === 'dapcode' || activeEditor.document.fileName.endsWith('.dap'))) {
+    if (activeEditor && (activeEditor.document.languageId === 'dapcode' || (activeEditor.document.fileName && activeEditor.document.fileName.endsWith('.dap')))) {
+        lastKnownDapDocument = activeEditor.document;
+        lastKnownDapFilePath = activeEditor.document.fileName;
         return activeEditor.document;
     }
     const visibleEditor = vscode.window.visibleTextEditors.find(
-        (e) => e.document.languageId === 'dapcode' || e.document.fileName.endsWith('.dap')
+        (e) => e.document.languageId === 'dapcode' || (e.document.fileName && e.document.fileName.endsWith('.dap'))
     );
     if (visibleEditor) {
+        lastKnownDapDocument = visibleEditor.document;
+        lastKnownDapFilePath = visibleEditor.document.fileName;
         return visibleEditor.document;
     }
+    if (lastKnownDapDocument && !lastKnownDapDocument.isClosed) {
+        return lastKnownDapDocument;
+    }
     const openDoc = vscode.workspace.textDocuments.find(
-        (d) => d.languageId === 'dapcode' || d.fileName.endsWith('.dap')
+        (d) => d.languageId === 'dapcode' || (d.fileName && d.fileName.endsWith('.dap'))
     );
     if (openDoc) {
+        lastKnownDapDocument = openDoc;
+        lastKnownDapFilePath = openDoc.fileName;
         return openDoc;
     }
     if (activeEditor && activeEditor.document) {
@@ -82,25 +120,39 @@ function getTargetDapFilePath(uri) {
         if (uri.fsPath) return uri.fsPath;
     }
     const doc = getActiveOrVisibleDapDocument();
-    if (doc) return doc.fileName;
+    if (doc && doc.fileName) {
+        lastKnownDapFilePath = doc.fileName;
+        return doc.fileName;
+    }
+
+    if (lastKnownDapFilePath && fs.existsSync(lastKnownDapFilePath)) {
+        return lastKnownDapFilePath;
+    }
 
     const openDoc = vscode.workspace.textDocuments.find(
-        (d) => d.languageId === 'dapcode' || d.fileName.endsWith('.dap')
+        (d) => d.languageId === 'dapcode' || (d.fileName && d.fileName.endsWith('.dap'))
     );
-    if (openDoc) return openDoc.fileName;
+    if (openDoc) {
+        lastKnownDapFilePath = openDoc.fileName;
+        return openDoc.fileName;
+    }
 
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (workspaceFolders && workspaceFolders.length > 0) {
-        const root = workspaceFolders[0].uri.fsPath;
-        const candidates = [
-            path.join(root, 'examples', 'demo_kanvas.dap'),
-            path.join(root, 'src', 'utama.dap'),
-            path.join(root, 'examples', 'demo_uji.dap'),
-            path.join(root, 'utama.dap'),
-        ];
-        for (const c of candidates) {
-            if (fs.existsSync(c)) {
-                return c;
+        for (const wf of workspaceFolders) {
+            const root = wf.uri.fsPath;
+            const candidates = [
+                path.join(root, 'src', 'utama.dap'),
+                path.join(root, 'examples', 'kalkulator_mobile_app', 'src', 'utama.dap'),
+                path.join(root, 'examples', 'demo_kanvas.dap'),
+                path.join(root, 'examples', 'demo_uji.dap'),
+                path.join(root, 'utama.dap'),
+            ];
+            for (const c of candidates) {
+                if (fs.existsSync(c)) {
+                    lastKnownDapFilePath = c;
+                    return c;
+                }
             }
         }
     }
@@ -685,8 +737,8 @@ function activate(context) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('dapcode.buildMobile', (uri) => {
-            const filePath = getTargetDapFilePath(uri);
-            if (!filePath) {
+            const filePath = getTargetDapFilePath(uri) || lastKnownDapFilePath;
+            if (!filePath || !fs.existsSync(filePath)) {
                 vscode.window.showWarningMessage('Buka atau pilih berkas DapCode (.dap) di samping Playground untuk diekspor ke aplikasi mobile.');
                 return;
             }
@@ -698,18 +750,39 @@ function activate(context) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('dapcode.serveMobile', (uri) => {
+        vscode.commands.registerCommand('dapcode.previewMobileGpu', (uri) => {
             const filePath = getTargetDapFilePath(uri);
             if (!filePath) {
-                vscode.window.showErrorMessage('Tidak ada berkas DapCode yang aktif.');
+                vscode.window.showErrorMessage('Tidak ada berkas DapCode (.dap) yang aktif.');
                 return;
             }
             const compiler = findCompilerPath();
-            const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DapCode Mobile Server');
+            let terminal = vscode.window.terminals.find((t) => t.name === 'DapCode Mobile Simulator');
+            if (!terminal) {
+                terminal = vscode.window.createTerminal('DapCode Mobile Simulator');
+            }
             terminal.show();
-            runInTerminal(terminal, compiler, 'mobile', 'serve', filePath, '--open');
+            runInTerminal(terminal, compiler, 'mobile', 'preview', filePath);
         })
     );
+
+    // Status bar item for direct mobile preview & hot-reload
+    const mobileStatusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 90);
+    mobileStatusItem.command = 'dapcode.previewMobileGpu';
+    mobileStatusItem.text = '$(device-mobile) DapCode Mobile';
+    mobileStatusItem.tooltip = 'Jalankan Pratinjau Mobile Direct GPU (60 FPS & Hot-Reload Otomatis) [Ctrl+F5]';
+    context.subscriptions.push(mobileStatusItem);
+
+    function updateMobileStatusBar() {
+        const editor = vscode.window.activeTextEditor;
+        if (editor && (editor.document.languageId === 'dapcode' || editor.document.fileName.endsWith('.dap'))) {
+            mobileStatusItem.show();
+        } else {
+            mobileStatusItem.hide();
+        }
+    }
+    context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(updateMobileStatusBar));
+    updateMobileStatusBar();
 
     context.subscriptions.push(
         vscode.commands.registerCommand('dapcode.restartLsp', () => {
@@ -790,26 +863,34 @@ function activate(context) {
                             break;
                         }
                         case 'buildMobile': {
-                            let doc = getActiveOrVisibleDapDocument();
-                            let targetPath = doc ? doc.fileName : getTargetDapFilePath();
-
-                            if (!targetPath && message.code) {
-                                const workspaceFolders = vscode.workspace.workspaceFolders;
-                                const root = (workspaceFolders && workspaceFolders.length > 0)
-                                    ? workspaceFolders[0].uri.fsPath
-                                    : os.tmpdir();
-                                const presetName = message.presetKey || 'aplikasi_mobile';
-                                const generatedFile = path.join(root, `${presetName}.dap`);
-                                fs.writeFileSync(generatedFile, message.code, 'utf8');
-                                targetPath = generatedFile;
+                            let targetPath = (message && message.filePath) || lastKnownDapFilePath;
+                            if (!targetPath || !fs.existsSync(targetPath)) {
+                                let doc = getActiveOrVisibleDapDocument();
+                                targetPath = doc ? doc.fileName : getTargetDapFilePath();
                             }
 
-                            if (targetPath) {
+                            if (targetPath && fs.existsSync(targetPath)) {
                                 vscode.commands.executeCommand('dapcode.buildMobile', vscode.Uri.file(targetPath));
                             } else {
-                                vscode.window.showInformationMessage(
-                                    'Buka berkas DapCode (.dap) di samping Playground untuk diekspor ke aplikasi mobile.'
+                                vscode.window.showWarningMessage(
+                                    'Buka berkas DapCode (.dap) yang valid di editor samping untuk dikompilasi ke aplikasi mobile native.'
                                 );
+                            }
+                            break;
+                        }
+                        case 'openPresetAsNew': {
+                            try {
+                                const newDoc = await vscode.workspace.openTextDocument({
+                                    language: 'dapcode',
+                                    content: message.code,
+                                });
+                                await vscode.window.showTextDocument(newDoc, vscode.ViewColumn.One);
+                                vscode.window.showInformationMessage(
+                                    `Contoh '${message.title || 'Template Kanvas'}' telah dibuka di tab dokumen baru.`
+                                );
+                                triggerPlaygroundCompilation(newDoc);
+                            } catch (err) {
+                                vscode.window.showErrorMessage(`Gagal membuka dokumen baru: ${err.message}`);
                             }
                             break;
                         }
@@ -817,6 +898,24 @@ function activate(context) {
                             const doc = getActiveOrVisibleDapDocument();
                             const editor = vscode.window.visibleTextEditors.find((e) => e.document === doc) || vscode.window.activeTextEditor;
                             if (editor && (editor.document.languageId === 'dapcode' || editor.document.fileName.endsWith('.dap'))) {
+                                const answer = await vscode.window.showWarningMessage(
+                                    `Apakah Anda yakin ingin menimpa isi berkas '${path.basename(editor.document.fileName)}' dengan contoh template? Tindakan ini akan menggantikan seluruh kode Anda saat ini.`,
+                                    { modal: true },
+                                    'Ya, Gantikan Kode',
+                                    'Buka di Berkas Baru'
+                                );
+                                if (answer === 'Buka di Berkas Baru') {
+                                    const newDoc = await vscode.workspace.openTextDocument({
+                                        language: 'dapcode',
+                                        content: message.code,
+                                    });
+                                    await vscode.window.showTextDocument(newDoc, vscode.ViewColumn.One);
+                                    triggerPlaygroundCompilation(newDoc);
+                                    return;
+                                }
+                                if (answer !== 'Ya, Gantikan Kode') {
+                                    return;
+                                }
                                 const fullRange = new vscode.Range(
                                     editor.document.positionAt(0),
                                     editor.document.positionAt(editor.document.getText().length)
@@ -857,7 +956,7 @@ function activate(context) {
     // Auto-compile on save
     context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument((document) => {
-            if (playgroundPanel && autoCompileEnabled && document.languageId === 'dapcode') {
+            if (playgroundPanel && autoCompileEnabled && (document.languageId === 'dapcode' || (document.fileName && document.fileName.endsWith('.dap')))) {
                 triggerPlaygroundCompilation();
             }
         })
@@ -866,7 +965,7 @@ function activate(context) {
     // Auto-compile on editor switch
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor((editor) => {
-            if (playgroundPanel && autoCompileEnabled && editor && editor.document.languageId === 'dapcode') {
+            if (playgroundPanel && autoCompileEnabled && editor && (editor.document.languageId === 'dapcode' || (editor.document.fileName && editor.document.fileName.endsWith('.dap')))) {
                 triggerPlaygroundCompilation(editor);
             }
         })
@@ -878,7 +977,7 @@ function activate(context) {
             if (
                 playgroundPanel &&
                 autoCompileEnabled &&
-                event.document.languageId === 'dapcode' &&
+                (event.document.languageId === 'dapcode' || (event.document.fileName && event.document.fileName.endsWith('.dap'))) &&
                 event.contentChanges.length > 0
             ) {
                 if (compileDebounceTimer) {
@@ -897,13 +996,24 @@ let playgroundPanel = null;
 let autoCompileEnabled = true;
 let compileDebounceTimer = null;
 
-function compileDapCodeToWasm(code) {
+function compileDapCodeToWasm(code, filePath) {
     return new Promise((resolve) => {
         const compilerPath = findCompilerPath();
-        const tempDir = os.tmpdir();
+        let targetDir = os.tmpdir();
+
+        if (filePath && fs.existsSync(filePath)) {
+            try {
+                const dir = path.dirname(filePath);
+                fs.accessSync(dir, fs.constants.W_OK);
+                targetDir = dir;
+            } catch (_) {
+                targetDir = os.tmpdir();
+            }
+        }
+
         const randId = Math.random().toString(36).substring(2, 9);
-        const tempDap = path.join(tempDir, `dap_preview_${randId}.dap`);
-        const tempWasm = path.join(tempDir, `dap_preview_${randId}.wasm`);
+        const tempDap = path.join(targetDir, `.dap_preview_${randId}.dap`);
+        const tempWasm = path.join(os.tmpdir(), `dap_preview_${randId}.wasm`);
 
         try {
             fs.writeFileSync(tempDap, code, 'utf8');
@@ -963,19 +1073,25 @@ async function triggerPlaygroundCompilation(targetEditor) {
     if (!playgroundPanel) return;
     const doc = getActiveOrVisibleDapDocument(targetEditor);
     if (!doc) {
+        playgroundPanel.webview.postMessage({
+            command: 'noActiveDoc',
+            filename: 'Pilih Berkas .dap',
+        });
         return;
     }
 
     const code = doc.getText();
     const filename = path.basename(doc.fileName || 'tanpa_nama.dap');
+    const filepath = doc.fileName || '';
 
     playgroundPanel.webview.postMessage({
         command: 'compiling',
         filename: filename,
+        filepath: filepath,
     });
 
     const t0 = Date.now();
-    const result = await compileDapCodeToWasm(code);
+    const result = await compileDapCodeToWasm(code, filepath);
     const durationMs = Date.now() - t0;
 
     if (result.success) {
@@ -984,6 +1100,7 @@ async function triggerPlaygroundCompilation(targetEditor) {
             wasmBase64: result.wasmBase64,
             size: result.size,
             filename: filename,
+            filepath: filepath,
             compileTimeMs: durationMs,
         });
     } else {
@@ -991,6 +1108,7 @@ async function triggerPlaygroundCompilation(targetEditor) {
             command: 'compileError',
             error: result.error,
             filename: filename,
+            filepath: filepath,
             compileTimeMs: durationMs,
         });
     }
@@ -1031,41 +1149,104 @@ function getPlaygroundWebviewHtml() {
             display: flex;
             flex-direction: column;
             min-height: 100vh;
-            padding: 12px;
-            gap: 10px;
+            padding: 8px;
+            gap: 8px;
+            overflow-x: hidden;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
         }
         .header {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
+            flex-direction: column;
+            gap: 8px;
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 8px 14px;
+            padding: 10px 12px;
             backdrop-filter: blur(8px);
+            width: 100%;
+            box-sizing: border-box;
         }
-        .header-title {
+        .header-top {
             display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 6px 8px;
+            width: 100%;
+        }
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 6px;
             font-weight: 700;
-            font-size: 14px;
+            font-size: 13px;
             color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+            flex-shrink: 1;
+        }
+        .status-container {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 3px 8px;
+            border-radius: 9999px;
+            transition: all 0.2s ease;
+            max-width: 100%;
+        }
+        .status-container span:last-child {
+            white-space: nowrap;
+        }
+        .status-container.error {
+            background: rgba(244, 63, 94, 0.15);
+            border-color: rgba(244, 63, 94, 0.4);
+            color: #fda4af;
+        }
+        .status-container.compiling {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.4);
+            color: #fde68a;
+        }
+        .status-container.success {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.4);
+            color: #6ee7b7;
+        }
+        .status-container.library {
+            background: rgba(56, 189, 248, 0.15);
+            border-color: rgba(56, 189, 248, 0.4);
+            color: #7dd3fc;
+        }
+        .header-sub {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 6px 8px;
+            width: 100%;
         }
         .header-badge {
-            background: rgba(56, 189, 248, 0.15);
-            border: 1px solid rgba(56, 189, 248, 0.35);
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.3);
             color: var(--accent-cyan);
             padding: 2px 8px;
             border-radius: 9999px;
             font-size: 11px;
             font-family: monospace;
-        }
-        .status-container {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
+            max-width: 60%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .dot {
             width: 8px;
@@ -1073,6 +1254,7 @@ function getPlaygroundWebviewHtml() {
             border-radius: 50%;
             background: var(--accent-green);
             box-shadow: 0 0 8px var(--accent-green);
+            flex-shrink: 0;
         }
         .dot.compiling {
             background: var(--accent-amber);
@@ -1082,6 +1264,10 @@ function getPlaygroundWebviewHtml() {
         .dot.error {
             background: var(--accent-rose);
             box-shadow: 0 0 8px var(--accent-rose);
+        }
+        .dot.library {
+            background: var(--accent-cyan);
+            box-shadow: 0 0 8px var(--accent-cyan);
         }
         @keyframes pulse {
             0% { opacity: 0.4; }
@@ -1102,7 +1288,7 @@ function getPlaygroundWebviewHtml() {
             background: rgba(30, 41, 59, 0.85);
             border: 1px solid rgba(56, 189, 248, 0.25);
             color: var(--text-main);
-            padding: 5px 11px;
+            padding: 5px 10px;
             border-radius: 6px;
             font-size: 12px;
             cursor: pointer;
@@ -1127,23 +1313,59 @@ function getPlaygroundWebviewHtml() {
             border-color: var(--accent-green);
             color: var(--accent-green);
         }
-        .canvas-card {
-            background: #000000;
+        .canvas-viewport {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #020617;
             border: 1px solid var(--border-color);
             border-radius: 8px;
+            padding: 12px;
+            min-height: 240px;
             overflow: hidden;
+            box-sizing: border-box;
+            position: relative;
+        }
+        .device-frame-mockup {
             position: relative;
             display: flex;
             justify-content: center;
             align-items: center;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+            max-width: 100%;
+            transition: all 0.2s ease-out;
         }
-        canvas {
+        .device-frame-mockup.with-bezel {
+            border: 10px solid #1e293b;
+            border-radius: 28px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+            padding: 8px;
+            background: #090d16;
+        }
+        .device-notch {
+            display: none;
+            position: absolute;
+            top: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70px;
+            height: 12px;
+            background: #1e293b;
+            border-radius: 0 0 8px 8px;
+            z-index: 10;
+        }
+        .device-frame-mockup.with-bezel .device-notch {
             display: block;
-            width: 100%;
+        }
+        canvas#dap-canvas {
+            display: block;
+            max-width: 100%;
             height: auto;
-            max-height: 480px;
+            max-height: 56vh;
             object-fit: contain;
+            border-radius: 6px;
+            background: #000000;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
             cursor: crosshair;
         }
         .hud-overlay {
@@ -1178,17 +1400,25 @@ function getPlaygroundWebviewHtml() {
             font-weight: 600;
         }
         .error-card {
-            background: rgba(244, 63, 94, 0.1);
-            border: 1px solid rgba(244, 63, 94, 0.4);
-            border-radius: 6px;
-            padding: 10px;
-            color: #fca5a5;
-            font-family: monospace;
+            background: rgba(244, 63, 94, 0.12);
+            border: 1px solid rgba(244, 63, 94, 0.45);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: #fecdd3;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 11px;
+            line-height: 1.5;
             white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
             display: none;
-            max-height: 140px;
+            max-height: 180px;
             overflow-y: auto;
+            overflow-x: hidden;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            box-shadow: 0 4px 12px rgba(244, 63, 94, 0.15);
         }
         .console-panel {
             background: var(--bg-card);
@@ -1222,42 +1452,314 @@ function getPlaygroundWebviewHtml() {
             min-height: 48px;
             white-space: pre-wrap;
         }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .btn-ghost {
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            color: var(--accent-cyan);
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-ghost:hover, .btn-ghost.active {
+            background: rgba(56, 189, 248, 0.25);
+            border-color: var(--accent-cyan);
+            color: #ffffff;
+        }
+        .guide-card {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            border-radius: 8px;
+            padding: 12px 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            backdrop-filter: blur(12px);
+        }
+        .guide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 6px;
+        }
+        .guide-header h4 {
+            font-size: 13px;
+            color: var(--accent-cyan);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .close-guide-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 2px 6px;
+        }
+        .close-guide-btn:hover {
+            color: var(--text-main);
+        }
+        .guide-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 12px;
+        }
+        .guide-step {
+            background: rgba(30, 41, 59, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .guide-step strong {
+            color: var(--text-main);
+            display: block;
+            margin-bottom: 4px;
+        }
+        .guide-step p {
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .guide-step code {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--accent-cyan);
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .guide-step ul {
+            margin-left: 16px;
+            color: var(--text-muted);
+        }
+        .guide-step li {
+            margin-bottom: 3px;
+        }
+        .toolbar-divider {
+            width: 1px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.15);
+            margin: 0 4px;
+        }
+        .template-dropdown-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        .template-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 6px;
+            background: #0f172a;
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            width: 290px;
+            z-index: 100;
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+        }
+        .template-menu-header {
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .template-item {
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .template-item:hover {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--accent-cyan);
+        }
+        .canvas-empty-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(8, 12, 20, 0.94);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            text-align: center;
+            backdrop-filter: blur(4px);
+        }
+        .empty-card {
+            max-width: 520px;
+            background: rgba(18, 24, 38, 0.9);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 10px;
+            padding: 20px 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+        }
+        .empty-icon {
+            font-size: 34px;
+        }
+        .empty-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+        }
+        .empty-desc {
+            font-size: 12px;
+            color: var(--text-main);
+            line-height: 1.5;
+        }
+        .empty-desc strong {
+            color: #f59e0b;
+            font-family: monospace;
+        }
+        .empty-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border-left: 3px solid var(--accent-blue);
+            text-align: left;
+            width: 100%;
+        }
+        .empty-hint code {
+            color: var(--accent-cyan);
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="header-title">
-            <span>🚀 DapCode Live Preview</span>
-            <span class="header-badge" id="active-filename">tanpa_nama.dap</span>
+        <div class="header-top">
+            <div class="header-brand">
+                <span style="font-size: 15px;">🎨</span>
+                <span>DapCode Live Canvas</span>
+            </div>
+            <div class="status-container" id="status-container">
+                <span class="dot" id="status-dot"></span>
+                <span id="status-text">Siap</span>
+            </div>
         </div>
-        <div class="status-container">
-            <span class="dot" id="status-dot"></span>
-            <span id="status-text">Siap</span>
+        <div class="header-sub">
+            <span class="header-badge" id="active-filename" title="Berkas yang sedang aktif di editor">tanpa_nama.dap</span>
+            <button id="btn-toggle-guide" class="btn-ghost" title="Tampilkan/sembunyikan panduan kanvas">📖 Cara Pakai</button>
+        </div>
+    </div>
+
+    <!-- Panel Panduan Cepat (Collapsible) -->
+    <div class="guide-card" id="guide-card" style="display: none;">
+        <div class="guide-header">
+            <h4>📖 Panduan: Menggunakan Kanvas 2D untuk Berkas DapCode Anda</h4>
+            <button id="btn-close-guide" class="close-guide-btn">✕</button>
+        </div>
+        <div class="guide-content">
+            <div class="guide-step">
+                <strong>1. Dinamis untuk Berkas Aktif:</strong>
+                <p>Playground ini secara otomatis merender berkas <code>.dap</code> yang sedang Anda buka di editor VS Code. Ubah kode di editor dan kanvas akan langsung terbarui secara instan.</p>
+            </div>
+            <div class="guide-step">
+                <strong>2. Cara Menggambar Grafis 2D:</strong>
+                <p>Tulis fungsi <code>render()</code>, <code>dap_gambar()</code>, atau <code>utama()</code> di berkas Anda, lalu panggil fungsi grafis bawaan:</p>
+                <ul>
+                    <li><code>kanvas_bersihkan(r, g, b, a)</code> — Warna latar</li>
+                    <li><code>kanvas_lingkaran(x, y, r)</code> &amp; <code>kanvas_warna_isi(r, g, b, a)</code></li>
+                    <li><code>kanvas_persegi(x, y, w, h)</code> &amp; <code>kanvas_bingkai_persegi(...)</code></li>
+                    <li><code>kanvas_garis(x1, y1, x2, y2)</code> &amp; <code>kanvas_teks(teks, x, y, sz)</code></li>
+                    <li><code>kanvas_mouse_x()</code>, <code>kanvas_mouse_y()</code>, <code>kanvas_mouse_klik()</code></li>
+                </ul>
+            </div>
+            <div class="guide-step">
+                <strong>3. Logika &amp; Konsol Teks:</strong>
+                <p>Panggilan <code>cetak(...)</code> otomatis dicetak pada panel <em>Konsol Cetak</em> di bawah tanpa harus memanggil fungsi kanvas.</p>
+            </div>
         </div>
     </div>
 
     <div class="toolbar">
-        <button class="primary" id="btn-compile">⚡ Kompilasi</button>
-        <button id="btn-rerun">▶ Jalankan Ulang</button>
-        <button id="btn-loop">▶ Loop: OFF</button>
-        <button class="active" id="btn-autocompile">🔄 Auto: ON</button>
-        <select id="preset-select">
-            <option value="tata_surya">🌌 Tata Surya Orbit 2D</option>
-            <option value="spiral_archimedes">🌀 Spiral Archimedes</option>
-            <option value="partikel_pantul">⚡ Partikel Pantul Fisika</option>
-            <option value="diagram_batang">📊 Diagram Batang Statistik</option>
-            <option value="game_pesawat">🎮 Game: Pesawat Antariksa 2D</option>
-        </select>
-        <button id="btn-apply-preset">📥 Ke Editor</button>
-        <button id="btn-external">🌐 Buka di Browser</button>
-        <button id="btn-mobile-export" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: white;">📱 Ekspor Mobile (PWA)</button>
+        <button class="primary" id="btn-compile" title="Kompilasi ulang berkas aktif sekarang">⚡ Kompilasi</button>
+        <button class="active" id="btn-autocompile" title="Kompilasi otomatis setiap kali mengetik atau menyimpan">🔄 Auto: ON</button>
+        <button id="btn-rerun" title="Jalankan ulang logika render">▶ Jalankan Ulang</button>
+        <button id="btn-loop" title="Aktifkan loop animasi 60 FPS terus-menerus">🔁 Loop: OFF</button>
+        <button id="btn-clear-canvas" title="Bersihkan tampilan kanvas">🧹 Bersihkan</button>
+        
+        <div class="toolbar-divider"></div>
+
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <label for="frame-select" style="font-size: 11px; color: var(--accent-cyan); font-weight: 600;">📐 Frame:</label>
+            <select id="frame-select" title="Pilih ukuran frame kanvas">
+                <option value="autofit">Auto-Fit (Responsif Kontainer)</option>
+                <option value="desktop">Desktop (800 × 480)</option>
+                <option value="desktop_hd">Desktop HD (960 × 540)</option>
+                <option value="mobile_p" selected>Mobile Portrait (360 × 640)</option>
+                <option value="mobile_l">Mobile Lanskap (640 × 360)</option>
+                <option value="tablet">Tablet (768 × 576)</option>
+                <option value="square">Persegi (500 × 500)</option>
+            </select>
+            <button id="btn-rotate-frame" class="btn-ghost" title="Putar orientasi layar (Portrait ⇄ Lanskap)">🔄 Putar</button>
+            <button id="btn-toggle-bezel" class="btn-ghost" title="Nyalakan/matikan bezel bingkai perangkat">📱 Bezel: ON</button>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <div class="template-dropdown-wrapper">
+            <button id="btn-template-menu" class="btn-ghost" title="Buka contoh template kanvas di tab dokumen baru">💡 Contoh Template ▾</button>
+            <div class="template-menu" id="template-menu" style="display: none;">
+                <div class="template-menu-header">Buka Contoh di Dokumen Baru:</div>
+                <div class="template-item" data-preset="tata_surya">🌌 1. Tata Surya Orbit 2D</div>
+                <div class="template-item" data-preset="spiral_archimedes">🌀 2. Pola Spiral Archimedes</div>
+                <div class="template-item" data-preset="partikel_pantul">⚡ 3. Partikel Pantul Fisika</div>
+                <div class="template-item" data-preset="diagram_batang">📊 4. Diagram Batang Statistik</div>
+                <div class="template-item" data-preset="game_pesawat">🎮 5. Game Pesawat Antariksa 2D</div>
+            </div>
+        </div>
+
+        <button id="btn-mobile-export" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: white;" title="Bangun berkas DapCode aktif ini ke proyek Mobile Native (Android &amp; iOS)">📱 Bangun Mobile Native</button>
     </div>
 
-    <div class="canvas-card">
-        <canvas id="dap-canvas" width="800" height="480"></canvas>
-        <div class="hud-overlay">
-            <div class="hud-tag" id="coords-hud">X: 0, Y: 0</div>
-            <div class="hud-tag" id="fps-hud">60 FPS</div>
+    <div class="error-card" id="error-card" style="display: none;"></div>
+
+    <div class="canvas-viewport" id="canvas-viewport">
+        <div class="device-frame-mockup with-bezel" id="device-frame-mockup">
+            <div class="device-notch"></div>
+            <canvas id="dap-canvas" width="360" height="640"></canvas>
+            <div class="hud-overlay">
+                <div class="hud-tag" id="frame-dim-hud">360 × 640</div>
+                <div class="hud-tag" id="coords-hud">X: 0, Y: 0</div>
+                <div class="hud-tag" id="fps-hud">60 FPS</div>
+            </div>
+            <div class="canvas-empty-overlay" id="empty-canvas-overlay" style="display: none;">
+                <div class="empty-card">
+                    <div class="empty-icon" id="empty-icon">🎨</div>
+                    <div class="empty-title" id="empty-title">Kanvas Siap Digunakan</div>
+                    <div class="empty-desc" id="empty-desc">Berkas <strong id="empty-filename">berkas.dap</strong> berhasil dikompilasi, tetapi belum ada instruksi kanvas yang dipanggil.</div>
+                    <div class="empty-hint" id="empty-hint">
+                        Tambahkan fungsi <code>render()</code> atau panggil fungsi kanvas (seperti <code>kanvas_lingkaran</code>, <code>kanvas_persegi</code>, <code>kanvas_teks</code>) di berkas Anda untuk melihat visual di sini.<br>
+                        Jika kode Anda berisi <code>cetak(...)</code>, output teks dapat dilihat pada <strong>Konsol Cetak</strong> di bawah.
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1267,8 +1769,6 @@ function getPlaygroundWebviewHtml() {
         <div class="metric-item">📦 WASM: <span id="metric-size">-</span></div>
         <div class="metric-item">🎯 Instruksi: <span id="metric-cmds">0</span></div>
     </div>
-
-    <div class="error-card" id="error-card"></div>
 
     <div class="console-panel">
         <div class="console-header">
@@ -1284,6 +1784,19 @@ function getPlaygroundWebviewHtml() {
         const ctx = canvas.getContext("2d");
         const statusDot = document.getElementById("status-dot");
         const statusText = document.getElementById("status-text");
+        const statusContainer = document.getElementById("status-container");
+
+        function setStatus(type, text) {
+            if (statusDot) {
+                statusDot.className = "dot" + (type ? " " + type : "");
+            }
+            if (statusContainer) {
+                statusContainer.className = "status-container" + (type ? " " + type : "");
+            }
+            if (statusText) {
+                statusText.textContent = text;
+            }
+        }
         const activeFilename = document.getElementById("active-filename");
         const coordsHud = document.getElementById("coords-hud");
         const fpsHud = document.getElementById("fps-hud");
@@ -1533,6 +2046,37 @@ fungsi utama() -> u64 {
         let currentDeltaTime = 0.0166;
         let lastLoopTime = performance.now();
 
+        // Penyimpanan KV Status Kanvas & Scratch String Memory
+        const canvasKvStore = new Map();
+        let wasmScratchOffset = 48000;
+
+        function decodeWasmStr(mem, ptr, len) {
+            if (!mem || !mem.buffer) return "";
+            const u8 = new Uint8Array(mem.buffer);
+            if (len !== undefined && len > 0) {
+                return new TextDecoder().decode(u8.subarray(ptr, ptr + len));
+            }
+            let end = ptr;
+            while (end < u8.length && u8[end] !== 0) {
+                end++;
+            }
+            return new TextDecoder().decode(u8.subarray(ptr, end));
+        }
+
+        function writeWasmStr(mem, str) {
+            if (!mem || !mem.buffer) return 0;
+            const encoded = new TextEncoder().encode(str);
+            const u8 = new Uint8Array(mem.buffer);
+            const targetPtr = wasmScratchOffset;
+            for (let i = 0; i < encoded.length; i++) {
+                u8[targetPtr + i] = encoded[i];
+            }
+            u8[targetPtr + encoded.length] = 0;
+            wasmScratchOffset += encoded.length + 1;
+            if (wasmScratchOffset > 64000) wasmScratchOffset = 48000;
+            return targetPtr;
+        }
+
         function appendLog(msg) {
             consoleOutput.textContent += (consoleOutput.textContent ? "\\n" : "") + msg;
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
@@ -1594,23 +2138,92 @@ fungsi utama() -> u64 {
                 kanvas_teks: (ptr, len, x, y, u) => {
                     commandCount++;
                     const mem = getMemory();
-                    const str = mem ? new TextDecoder().decode(new Uint8Array(mem.buffer, ptr, len)) : "";
+                    const str = decodeWasmStr(mem, ptr, len);
                     ctx.font = \`\${Math.round(u)}px sans-serif\`;
                     ctx.fillText(str, x, y);
                 },
-                kanvas_lebar: () => 800.0,
-                kanvas_tinggi: () => 480.0,
+                // Ukuran kanvas dinamis sesuai frame preset yang dipilih
+                kanvas_lebar: () => (canvas ? canvas.width : 360.0),
+                kanvas_tinggi: () => (canvas ? canvas.height : 640.0),
                 kanvas_mouse_x: () => canvasMouseX,
                 kanvas_mouse_y: () => canvasMouseY,
                 kanvas_mouse_klik: () => (canvasMouseDown ? 1n : 0n),
                 kanvas_tombol_ditekan: (kode) => (canvasKeysPressed.has(Number(kode)) ? 1n : 0n),
                 kanvas_delta_waktu: () => currentDeltaTime,
                 waktu_sekarang_ms: () => BigInt(Date.now()),
+
+                // Penyimpanan State Persisten Kanvas / UI
+                kanvas_simpan_teks: (kPtr, vPtr) => {
+                    const mem = getMemory();
+                    const k = decodeWasmStr(mem, kPtr);
+                    const v = decodeWasmStr(mem, vPtr);
+                    canvasKvStore.set(k, v);
+                },
+                kanvas_ambil_teks: (kPtr) => {
+                    const mem = getMemory();
+                    const k = decodeWasmStr(mem, kPtr);
+                    const val = canvasKvStore.get(k) || "";
+                    return writeWasmStr(mem, val);
+                },
+                kanvas_simpan_u64: (kPtr, val) => {
+                    const mem = getMemory();
+                    const k = decodeWasmStr(mem, kPtr);
+                    canvasKvStore.set(k, BigInt(val));
+                },
+                kanvas_ambil_u64: (kPtr) => {
+                    const mem = getMemory();
+                    const k = decodeWasmStr(mem, kPtr);
+                    const val = canvasKvStore.get(k);
+                    return val !== undefined ? BigInt(val) : 0n;
+                },
+                kanvas_simpan_angka: (kPtr, val) => {
+                    const mem = getMemory();
+                    const k = decodeWasmStr(mem, kPtr);
+                    canvasKvStore.set(k, Number(val));
+                },
+                kanvas_ambil_angka: (kPtr) => {
+                    const mem = getMemory();
+                    const k = decodeWasmStr(mem, kPtr);
+                    const val = canvasKvStore.get(k);
+                    return val !== undefined ? Number(val) : 0.0;
+                },
+                ke_desimal: (sPtr) => {
+                    const mem = getMemory();
+                    const s = decodeWasmStr(mem, sPtr);
+                    const parsed = parseFloat(s);
+                    return isNaN(parsed) ? 0.0 : parsed;
+                },
+                format_desimal: (val) => {
+                    const mem = getMemory();
+                    const str = (Math.round(val * 10000) / 10000).toString();
+                    return writeWasmStr(mem, str);
+                },
+                panjang_teks: (sPtr) => {
+                    const mem = getMemory();
+                    const s = decodeWasmStr(mem, sPtr);
+                    return BigInt(s.length);
+                },
+                teks_gabung: (s1Ptr, s2Ptr) => {
+                    const mem = getMemory();
+                    const s1 = decodeWasmStr(mem, s1Ptr);
+                    const s2 = decodeWasmStr(mem, s2Ptr);
+                    return writeWasmStr(mem, s1 + s2);
+                },
+                teks_format_angka: (val) => {
+                    const mem = getMemory();
+                    const str = (Math.round(val * 10000) / 10000).toString();
+                    return writeWasmStr(mem, str);
+                },
+                teks_format_u64: (val) => {
+                    const mem = getMemory();
+                    return writeWasmStr(mem, val.toString());
+                },
+
                 cetak_u64: (n) => appendLog(n.toString()),
                 cetak_f64: (f) => appendLog(f.toString()),
                 cetak_teks: (ptr, len) => {
                     const mem = getMemory();
-                    const str = mem ? new TextDecoder().decode(new Uint8Array(mem.buffer, ptr, len)) : "";
+                    const str = decodeWasmStr(mem, ptr, len);
                     appendLog(str);
                 },
 
@@ -1623,12 +2236,19 @@ fungsi utama() -> u64 {
                 atan: Math.atan,
                 atan2: Math.atan2,
                 akar_kubik: Math.cbrt,
+                akar_kuadrat: Math.sqrt,
                 pangkat: Math.pow,
                 log: Math.log,
                 log10: Math.log10,
                 log2: Math.log2,
                 exp: Math.exp,
                 tanda: Math.sign,
+                lantai: Math.floor,
+                bulat: Math.round,
+                langit_langit: Math.ceil,
+                min: Math.min,
+                max: Math.max,
+                nilai_mutlak: Math.abs,
 
                 // Web Audio Synthesizer Bawaan
                 audio_mainkan_nada: (freq, dur, vol) => {
@@ -1707,17 +2327,150 @@ fungsi utama() -> u64 {
             };
         }
 
+        const emptyCanvasOverlay = document.getElementById("empty-canvas-overlay");
+        const emptyFilename = document.getElementById("empty-filename");
+        const emptyTitle = document.getElementById("empty-title");
+        const emptyDesc = document.getElementById("empty-desc");
+        const btnToggleGuide = document.getElementById("btn-toggle-guide");
+        const guideCard = document.getElementById("guide-card");
+        const btnCloseGuide = document.getElementById("btn-close-guide");
+        const btnClearCanvas = document.getElementById("btn-clear-canvas");
+        const btnTemplateMenu = document.getElementById("btn-template-menu");
+        const templateMenu = document.getElementById("template-menu");
+        const frameSelect = document.getElementById("frame-select");
+        const btnRotateFrame = document.getElementById("btn-rotate-frame");
+        const btnToggleBezel = document.getElementById("btn-toggle-bezel");
+        const deviceMockup = document.getElementById("device-frame-mockup");
+        const frameDimHud = document.getElementById("frame-dim-hud");
+        const canvasViewport = document.getElementById("canvas-viewport");
+
+        let currentFrameMode = "mobile_p";
+        let isBezelActive = true;
+        const FRAME_PRESETS = {
+            desktop: { w: 800, h: 480, bezel: false },
+            desktop_hd: { w: 960, h: 540, bezel: false },
+            mobile_p: { w: 360, h: 640, bezel: true },
+            mobile_l: { w: 640, h: 360, bezel: true },
+            tablet: { w: 768, h: 576, bezel: true },
+            square: { w: 500, h: 500, bezel: false },
+            autofit: { autofit: true, bezel: false }
+        };
+
+        function applyFrameDimensions(w, h, updateHud = true) {
+            canvas.width = Math.max(100, Math.round(w));
+            canvas.height = Math.max(100, Math.round(h));
+            if (deviceMockup) {
+                deviceMockup.style.aspectRatio = \`\${canvas.width} / \${canvas.height}\`;
+            }
+            if (updateHud && frameDimHud) {
+                frameDimHud.textContent = \`\${canvas.width} × \${canvas.height}\`;
+            }
+            if (currentWasmInstance) {
+                rerunCurrentFrame();
+            }
+        }
+
+        function setFramePreset(key) {
+            currentFrameMode = key;
+            const preset = FRAME_PRESETS[key];
+            if (!preset) return;
+
+            if (preset.autofit) {
+                if (deviceMockup) deviceMockup.classList.remove("with-bezel");
+                if (btnToggleBezel) btnToggleBezel.style.display = "none";
+                if (btnRotateFrame) btnRotateFrame.style.display = "none";
+                updateAutoFitDimensions();
+            } else {
+                if (btnToggleBezel) btnToggleBezel.style.display = "inline-block";
+                if (btnRotateFrame) btnRotateFrame.style.display = "inline-block";
+                isBezelActive = preset.bezel;
+                if (deviceMockup) deviceMockup.classList.toggle("with-bezel", isBezelActive);
+                if (btnToggleBezel) btnToggleBezel.textContent = isBezelActive ? "📱 Bezel: ON" : "📱 Bezel: OFF";
+                applyFrameDimensions(preset.w, preset.h);
+            }
+        }
+
+        function updateAutoFitDimensions() {
+            if (currentFrameMode !== "autofit" || !canvasViewport) return;
+            const vpRect = canvasViewport.getBoundingClientRect();
+            const w = Math.max(200, Math.floor(vpRect.width - 24));
+            const h = Math.max(200, Math.floor(vpRect.height - 24));
+            applyFrameDimensions(w, h);
+        }
+
+        const resizeObserver = new ResizeObserver(() => {
+            if (currentFrameMode === "autofit") {
+                updateAutoFitDimensions();
+            }
+        });
+        if (canvasViewport) {
+            resizeObserver.observe(canvasViewport);
+        }
+
+        if (frameSelect) {
+            frameSelect.addEventListener("change", (e) => {
+                setFramePreset(e.target.value);
+            });
+        }
+
+        if (btnRotateFrame) {
+            btnRotateFrame.addEventListener("click", () => {
+                applyFrameDimensions(canvas.height, canvas.width);
+            });
+        }
+
+        if (btnToggleBezel) {
+            btnToggleBezel.addEventListener("click", () => {
+                isBezelActive = !isBezelActive;
+                if (deviceMockup) deviceMockup.classList.toggle("with-bezel", isBezelActive);
+                btnToggleBezel.textContent = isBezelActive ? "📱 Bezel: ON" : "📱 Bezel: OFF";
+            });
+        }
+
         function executeWasmEntry(instance) {
             if (!instance || !instance.exports) return;
             const exportedKeys = Object.keys(instance.exports).filter(k => k !== 'memory');
-            const target = instance.exports.render_game
-                || instance.exports.utama
-                || instance.exports.render
-                || instance.exports.gambar_tata_surya
-                || instance.exports.perbarui_layar
-                || (exportedKeys.length > 0 ? instance.exports[exportedKeys[0]] : null);
-            if (target && typeof target === 'function') {
+            let target = null;
+            const candidates = [
+                instance.exports.render,
+                instance.exports.dap_gambar,
+                instance.exports.gambar,
+                instance.exports.render_game,
+                instance.exports.utama,
+                instance.exports.gambar_tata_surya,
+                instance.exports.perbarui_layar,
+                instance.exports.main
+            ];
+            for (const cand of candidates) {
+                if (cand && typeof cand === 'function' && cand.length === 0) {
+                    target = cand;
+                    break;
+                }
+            }
+            if (!target) {
+                for (const key of exportedKeys) {
+                    const fn = instance.exports[key];
+                    if (typeof fn === 'function' && fn.length === 0) {
+                        target = fn;
+                        break;
+                    }
+                }
+            }
+
+            if (target) {
                 target();
+                if (emptyCanvasOverlay) {
+                    emptyCanvasOverlay.style.display = commandCount > 0 ? "none" : "flex";
+                }
+            } else {
+                ctx.fillStyle = "#090d16";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                setStatus("library", "Pustaka Siap");
+                if (emptyCanvasOverlay) {
+                    emptyCanvasOverlay.style.display = "flex";
+                    if (emptyTitle) emptyTitle.textContent = "📦 Modul Logika / Pustaka";
+                    if (emptyDesc) emptyDesc.innerHTML = "Berkas <strong>" + (activeFilename ? activeFilename.textContent : "ini") + "</strong> berisi modul fungsi pustaka tanpa siklus render kanvas langsung.<br>Buka berkas <code>src/utama.dap</code> di editor samping untuk menjalankan antarmuka visual kalkulator.";
+                }
             }
         }
 
@@ -1759,8 +2512,9 @@ fungsi utama() -> u64 {
                 const tDuration = (performance.now() - tStart).toFixed(2);
                 metricRender.textContent = \`\${tDuration} ms\`;
                 metricCmds.textContent = commandCount.toString();
-                statusDot.className = "dot";
-                statusText.textContent = "Berhasil";
+                if (statusText && statusText.textContent !== "Pustaka Siap") {
+                    setStatus("success", "Berhasil");
+                }
                 errorCard.style.display = "none";
 
                 if (isLooping && !loopReqId) {
@@ -1768,26 +2522,37 @@ fungsi utama() -> u64 {
                     loopReqId = requestAnimationFrame(loopFrame);
                 }
             } catch (err) {
-                statusDot.className = "dot error";
-                statusText.textContent = "Galat Runtime";
-                errorCard.textContent = "Galat Eksekusi WASM: " + err.message;
+                setStatus("error", "Galat Runtime");
+                errorCard.textContent = "⚠️ Galat Runtime WASM:\n" + err.message;
                 errorCard.style.display = "block";
+                if (emptyCanvasOverlay) emptyCanvasOverlay.style.display = "none";
             }
         }
+
+        let currentActiveFilePath = "";
 
         // Listener pesan dari Extension host
         window.addEventListener("message", (event) => {
             const msg = event.data;
             if (!msg) return;
 
+            if (msg.filepath) {
+                currentActiveFilePath = msg.filepath;
+            }
             if (msg.filename) {
                 activeFilename.textContent = msg.filename;
+                if (emptyFilename) emptyFilename.textContent = msg.filename;
             }
 
             switch (msg.command) {
                 case "compiling":
-                    statusDot.className = "dot compiling";
-                    statusText.textContent = "Mengompilasi...";
+                    setStatus("compiling", "Mengompilasi...");
+                    break;
+                case "noActiveDoc":
+                    setStatus("", "Menunggu Berkas");
+                    activeFilename.textContent = "Pilih Berkas .dap";
+                    if (emptyCanvasOverlay) emptyCanvasOverlay.style.display = "flex";
+                    if (emptyFilename) emptyFilename.textContent = "-";
                     break;
                 case "loadWasm": {
                     const binaryStr = atob(msg.wasmBase64);
@@ -1797,15 +2562,16 @@ fungsi utama() -> u64 {
                     }
                     metricSize.textContent = (msg.size / 1024).toFixed(2) + " KB";
                     metricCompile.textContent = (msg.compileTimeMs || 0) + " ms";
+                    errorCard.style.display = "none";
                     runWasmBytes(bytes);
                     break;
                 }
                 case "compileError":
-                    statusDot.className = "dot error";
-                    statusText.textContent = "Galat Kompilasi";
-                    errorCard.textContent = msg.error;
+                    setStatus("error", "Galat Kompilasi");
+                    errorCard.textContent = "⚠️ Galat Kompilasi:\n" + msg.error;
                     errorCard.style.display = "block";
                     metricCompile.textContent = (msg.compileTimeMs || 0) + " ms";
+                    if (emptyCanvasOverlay) emptyCanvasOverlay.style.display = "none";
                     break;
             }
         });
@@ -1815,8 +2581,8 @@ fungsi utama() -> u64 {
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
-            canvasMouseX = (e.clientX - rect.left) * scaleX;
-            canvasMouseY = (e.clientY - rect.top) * scaleY;
+            canvasMouseX = Math.max(0, Math.min(canvas.width, (e.clientX - rect.left) * scaleX));
+            canvasMouseY = Math.max(0, Math.min(canvas.height, (e.clientY - rect.top) * scaleY));
             coordsHud.textContent = \`X: \${Math.round(canvasMouseX)}, Y: \${Math.round(canvasMouseY)}\`;
             if (currentWasmInstance) {
                 rerunCurrentFrame();
@@ -1844,9 +2610,9 @@ fungsi utama() -> u64 {
                 const rect = canvas.getBoundingClientRect();
                 const scaleX = canvas.width / rect.width;
                 const scaleY = canvas.height / rect.height;
-                canvasMouseX = (touch.clientX - rect.left) * scaleX;
-                canvasMouseY = (touch.clientY - rect.top) * scaleY;
-                coordsHud.textContent = "X: " + Math.round(canvasMouseX) + ", Y: " + Math.round(canvasMouseY);
+                canvasMouseX = Math.max(0, Math.min(canvas.width, (touch.clientX - rect.left) * scaleX));
+                canvasMouseY = Math.max(0, Math.min(canvas.height, (touch.clientY - rect.top) * scaleY));
+                coordsHud.textContent = \`X: \${Math.round(canvasMouseX)}, Y: \${Math.round(canvasMouseY)}\`;
             }
             if (isDown !== undefined) {
                 canvasMouseDown = isDown;
@@ -1911,7 +2677,7 @@ fungsi utama() -> u64 {
                 loopReqId = requestAnimationFrame(loopFrame);
             } else {
                 btnLoop.classList.remove("active");
-                btnLoop.textContent = "▶ Loop: OFF";
+                btnLoop.textContent = "🔁 Loop: OFF";
                 if (loopReqId) {
                     cancelAnimationFrame(loopReqId);
                     loopReqId = null;
@@ -1931,27 +2697,58 @@ fungsi utama() -> u64 {
             vscode.postMessage({ command: "toggleAutoCompile", enabled: autoCompile });
         });
 
-        function applySelectedPreset() {
-            const key = presetSelect.value;
-            const code = PRESETS[key];
-            if (code) {
-                vscode.postMessage({ command: "applyPreset", code: code });
+        if (btnToggleGuide && guideCard) {
+            btnToggleGuide.addEventListener("click", () => {
+                const isHidden = guideCard.style.display === "none";
+                guideCard.style.display = isHidden ? "block" : "none";
+                btnToggleGuide.classList.toggle("active", isHidden);
+            });
+            if (btnCloseGuide) {
+                btnCloseGuide.addEventListener("click", () => {
+                    guideCard.style.display = "none";
+                    btnToggleGuide.classList.remove("active");
+                });
             }
         }
 
-        presetSelect.addEventListener("change", applySelectedPreset);
-        btnApplyPreset.addEventListener("click", applySelectedPreset);
+        if (btnClearCanvas) {
+            btnClearCanvas.addEventListener("click", () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                appendLog("[Kanvas dibersihkan]");
+            });
+        }
 
-        btnExternal.addEventListener("click", () => {
-            vscode.postMessage({ command: "openExternal" });
-        });
+        if (btnTemplateMenu && templateMenu) {
+            btnTemplateMenu.addEventListener("click", (e) => {
+                e.stopPropagation();
+                templateMenu.style.display = templateMenu.style.display === "none" ? "block" : "none";
+            });
+            document.addEventListener("click", (e) => {
+                if (!templateMenu.contains(e.target) && e.target !== btnTemplateMenu) {
+                    templateMenu.style.display = "none";
+                }
+            });
+            document.querySelectorAll(".template-item").forEach((item) => {
+                item.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    const key = item.getAttribute("data-preset");
+                    const code = PRESETS[key];
+                    const title = item.textContent.trim();
+                    templateMenu.style.display = "none";
+                    vscode.postMessage({
+                        command: "openPresetAsNew",
+                        presetKey: key,
+                        title: title,
+                        code: code,
+                    });
+                });
+            });
+        }
 
         const btnMobileExport = document.getElementById("btn-mobile-export");
         if (btnMobileExport) {
             btnMobileExport.addEventListener("click", () => {
-                const key = presetSelect.value;
-                const code = PRESETS[key] || "";
-                vscode.postMessage({ command: "buildMobile", presetKey: key, code: code });
+                vscode.postMessage({ command: "buildMobile", filePath: currentActiveFilePath });
             });
         }
 

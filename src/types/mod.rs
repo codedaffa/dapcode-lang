@@ -983,6 +983,38 @@ impl TypeChecker {
             "kanvas_delta_waktu".to_string(),
             (vec![], Type::F64),
         );
+        self.functions.insert(
+            "kanvas_simpan_teks".to_string(),
+            (vec![Type::String, Type::String], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_ambil_teks".to_string(),
+            (vec![Type::String], Type::String),
+        );
+        self.functions.insert(
+            "kanvas_simpan_angka".to_string(),
+            (vec![Type::String, Type::F64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_ambil_angka".to_string(),
+            (vec![Type::String], Type::F64),
+        );
+        self.functions.insert(
+            "kanvas_simpan_u64".to_string(),
+            (vec![Type::String, Type::U64], Type::Unit),
+        );
+        self.functions.insert(
+            "kanvas_ambil_u64".to_string(),
+            (vec![Type::String], Type::U64),
+        );
+        self.functions.insert(
+            "ke_desimal".to_string(),
+            (vec![Type::String], Type::F64),
+        );
+        self.functions.insert(
+            "format_desimal".to_string(),
+            (vec![Type::F64], Type::String),
+        );
 
         // Standard Library: Web Audio Synthesizer
         self.functions.insert(

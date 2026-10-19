@@ -170,6 +170,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const compileStatusDot = document.getElementById("compile-status-dot");
     const compileStatusMsg = document.getElementById("compile-status-msg");
     const currentFilename = document.getElementById("current-filename");
+    const framePresetSelector = document.getElementById("frame-preset-selector");
+    const frameDimBadge = document.getElementById("frame-dim-badge");
+    const btnFlipOrientation = document.getElementById("btn-flip-orientation");
+    const btnToggleBezel = document.getElementById("btn-toggle-bezel");
+    const btnToggleWide = document.getElementById("btn-toggle-wide");
+    const customResRow = document.getElementById("custom-res-row");
+    const customWidth = document.getElementById("custom-width");
+    const customHeight = document.getElementById("custom-height");
+    const btnApplyCustom = document.getElementById("btn-apply-custom");
+    const deviceFrameMockup = document.getElementById("device-frame-mockup");
+    const canvasViewport = document.getElementById("canvas-viewport");
+    const canvasWatermark = document.getElementById("canvas-watermark");
+    const playgroundContainer = document.querySelector(".container");
 
     let canvasWasmInstance = null;
     let canvasWasmMemory = null;
@@ -179,10 +192,11 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentDeltaTime = 0.0166;
     let lastAnimFrameTime = performance.now();
 
-    // Koleksi Preset Kode Contoh Interaktif
+    // Koleksi Preset Kode Contoh Interaktif (Dinamis & Responsif terhadap Ukuran Frame)
     const KODE_PRESET = {
         tata_surya: `// ========================================================
 // 🌌 Demo: Tata Surya Orbit 2D via WebAssembly
+// Tampilan Adaptif Dinamis: Skala proporsional ukuran frame
 // ========================================================
 
 fungsi gambar_tata_surya() -> Unit {
@@ -191,74 +205,108 @@ fungsi gambar_tata_surya() -> Unit {
     cx := w / 2.0
     cy := h / 2.0
 
+    // Hitung dimensi minimum frame untuk skala proporsional
+    dim_min := w
+    jika h < w {
+        dim_min = h
+    }
+    skala := dim_min / 480.0
+    jika skala < 0.55 {
+        skala = 0.55
+    }
+
     // 1. Bersihkan kanvas dengan warna latar kosmik
     kanvas_bersihkan(0.04, 0.06, 0.12, 1.0)
 
-    // 2. Bintang acak / titik konstelasi
+    // 2. Bintang acak terdistribusi proporsional dalam batas frame
     kanvas_warna_isi(0.8, 0.9, 1.0, 0.7)
-    kanvas_titik(cx - 200.0, cy - 120.0, 3.0)
-    kanvas_titik(cx + 180.0, cy - 100.0, 2.5)
-    kanvas_titik(cx - 150.0, cy + 130.0, 3.5)
-    kanvas_titik(cx + 220.0, cy + 90.0, 2.0)
-    kanvas_titik(cx - 80.0, cy - 160.0, 2.0)
-    kanvas_titik(cx + 100.0, cy + 150.0, 3.0)
+    kanvas_titik(w * 0.15, h * 0.18, 2.5 * skala)
+    kanvas_titik(w * 0.85, h * 0.22, 2.0 * skala)
+    kanvas_titik(w * 0.20, h * 0.82, 3.0 * skala)
+    kanvas_titik(w * 0.80, h * 0.78, 2.0 * skala)
+    kanvas_titik(w * 0.50, h * 0.12, 2.0 * skala)
+    kanvas_titik(w * 0.35, h * 0.65, 2.5 * skala)
+    kanvas_titik(w * 0.90, h * 0.50, 2.0 * skala)
 
-    // 3. Garis radar sumbu kartesius tipis
+    // 3. Garis radar sumbu kartesius dibatasi batas aman frame
+    panjang_x := (w / 2.0) - 24.0
+    panjang_y := (h / 2.0) - 24.0
     kanvas_warna_garis(0.2, 0.35, 0.55, 0.3)
     kanvas_tebal_garis(1.0)
-    kanvas_garis(cx - 260.0, cy, cx + 260.0, cy)
-    kanvas_garis(cx, cy - 180.0, cx, cy + 180.0)
+    kanvas_garis(cx - panjang_x, cy, cx + panjang_x, cy)
+    kanvas_garis(cx, cy - panjang_y, cx, cy + panjang_y)
 
-    // 4. Orbit sirkular konsentris
-    kanvas_warna_garis(0.25, 0.5, 0.8, 0.4)
+    // 4. Orbit sirkular konsentris proporsional (tidak pernah terpotong)
+    r1 := 48.0 * skala
+    r2 := 90.0 * skala
+    r3 := 138.0 * skala
+
+    kanvas_warna_garis(0.25, 0.5, 0.8, 0.35)
     kanvas_tebal_garis(1.5)
-    kanvas_bingkai_lingkaran(cx, cy, 60.0)
-    kanvas_bingkai_lingkaran(cx, cy, 110.0)
-    kanvas_bingkai_lingkaran(cx, cy, 170.0)
+    kanvas_bingkai_lingkaran(cx, cy, r1)
+    kanvas_bingkai_lingkaran(cx, cy, r2)
+    kanvas_bingkai_lingkaran(cx, cy, r3)
 
     // 5. Bintang pusat (Matahari Inti)
     kanvas_warna_isi(1.0, 0.8, 0.2, 0.3)
-    kanvas_lingkaran(cx, cy, 32.0)
+    kanvas_lingkaran(cx, cy, 28.0 * skala)
     kanvas_warna_isi(1.0, 0.5, 0.0, 0.9)
-    kanvas_lingkaran(cx, cy, 22.0)
+    kanvas_lingkaran(cx, cy, 18.0 * skala)
     kanvas_warna_isi(1.0, 0.95, 0.4, 1.0)
-    kanvas_lingkaran(cx, cy, 12.0)
+    kanvas_lingkaran(cx, cy, 10.0 * skala)
 
     // 6. Planet 1 (Biru Cyan)
-    p1_x := cx + 60.0 * cos(0.8)
-    p1_y := cy + 60.0 * sin(0.8)
+    p1_x := cx + r1 * cos(0.8)
+    p1_y := cy + r1 * sin(0.8)
     kanvas_warna_isi(0.2, 0.85, 0.95, 1.0)
-    kanvas_lingkaran(p1_x, p1_y, 7.0)
+    kanvas_lingkaran(p1_x, p1_y, 6.0 * skala)
 
     // 7. Planet 2 (Hijau Emerald & Cincin)
-    p2_x := cx + 110.0 * cos(2.3)
-    p2_y := cy + 110.0 * sin(2.3)
+    p2_x := cx + r2 * cos(2.3)
+    p2_y := cy + r2 * sin(2.3)
     kanvas_warna_isi(0.2, 0.9, 0.5, 1.0)
-    kanvas_lingkaran(p2_x, p2_y, 11.0)
+    kanvas_lingkaran(p2_x, p2_y, 9.0 * skala)
     kanvas_warna_garis(0.4, 1.0, 0.7, 0.6)
-    kanvas_tebal_garis(2.0)
-    kanvas_bingkai_lingkaran(p2_x, p2_y, 17.0)
+    kanvas_tebal_garis(1.5)
+    kanvas_bingkai_lingkaran(p2_x, p2_y, 14.0 * skala)
 
     // 8. Planet 3 (Ungu Violet)
-    p3_x := cx + 170.0 * cos(4.2)
-    p3_y := cy + 170.0 * sin(4.2)
+    p3_x := cx + r3 * cos(4.2)
+    p3_y := cy + r3 * sin(4.2)
     kanvas_warna_isi(0.7, 0.3, 0.95, 1.0)
-    kanvas_lingkaran(p3_x, p3_y, 16.0)
+    kanvas_lingkaran(p3_x, p3_y, 13.0 * skala)
 
-    // 9. Kartu Status HUD
+    // 9. Kartu Status HUD Dinamis
+    hud_w := 200.0 * skala
+    jika hud_w > w * 0.45 {
+        hud_w = w * 0.45
+    }
+    jika hud_w < 120.0 {
+        hud_w = 120.0
+    }
+    hud_h := 54.0 * skala
+    jika hud_h < 38.0 {
+        hud_h = 38.0
+    }
+
     kanvas_warna_isi(0.08, 0.12, 0.22, 0.85)
-    kanvas_persegi(20.0, 20.0, 220.0, 70.0)
+    kanvas_persegi(15.0, 15.0, hud_w, hud_h)
     kanvas_warna_garis(0.22, 0.65, 0.95, 0.75)
-    kanvas_tebal_garis(1.5)
-    kanvas_bingkai_persegi(20.0, 20.0, 220.0, 70.0)
+    kanvas_tebal_garis(1.2)
+    kanvas_bingkai_persegi(15.0, 15.0, hud_w, hud_h)
 
     // 10. Teks HUD Informasi
-    kanvas_warna_isi(0.95, 0.98, 1.0, 1.0)
-    kanvas_teks("DapCode 2D Canvas Engine", 32.0, 44.0, 14.0)
-    kanvas_warna_isi(0.4, 0.85, 1.0, 0.9)
-    kanvas_teks("Target: WebAssembly Native", 32.0, 68.0, 12.0)
+    font_s1 := 12.0 * skala
+    jika font_s1 < 9.0 { font_s1 = 9.0 }
+    font_s2 := 10.0 * skala
+    jika font_s2 < 8.0 { font_s2 = 8.0 }
 
-    cetak("Grafis HTML5 Canvas 2D berhasil dirender dari WebAssembly!")
+    kanvas_warna_isi(0.95, 0.98, 1.0, 1.0)
+    kanvas_teks("DapCode 2D Canvas", 22.0, 15.0 + (hud_h * 0.42), font_s1)
+    kanvas_warna_isi(0.4, 0.85, 1.0, 0.9)
+    kanvas_teks("Target: WebAssembly", 22.0, 15.0 + (hud_h * 0.80), font_s2)
+
+    cetak("Tata Surya 2D dinamis berhasil dirender!")
 }
 
 fungsi utama() -> u64 {
@@ -267,6 +315,7 @@ fungsi utama() -> u64 {
 }`,
         spiral_archimedes: `// ========================================================
 // 🌀 Demo: Pola Spiral Geometri Archimedes
+// Tampilan Adaptif Dinamis: Menyesuaikan jari-jari frame
 // ========================================================
 
 fungsi gambar_spiral() -> Unit {
@@ -275,15 +324,24 @@ fungsi gambar_spiral() -> Unit {
     cx := w / 2.0
     cy := h / 2.0
 
+    dim_min := w
+    jika h < w {
+        dim_min = h
+    }
+
     // 1. Bersihkan kanvas
     kanvas_bersihkan(0.02, 0.04, 0.08, 1.0)
-    kanvas_tebal_garis(2.0)
+    kanvas_tebal_garis(1.5)
 
-    // 2. Gambar deret titik spiral trigonometrik
+    // 2. Skala radius spiral agar pas dengan frame tanpa terpotong
+    max_radius := (dim_min / 2.0) - 35.0
+    jika max_radius < 45.0 {
+        max_radius = 45.0
+    }
+    b := max_radius / 26.0
+    a := 2.0
+
     theta := 0.0
-    a := 2.5
-    b := 1.8
-
     selama theta < 25.0 {
         r := a + b * theta
         x := cx + r * cos(theta)
@@ -294,19 +352,20 @@ fungsi gambar_spiral() -> Unit {
         green := 0.5 + 0.5 * cos(theta * 0.3)
         blue := 0.95
 
-        kanvas_warna_isi(red, green, blue, 0.8)
-        kanvas_lingkaran(x, y, 4.0 + (theta * 0.15))
+        dot_size := 3.0 + (theta * 0.12 * (dim_min / 480.0))
+        kanvas_warna_isi(red, green, blue, 0.85)
+        kanvas_lingkaran(x, y, dot_size)
 
-        theta = theta + 0.15
+        theta = theta + 0.18
     }
 
-    // 3. Label HUD
+    // 3. Label HUD Dinamis
     kanvas_warna_isi(1.0, 1.0, 1.0, 0.95)
-    kanvas_teks("Pola Spiral Archimedes", 25.0, 40.0, 15.0)
+    kanvas_teks("Pola Spiral Archimedes", 20.0, 35.0, 14.0)
     kanvas_warna_isi(0.4, 0.8, 1.0, 0.8)
-    kanvas_teks("r = a + b * theta via WebAssembly", 25.0, 65.0, 12.0)
+    kanvas_teks("r = a + b * theta via WebAssembly", 20.0, 55.0, 11.0)
 
-    cetak("Pola Spiral Archimedes berhasil dirender!")
+    cetak("Pola Spiral Archimedes dinamis berhasil dirender!")
 }
 
 fungsi utama() -> u64 {
@@ -315,6 +374,7 @@ fungsi utama() -> u64 {
 }`,
         partikel_pantul: `// ========================================================
 // ⚡ Demo: Simulasi Partikel Pantul & Medan Energi 2D
+// Tampilan Adaptif Dinamis: Arena & koordinat proporsional
 // ========================================================
 
 fungsi render_partikel() -> Unit {
@@ -323,41 +383,63 @@ fungsi render_partikel() -> Unit {
 
     kanvas_bersihkan(0.05, 0.08, 0.14, 1.0)
 
-    // 1. Bingkai pembatas arena fisika
-    kanvas_warna_garis(0.2, 0.4, 0.7, 0.5)
-    kanvas_tebal_garis(3.0)
-    kanvas_bingkai_persegi(20.0, 20.0, w - 40.0, h - 40.0)
+    pad := 18.0
+    arena_w := w - (pad * 2.0)
+    arena_h := h - (pad * 2.0)
 
-    // 2. Partikel 1: Inti Plasma Biru
+    dim_min := w
+    jika h < w {
+        dim_min = h
+    }
+    skala := dim_min / 480.0
+    jika skala < 0.6 { skala = 0.6 }
+
+    // 1. Bingkai pembatas arena fisika dinamis
+    kanvas_warna_garis(0.2, 0.4, 0.7, 0.5)
+    kanvas_tebal_garis(2.5)
+    kanvas_bingkai_persegi(pad, pad, arena_w, arena_h)
+
+    // 2. Partikel 1: Inti Plasma Biru (~24% X, ~35% Y)
+    p1_x := pad + arena_w * 0.24
+    p1_y := pad + arena_h * 0.35
+    r1 := 26.0 * skala
     kanvas_warna_isi(0.1, 0.7, 1.0, 0.85)
-    kanvas_lingkaran(180.0, 140.0, 28.0)
+    kanvas_lingkaran(p1_x, p1_y, r1)
     kanvas_warna_garis(0.4, 0.9, 1.0, 0.9)
     kanvas_tebal_garis(2.0)
-    kanvas_bingkai_lingkaran(180.0, 140.0, 34.0)
+    kanvas_bingkai_lingkaran(p1_x, p1_y, r1 + 6.0 * skala)
 
-    // 3. Partikel 2: Bola Energi Neon Jingga
+    // 3. Partikel 2: Bola Energi Neon Jingga (~74% X, ~58% Y)
+    p2_x := pad + arena_w * 0.74
+    p2_y := pad + arena_h * 0.58
+    r2 := 32.0 * skala
     kanvas_warna_isi(1.0, 0.4, 0.1, 0.9)
-    kanvas_lingkaran(520.0, 280.0, 36.0)
+    kanvas_lingkaran(p2_x, p2_y, r2)
     kanvas_warna_garis(1.0, 0.7, 0.2, 0.8)
-    kanvas_bingkai_lingkaran(520.0, 280.0, 44.0)
+    kanvas_bingkai_lingkaran(p2_x, p2_y, r2 + 8.0 * skala)
 
-    // 4. Partikel 3: Satelit Hijau Lime
+    // 4. Partikel 3: Satelit Hijau Lime (~48% X, ~80% Y)
+    p3_x := pad + arena_w * 0.48
+    p3_y := pad + arena_h * 0.80
+    r3 := 18.0 * skala
     kanvas_warna_isi(0.2, 0.9, 0.4, 0.85)
-    kanvas_lingkaran(340.0, 360.0, 20.0)
+    kanvas_lingkaran(p3_x, p3_y, r3)
 
-    // 5. Garis gaya medan vektor energi
+    // 5. Garis gaya medan vektor energi antar-partikel
     kanvas_warna_garis(1.0, 0.9, 0.2, 0.6)
     kanvas_tebal_garis(1.5)
-    kanvas_garis(180.0, 140.0, 520.0, 280.0)
-    kanvas_garis(520.0, 280.0, 340.0, 360.0)
+    kanvas_garis(p1_x, p1_y, p2_x, p2_y)
+    kanvas_garis(p2_x, p2_y, p3_x, p3_y)
 
-    // 6. Teks judul
+    // 6. Teks judul dinamis
+    font_s := 13.0 * skala
+    jika font_s < 10.0 { font_s = 10.0 }
     kanvas_warna_isi(0.9, 0.95, 1.0, 1.0)
-    kanvas_teks("Simulasi Fisika Partikel 2D", 35.0, 50.0, 15.0)
+    kanvas_teks("Simulasi Fisika Partikel 2D", pad + 15.0, pad + 24.0, font_s)
     kanvas_warna_isi(0.5, 0.7, 0.9, 0.8)
-    kanvas_teks("Vektor Tumbukan & Medan Gaya", 35.0, 75.0, 12.0)
+    kanvas_teks("Medan Vektor Energi Dinamis", pad + 15.0, pad + 42.0, font_s * 0.82)
 
-    cetak("Partikel 2D berhasil disimulasikan!")
+    cetak("Partikel 2D dinamis berhasil disimulasikan!")
 }
 
 fungsi utama() -> u64 {
@@ -366,6 +448,7 @@ fungsi utama() -> u64 {
 }`,
         grafik_batang: `// ========================================================
 // 📊 Demo: Diagram Batang Statistik Interaktif
+// Tampilan Adaptif Dinamis: Sumbu, batang & label proporsional
 // ========================================================
 
 fungsi gambar_grafik() -> Unit {
@@ -374,45 +457,91 @@ fungsi gambar_grafik() -> Unit {
 
     kanvas_bersihkan(0.04, 0.07, 0.12, 1.0)
 
-    // 1. Sumbu X dan Y
-    kanvas_warna_garis(0.3, 0.45, 0.65, 0.6)
+    // Margin & sumbu kartesius dinamis proporsional
+    margin_kiri := w * 0.12
+    jika margin_kiri < 45.0 { margin_kiri = 45.0 }
+    margin_kanan := w * 0.08
+    jika margin_kanan < 25.0 { margin_kanan = 25.0 }
+
+    sumbu_x_awal := margin_kiri
+    sumbu_x_akhir := w - margin_kanan
+    area_grafik_w := sumbu_x_akhir - sumbu_x_awal
+
+    sumbu_y_bawah := h * 0.82
+    sumbu_y_atas := h * 0.20
+    tinggi_maks := sumbu_y_bawah - sumbu_y_atas
+
+    dim_min := w
+    jika h < w { dim_min = h }
+    skala := dim_min / 480.0
+    jika skala < 0.6 { skala = 0.6 }
+
+    // 1. Garis bantu grid horizontal tipis (50%, 100%)
+    kanvas_warna_garis(0.2, 0.3, 0.45, 0.3)
+    kanvas_tebal_garis(1.0)
+    kanvas_garis(sumbu_x_awal, sumbu_y_bawah - tinggi_maks * 0.5, sumbu_x_akhir, sumbu_y_bawah - tinggi_maks * 0.5)
+    kanvas_garis(sumbu_x_awal, sumbu_y_bawah - tinggi_maks, sumbu_x_akhir, sumbu_y_bawah - tinggi_maks)
+
+    // 2. Sumbu X dan Y utama
+    kanvas_warna_garis(0.3, 0.45, 0.65, 0.7)
     kanvas_tebal_garis(2.0)
-    kanvas_garis(80.0, 380.0, 740.0, 380.0)
-    kanvas_garis(80.0, 80.0, 80.0, 380.0)
+    kanvas_garis(sumbu_x_awal, sumbu_y_bawah, sumbu_x_akhir, sumbu_y_bawah)
+    kanvas_garis(sumbu_x_awal, sumbu_y_atas - 10.0, sumbu_x_awal, sumbu_y_bawah)
 
-    // 2. Batang 1: DapCode Native (92%)
+    // 3. Batang Statistik Proporsional (4 Batang Terdistribusi)
+    slot_w := area_grafik_w / 4.0
+    bar_w := slot_w * 0.60
+    jika bar_w > 90.0 { bar_w = 90.0 }
+    pad_bar := (slot_w - bar_w) / 2.0
+
+    font_persen := 11.0 * skala
+    jika font_persen < 9.0 { font_persen = 9.0 }
+    font_label := 10.0 * skala
+    jika font_label < 8.0 { font_label = 8.0 }
+
+    // Batang 1: DapCode Native (92%)
+    b1_x := sumbu_x_awal + pad_bar
+    b1_h := tinggi_maks * 0.92
     kanvas_warna_isi(0.2, 0.75, 1.0, 0.9)
-    kanvas_persegi(120.0, 380.0 - 276.0, 80.0, 276.0)
+    kanvas_persegi(b1_x, sumbu_y_bawah - b1_h, bar_w, b1_h)
     kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
-    kanvas_teks("92%", 140.0, 380.0 - 286.0, 13.0)
-    kanvas_teks("DapCode", 125.0, 405.0, 12.0)
+    kanvas_teks("92%", b1_x + (bar_w * 0.15), sumbu_y_bawah - b1_h - 8.0, font_persen)
+    kanvas_teks("DapCode", b1_x + (bar_w * 0.05), sumbu_y_bawah + 18.0, font_label)
 
-    // 3. Batang 2: WebAssembly MVP (85%)
+    // Batang 2: WebAssembly (85%)
+    b2_x := sumbu_x_awal + slot_w + pad_bar
+    b2_h := tinggi_maks * 0.85
     kanvas_warna_isi(0.6, 0.3, 0.95, 0.9)
-    kanvas_persegi(240.0, 380.0 - 255.0, 80.0, 255.0)
+    kanvas_persegi(b2_x, sumbu_y_bawah - b2_h, bar_w, b2_h)
     kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
-    kanvas_teks("85%", 260.0, 380.0 - 265.0, 13.0)
-    kanvas_teks("WASM MVP", 240.0, 405.0, 12.0)
+    kanvas_teks("85%", b2_x + (bar_w * 0.15), sumbu_y_bawah - b2_h - 8.0, font_persen)
+    kanvas_teks("WASM", b2_x + (bar_w * 0.15), sumbu_y_bawah + 18.0, font_label)
 
-    // 4. Batang 3: C11 Native (96%)
+    // Batang 3: C11 Native (96%)
+    b3_x := sumbu_x_awal + (slot_w * 2.0) + pad_bar
+    b3_h := tinggi_maks * 0.96
     kanvas_warna_isi(0.1, 0.85, 0.5, 0.9)
-    kanvas_persegi(360.0, 380.0 - 288.0, 80.0, 288.0)
+    kanvas_persegi(b3_x, sumbu_y_bawah - b3_h, bar_w, b3_h)
     kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
-    kanvas_teks("96%", 380.0, 380.0 - 298.0, 13.0)
-    kanvas_teks("C11 Native", 365.0, 405.0, 12.0)
+    kanvas_teks("96%", b3_x + (bar_w * 0.15), sumbu_y_bawah - b3_h - 8.0, font_persen)
+    kanvas_teks("C11", b3_x + (bar_w * 0.2), sumbu_y_bawah + 18.0, font_label)
 
-    // 5. Batang 4: JIT Engine (74%)
+    // Batang 4: JIT Engine (74%)
+    b4_x := sumbu_x_awal + (slot_w * 3.0) + pad_bar
+    b4_h := tinggi_maks * 0.74
     kanvas_warna_isi(1.0, 0.65, 0.1, 0.9)
-    kanvas_persegi(480.0, 380.0 - 222.0, 80.0, 222.0)
+    kanvas_persegi(b4_x, sumbu_y_bawah - b4_h, bar_w, b4_h)
     kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
-    kanvas_teks("74%", 500.0, 380.0 - 232.0, 13.0)
-    kanvas_teks("JIT Engine", 485.0, 405.0, 12.0)
+    kanvas_teks("74%", b4_x + (bar_w * 0.15), sumbu_y_bawah - b4_h - 8.0, font_persen)
+    kanvas_teks("JIT", b4_x + (bar_w * 0.2), sumbu_y_bawah + 18.0, font_label)
 
-    // 6. Judul Grafik
+    // 4. Judul Grafik Dinamis
+    font_judul := 13.0 * skala
+    jika font_judul < 11.0 { font_judul = 11.0 }
     kanvas_warna_isi(0.95, 0.98, 1.0, 1.0)
-    kanvas_teks("Performa Komputasi & Efisiensi Memori (%)", 90.0, 55.0, 16.0)
+    kanvas_teks("Efisiensi & Performa Komputasi (%)", sumbu_x_awal, sumbu_y_atas - 22.0, font_judul)
 
-    cetak("Grafik Batang Statistik berhasil digambar!")
+    cetak("Grafik Batang Statistik dinamis berhasil digambar!")
 }
 
 fungsi utama() -> u64 {
@@ -421,33 +550,47 @@ fungsi utama() -> u64 {
 }`,
         game_pesawat: `// ========================================================
 // 🎮 Demo Game: Pesawat Antariksa & Laser Interaktif 2D
-// Kontrol:
-// - Gerakkan Mouse: Mengarahkan posisi pesawat & target
-// - Klik Mouse: Menembakkan laser energi ganda
-// - Tombol [W / A / S / D] / [Panah]: Manuver reaktor
+// Tampilan Adaptif Dinamis: Batas terbang & laser sesuai frame
+// Kontrol: Gerakkan Mouse / Sentuh Layar & Klik Tembak
 // ========================================================
 
-fungsi gambar_bintang(w: f64, h: f64) -> Unit {
+fungsi render_game() -> Unit {
+    w := kanvas_lebar()
+    h := kanvas_tinggi()
+    mx := kanvas_mouse_x()
+    my := kanvas_mouse_y()
+    klik := kanvas_mouse_klik()
+
+    // 1. Latar antariksa dengan bintang proporsional batas w & h
     kanvas_bersihkan(0.02, 0.03, 0.07, 1.0)
     kanvas_warna_isi(0.8, 0.9, 1.0, 0.5)
-    kanvas_titik(80.0, 60.0, 2.0)
-    kanvas_titik(220.0, 110.0, 2.5)
-    kanvas_titik(450.0, 80.0, 1.5)
-    kanvas_titik(670.0, 140.0, 2.0)
-    kanvas_titik(140.0, 320.0, 2.0)
-    kanvas_titik(380.0, 420.0, 3.0)
-    kanvas_titik(590.0, 310.0, 1.5)
-    kanvas_titik(720.0, 410.0, 2.5)
-}
+    kanvas_titik(w * 0.10, h * 0.15, 2.0)
+    kanvas_titik(w * 0.28, h * 0.25, 2.5)
+    kanvas_titik(w * 0.58, h * 0.18, 1.5)
+    kanvas_titik(w * 0.85, h * 0.30, 2.0)
+    kanvas_titik(w * 0.18, h * 0.70, 2.0)
+    kanvas_titik(w * 0.48, h * 0.88, 3.0)
+    kanvas_titik(w * 0.75, h * 0.65, 1.5)
+    kanvas_titik(w * 0.90, h * 0.85, 2.5)
 
-fungsi render_pesawat(px: f64, py: f64, klik: u64) -> Unit {
-    // 1. Api Pendorong Reaktor (Thruster)
+    // 2. Batasi posisi pesawat agar tidak terpotong keluar frame (Clamping)
+    px := mx
+    py := my
+    batas_x := 32.0
+    batas_y := 24.0
+    jika px < batas_x { px = batas_x }
+    jika px > w - batas_x { px = w - batas_x }
+    jika py < batas_y { py = batas_y }
+    jika py > h - batas_y { py = h - batas_y }
+
+    // 3. Render Pesawat Antariksa
+    // Api Pendorong Reaktor (Thruster)
     kanvas_warna_isi(1.0, 0.45, 0.1, 0.9)
     kanvas_lingkaran(px - 22.0, py, 7.0)
     kanvas_warna_isi(1.0, 0.85, 0.2, 0.95)
     kanvas_lingkaran(px - 17.0, py, 4.0)
 
-    // 2. Sayap & Lambung Pesawat
+    // Lambung & Sayap
     kanvas_warna_isi(0.18, 0.45, 0.85, 1.0)
     kanvas_garis(px + 28.0, py, px - 18.0, py - 18.0)
     kanvas_garis(px - 18.0, py - 18.0, px - 10.0, py)
@@ -457,62 +600,60 @@ fungsi render_pesawat(px: f64, py: f64, klik: u64) -> Unit {
     kanvas_warna_isi(0.25, 0.65, 1.0, 0.9)
     kanvas_persegi(px - 10.0, py - 6.0, 22.0, 12.0)
 
-    // 3. Kokpit Kaca Neon
+    // Kokpit Kaca Neon
     kanvas_warna_isi(0.4, 0.95, 1.0, 0.95)
     kanvas_lingkaran(px + 6.0, py, 5.0)
 
-    // 4. Efek Laser Tembakan saat Mouse Diklik
+    // 4. Laser Energi Ganda (Ditembakkan hingga ujung batas frame w)
     jika klik == 1 {
         kanvas_warna_garis(0.2, 1.0, 0.5, 0.95)
         kanvas_tebal_garis(3.0)
-        kanvas_garis(px + 20.0, py - 12.0, 800.0, py - 12.0)
-        kanvas_garis(px + 20.0, py + 12.0, 800.0, py + 12.0)
+        kanvas_garis(px + 20.0, py - 12.0, w, py - 12.0)
+        kanvas_garis(px + 20.0, py + 12.0, w, py + 12.0)
 
         kanvas_warna_isi(1.0, 1.0, 1.0, 0.9)
         kanvas_lingkaran(px + 22.0, py - 12.0, 4.0)
         kanvas_lingkaran(px + 22.0, py + 12.0, 4.0)
     }
-}
 
-fungsi render_game() -> Unit {
-    w := kanvas_lebar()
-    h := kanvas_tinggi()
-    mx := kanvas_mouse_x()
-    my := kanvas_mouse_y()
-    klik := kanvas_mouse_klik()
-
-    // 1. Latar antariksa
-    gambar_bintang(w, h)
-
-    // 2. Pesawat Interaktif
-    render_pesawat(mx, my, klik)
-
-    // 3. HUD Target Reticle
+    // 5. HUD Target Reticle di sekeliling posisi kursor
     kanvas_warna_garis(0.2, 0.8, 1.0, 0.5)
     kanvas_tebal_garis(1.0)
-    kanvas_bingkai_lingkaran(mx, my, 35.0)
-    kanvas_garis(mx - 45.0, my, mx + 45.0, my)
-    kanvas_garis(mx, my - 45.0, mx, my + 45.0)
+    kanvas_bingkai_lingkaran(px, py, 32.0)
+    kanvas_garis(px - 40.0, py, px + 40.0, py)
+    kanvas_garis(px, py - 40.0, px, py + 40.0)
 
-    // 4. Status HUD Banner
+    // 6. Status HUD Banner Adaptif
+    dim_min := w
+    jika h < w { dim_min = h }
+    skala := dim_min / 480.0
+    jika skala < 0.65 { skala = 0.65 }
+
+    hud_w := 280.0 * skala
+    jika hud_w > w - 24.0 { hud_w = w - 24.0 }
+    hud_h := 65.0 * skala
+    jika hud_h < 46.0 { hud_h = 46.0 }
+
     kanvas_warna_isi(0.06, 0.1, 0.18, 0.85)
-    kanvas_persegi(15.0, 15.0, 300.0, 75.0)
+    kanvas_persegi(12.0, 12.0, hud_w, hud_h)
     kanvas_warna_garis(0.3, 0.7, 1.0, 0.6)
-    kanvas_tebal_garis(1.5)
-    kanvas_bingkai_persegi(15.0, 15.0, 300.0, 75.0)
+    kanvas_tebal_garis(1.2)
+    kanvas_bingkai_persegi(12.0, 12.0, hud_w, hud_h)
+
+    font_h1 := 12.0 * skala
+    jika font_h1 < 9.0 { font_h1 = 9.0 }
+    font_h2 := 10.0 * skala
+    jika font_h2 < 8.0 { font_h2 = 8.0 }
 
     kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
-    kanvas_teks("🎮 SIMULATOR PESAWAT ANTARIKSA", 26.0, 38.0, 13.0)
-
-    kanvas_warna_isi(0.4, 0.9, 1.0, 0.9)
-    kanvas_teks("Kontrol: Gerakkan Mouse & Klik Tembak", 26.0, 58.0, 11.0)
+    kanvas_teks("🎮 SIMULATOR PESAWAT 2D", 20.0, 12.0 + hud_h * 0.35, font_h1)
 
     jika klik == 1 {
         kanvas_warna_isi(0.2, 1.0, 0.5, 1.0)
-        kanvas_teks("STATUS: ⚡ LASER DIAKTIFKAN!", 26.0, 76.0, 11.0)
+        kanvas_teks("STATUS: ⚡ LASER AKTIF!", 20.0, 12.0 + hud_h * 0.75, font_h2)
     } selain_itu {
-        kanvas_warna_isi(0.8, 0.8, 0.8, 0.7)
-        kanvas_teks("STATUS: Menjelajah Orbit Antariksa", 26.0, 76.0, 11.0)
+        kanvas_warna_isi(0.4, 0.9, 1.0, 0.85)
+        kanvas_teks("STATUS: Jelajah Orbit (Klik Tembak)", 20.0, 12.0 + hud_h * 0.75, font_h2)
     }
 }
 
@@ -811,16 +952,162 @@ fungsi utama() -> u64 {
     let canvasMouseDown = false;
     const canvasKeysPressed = new Set();
 
+    // ==========================================
+    // 📐 Manajemen Ukuran Frame Layar Dinamis
+    // ==========================================
+    const FRAME_PRESETS = {
+        desktop_std: { nama: "Desktop Standar", w: 800, h: 480, ratio: "5:3", isDevice: false },
+        desktop_hd: { nama: "Desktop HD", w: 960, h: 540, ratio: "16:9", isDevice: false },
+        mobile_portrait: { nama: "Ponsel Potret (360×640)", w: 360, h: 640, ratio: "9:16", isDevice: true },
+        mobile_iphone: { nama: "Ponsel Modern (390×844)", w: 390, h: 844, ratio: "9:19.5", isDevice: true },
+        mobile_landscape: { nama: "Ponsel Lanskap (640×360)", w: 640, h: 360, ratio: "16:9", isDevice: true },
+        tablet_portrait: { nama: "Tablet Potret (768×1024)", w: 768, h: 1024, ratio: "3:4", isDevice: true },
+        tablet_landscape: { nama: "Tablet Lanskap (768×576)", w: 768, h: 576, ratio: "4:3", isDevice: true },
+        persegi: { nama: "Persegi 1:1 (500×500)", w: 500, h: 500, ratio: "1:1", isDevice: false },
+        auto_fit: { nama: "Dinamis Wadah", w: 800, h: 480, ratio: "Auto", isAuto: true },
+        custom: { nama: "Kustom", w: 800, h: 480, ratio: "Kustom", isCustom: true }
+    };
+
+    let currentFrameKey = "desktop_std";
+    let isBezelEnabled = false;
+    let isWideMode = false;
+
+    function applyCanvasResolution(w, h, ratioLabel, shouldUpdateBezel = true) {
+        if (!canvas) return;
+        const clampedW = Math.max(200, Math.min(2560, Math.round(w)));
+        const clampedH = Math.max(200, Math.min(2560, Math.round(h)));
+
+        canvas.width = clampedW;
+        canvas.height = clampedH;
+        canvas.style.aspectRatio = `${clampedW} / ${clampedH}`;
+
+        const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+        const divisor = gcd(clampedW, clampedH);
+        const autoRatio = `${Math.round(clampedW / divisor)}:${Math.round(clampedH / divisor)}`;
+        const displayRatio = ratioLabel || autoRatio;
+
+        if (frameDimBadge) {
+            frameDimBadge.textContent = `${clampedW} × ${clampedH} px (${displayRatio})`;
+        }
+        if (canvasWatermark) {
+            canvasWatermark.textContent = `${clampedW} × ${clampedH}`;
+        }
+        if (customWidth) customWidth.value = clampedW;
+        if (customHeight) customHeight.value = clampedH;
+
+        if (shouldUpdateBezel && deviceFrameMockup) {
+            const preset = FRAME_PRESETS[currentFrameKey];
+            if (preset && preset.isDevice) {
+                deviceFrameMockup.classList.add("with-bezel");
+                isBezelEnabled = true;
+                if (btnToggleBezel) btnToggleBezel.classList.add("highlight");
+            } else if (!isBezelEnabled) {
+                deviceFrameMockup.classList.remove("with-bezel");
+                if (btnToggleBezel) btnToggleBezel.classList.remove("highlight");
+            }
+        }
+
+        // Render ulang grafis kanvas agar komputasi w := kanvas_lebar() terbarui
+        renderCanvasWasm();
+    }
+
+    function setFramePreset(key) {
+        currentFrameKey = key;
+        const preset = FRAME_PRESETS[key] || FRAME_PRESETS.desktop_std;
+
+        if (customResRow) {
+            customResRow.style.display = key === "custom" ? "flex" : "none";
+        }
+
+        if (preset.isAuto) {
+            updateAutoFitDimensions();
+        } else {
+            applyCanvasResolution(preset.w, preset.h, preset.ratio, true);
+        }
+    }
+
+    function updateAutoFitDimensions() {
+        if (currentFrameKey !== "auto_fit" || !canvasViewport) return;
+        const viewportRect = canvasViewport.getBoundingClientRect();
+        const availableW = Math.max(280, Math.floor(viewportRect.width - 40));
+        const availableH = Math.max(240, Math.min(640, Math.floor(availableW * 0.6)));
+        applyCanvasResolution(availableW, availableH, "Auto-Fit", false);
+    }
+
+    if (framePresetSelector) {
+        framePresetSelector.addEventListener("change", (e) => {
+            setFramePreset(e.target.value);
+        });
+    }
+
+    if (btnFlipOrientation) {
+        btnFlipOrientation.addEventListener("click", () => {
+            if (!canvas) return;
+            const newW = canvas.height;
+            const newH = canvas.width;
+            applyCanvasResolution(newW, newH, null, false);
+        });
+    }
+
+    if (btnToggleBezel && deviceFrameMockup) {
+        btnToggleBezel.addEventListener("click", () => {
+            isBezelEnabled = !isBezelEnabled;
+            deviceFrameMockup.classList.toggle("with-bezel", isBezelEnabled);
+            btnToggleBezel.classList.toggle("highlight", isBezelEnabled);
+        });
+    }
+
+    if (btnToggleWide && playgroundContainer) {
+        btnToggleWide.addEventListener("click", () => {
+            isWideMode = !isWideMode;
+            playgroundContainer.classList.toggle("wide-mode", isWideMode);
+            btnToggleWide.textContent = isWideMode ? "⛶ Lebar Normal" : "⛶ Lebar Penuh";
+            btnToggleWide.classList.toggle("highlight", isWideMode);
+            if (currentFrameKey === "auto_fit") {
+                setTimeout(updateAutoFitDimensions, 250);
+            }
+        });
+    }
+
+    if (btnApplyCustom) {
+        btnApplyCustom.addEventListener("click", () => {
+            const w = parseInt(customWidth.value, 10) || 800;
+            const h = parseInt(customHeight.value, 10) || 480;
+            applyCanvasResolution(w, h, "Kustom", false);
+        });
+    }
+
+    window.addEventListener("resize", () => {
+        if (currentFrameKey === "auto_fit") {
+            updateAutoFitDimensions();
+        }
+    });
+
+    if (window.ResizeObserver && canvasViewport) {
+        const ro = new ResizeObserver(() => {
+            if (currentFrameKey === "auto_fit") {
+                updateAutoFitDimensions();
+            }
+        });
+        ro.observe(canvasViewport);
+    }
+
+    function updateCanvasPointer(clientX, clientY) {
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        canvasMouseX = Math.max(0, Math.min(canvas.width, (clientX - rect.left) * scaleX));
+        canvasMouseY = Math.max(0, Math.min(canvas.height, (clientY - rect.top) * scaleY));
+        if (coordsOverlay) {
+            coordsOverlay.textContent = `X: ${Math.round(canvasMouseX)}, Y: ${Math.round(canvasMouseY)}`;
+        }
+    }
+
     if (canvas) {
         canvas.addEventListener("mousemove", (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            canvasMouseX = (e.clientX - rect.left) * scaleX;
-            canvasMouseY = (e.clientY - rect.top) * scaleY;
-            if (coordsOverlay) {
-                coordsOverlay.textContent = `X: ${Math.round(canvasMouseX)}, Y: ${Math.round(canvasMouseY)}`;
-            }
+            updateCanvasPointer(e.clientX, e.clientY);
             if (canvasWasmInstance) {
                 renderCanvasWasm();
             }
@@ -828,17 +1115,53 @@ fungsi utama() -> u64 {
 
         canvas.addEventListener("mousedown", (e) => {
             canvasMouseDown = true;
+            updateCanvasPointer(e.clientX, e.clientY);
             if (canvasWasmInstance) {
                 renderCanvasWasm();
             }
         });
 
-        canvas.addEventListener("mouseup", (e) => {
+        canvas.addEventListener("mouseup", () => {
             canvasMouseDown = false;
             if (canvasWasmInstance) {
                 renderCanvasWasm();
             }
         });
+
+        canvas.addEventListener("mouseleave", () => {
+            canvasMouseDown = false;
+        });
+
+        // Dukungan Sentuh Layar Dinamis (Touch Events untuk Layar Mobile & Tablet)
+        canvas.addEventListener("touchstart", (e) => {
+            const touch = e.touches[0];
+            if (touch) {
+                canvasMouseDown = true;
+                updateCanvasPointer(touch.clientX, touch.clientY);
+                if (canvasWasmInstance) renderCanvasWasm();
+            }
+            e.preventDefault();
+        }, { passive: false });
+
+        canvas.addEventListener("touchmove", (e) => {
+            const touch = e.touches[0];
+            if (touch) {
+                updateCanvasPointer(touch.clientX, touch.clientY);
+                if (canvasWasmInstance) renderCanvasWasm();
+            }
+            e.preventDefault();
+        }, { passive: false });
+
+        canvas.addEventListener("touchend", (e) => {
+            canvasMouseDown = false;
+            if (canvasWasmInstance) renderCanvasWasm();
+            e.preventDefault();
+        }, { passive: false });
+
+        canvas.addEventListener("touchcancel", (e) => {
+            canvasMouseDown = false;
+            e.preventDefault();
+        }, { passive: false });
     }
 
     window.addEventListener("keydown", (e) => {
@@ -1041,7 +1364,8 @@ fungsi utama() -> u64 {
         });
     }
 
-    // Inisialisasi awal: coba kompilasi kode awal atau muat wasm lokal
+    // Inisialisasi awal frame dinamis dan kompilasi kode
+    setFramePreset("desktop_std");
     compileAndRun();
 
     // ==========================================

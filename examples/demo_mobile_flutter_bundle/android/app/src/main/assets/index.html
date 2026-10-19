@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>demo_mobile_flutter</title>
+
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0284c7">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="demo_mobile_flutter">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #090d16;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+    }
+    #header {
+      height: 48px;
+      background: rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 10;
+    }
+    .app-title {
+      font-weight: 700;
+      font-size: 1rem;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .app-title span.dot {
+      width: 8px;
+      height: 8px;
+      background: #4ade80;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 0 8px #4ade80;
+    }
+    .btn-action {
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    #canvas-container {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    #install-banner {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      box-shadow: 0 10px 30px rgba(2, 132, 199, 0.5);
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      z-index: 100;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: translateX(-50%) scale(1); }
+      50% { transform: translateX(-50%) scale(1.04); }
+    }
+    #fps-meter {
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <div class="app-title">
+      <span class="dot"></span>
+      <span>demo_mobile_flutter</span>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center;">
+      <span id="fps-meter">60 FPS</span>
+      <button id="btn-fullscreen" class="btn-action">⛶ Layar Penuh</button>
+    </div>
+  </div>
+
+  <div id="canvas-container">
+    <canvas id="canvas" width="800" height="600"></canvas>
+  </div>
+
+  <div id="install-banner">
+    📲 Pasang Aplikasi (Install App)
+  </div>
+
+  <script>
+    // 1. Registrasi PWA Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+          console.log('[DapCode PWA] Service Worker terdaftar:', reg.scope);
+        }).catch((err) => {
+          console.warn('[DapCode PWA] Service Worker gagal:', err);
+        });
+      });
+    }
+
+    // 2. Banner Pasang Aplikasi PWA
+    let deferredPrompt = null;
+    const installBanner = document.getElementById('install-banner');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBanner.style.display = 'flex';
+    });
+    installBanner.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          installBanner.style.display = 'none';
+        }
+        deferredPrompt = null;
+      }
+    });
+
+    // 3. Tombol Layar Penuh
+    document.getElementById('btn-fullscreen').addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+
+    // 4. Inisialisasi Kanvas & Sistem Input Sentuh (Touch)
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const dapInput = {
+      mouseX: 400.0,
+      mouseY: 300.0,
+      mouseClick: 0n,
+      keys: new Set(),
+      lastFrameTime: performance.now(),
+      deltaTime: 0.016,
+      fps: 60,
+    };
+
+    function updateTouch(e, isClick) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const touch = e.touches[0] || (e.changedTouches && e.changedTouches[0]);
+      if (touch) {
+        dapInput.mouseX = (touch.clientX - rect.left) * scaleX;
+        dapInput.mouseY = (touch.clientY - rect.top) * scaleY;
+      }
+      if (isClick !== undefined) {
+        dapInput.mouseClick = isClick ? 1n : 0n;
+      }
+      resumeAudio();
+      e.preventDefault();
+    }
+
+    canvas.addEventListener('touchstart', (e) => updateTouch(e, true), { passive: false });
+    canvas.addEventListener('touchmove', (e) => updateTouch(e), { passive: false });
+    canvas.addEventListener('touchend', (e) => updateTouch(e, false), { passive: false });
+    canvas.addEventListener('touchcancel', (e) => updateTouch(e, false), { passive: false });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      dapInput.mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+      dapInput.mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+    });
+    canvas.addEventListener('mousedown', () => { dapInput.mouseClick = 1n; resumeAudio(); });
+    canvas.addEventListener('mouseup', () => { dapInput.mouseClick = 0n; });
+
+    window.addEventListener('keydown', (e) => dapInput.keys.add(e.key.toLowerCase()));
+    window.addEventListener('keyup', (e) => dapInput.keys.delete(e.key.toLowerCase()));
+
+    // 5. Audio Web Synthesizer
+    let audioCtx = null;
+    function resumeAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // 6. Muat & Jalankan Modul WebAssembly
+    let wasmInstance = null;
+    let wasmMemory = null;
+
+    async function initMobileWasm() {
+      try {
+        const resp = await fetch('app.wasm');
+        const bytes = await resp.arrayBuffer();
+
+        const importObject = {
+          env: {
+            cetak_u64: (val) => console.log('[DapCode]', val.toString()),
+            cetak_f64: (val) => console.log('[DapCode]', val),
+            cetak_teks: (ptr, len) => {
+              const arr = new Uint8Array(wasmMemory.buffer, ptr, len);
+              console.log('[DapCode]', new TextDecoder().decode(arr));
+            },
+            sin: Math.sin, cos: Math.cos, tan: Math.tan,
+            asin: Math.asin, acos: Math.acos, atan: Math.atan, atan2: Math.atan2,
+            akar_kubik: Math.cbrt, pangkat: Math.pow, log: Math.log, log10: Math.log10, log2: Math.log2,
+            exp: Math.exp, tanda: Math.sign,
+            kanvas_bersihkan: (r, g, b, a) => {
+              ctx.fillStyle = `rgba(${Math.floor(r * 255)}, ${Math.floor(g * 255)}, ${Math.floor(b * 255)}, ${a})`;
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+            },
+            kanvas_warna_isi: (r, g, b, a) => {
+              ctx.fillStyle = `rgba(${Math.floor(r * 255)}, ${Math.floor(g * 255)}, ${Math.floor(b * 255)}, ${a})`;
+            },
+            kanvas_warna_garis: (r, g, b, a) => {
+              ctx.strokeStyle = `rgba(${Math.floor(r * 255)}, ${Math.floor(g * 255)}, ${Math.floor(b * 255)}, ${a})`;
+            },
+            kanvas_tebal_garis: (tebal) => { ctx.lineWidth = tebal; },
+            kanvas_persegi: (x, y, w, h) => ctx.fillRect(x, y, w, h),
+            kanvas_bingkai_persegi: (x, y, w, h) => ctx.strokeRect(x, y, w, h),
+            kanvas_lingkaran: (x, y, rad) => {
+              ctx.beginPath(); ctx.arc(x, y, Math.max(0, rad), 0, Math.PI * 2); ctx.fill();
+            },
+            kanvas_bingkai_lingkaran: (x, y, rad) => {
+              ctx.beginPath(); ctx.arc(x, y, Math.max(0, rad), 0, Math.PI * 2); ctx.stroke();
+            },
+            kanvas_garis: (x1, y1, x2, y2) => {
+              ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+            },
+            kanvas_titik: (x, y) => ctx.fillRect(x, y, 1, 1),
+            kanvas_teks: (ptr, len, x, y) => {
+              const arr = new Uint8Array(wasmMemory.buffer, ptr, len);
+              const txt = new TextDecoder().decode(arr);
+              ctx.font = '16px -apple-system, sans-serif';
+              ctx.fillText(txt, x, y);
+            },
+            kanvas_lebar: () => canvas.width,
+            kanvas_tinggi: () => canvas.height,
+            kanvas_mouse_x: () => dapInput.mouseX,
+            kanvas_mouse_y: () => dapInput.mouseY,
+            kanvas_mouse_klik: () => dapInput.mouseClick,
+            kanvas_tombol_ditekan: (ptr, len) => {
+              const arr = new Uint8Array(wasmMemory.buffer, ptr, len);
+              const k = new TextDecoder().decode(arr).toLowerCase();
+              return dapInput.keys.has(k) ? 1n : 0n;
+            },
+            kanvas_delta_waktu: () => dapInput.deltaTime,
+            waktu_sekarang_ms: () => BigInt(Date.now()),
+            audio_mainkan_nada: (freq, dur, vol) => {
+              try {
+                resumeAudio();
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now);
+                gain.gain.setValueAtTime(0.0001, now);
+                gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, Math.min(1.0, vol)), now + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(now); osc.stop(now + dur + 0.05);
+              } catch(e) {}
+            },
+            audio_mainkan_gelombang: (tipe, freq, dur, vol) => {
+              try {
+                resumeAudio();
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                const types = ['sine', 'square', 'sawtooth', 'triangle'];
+                osc.type = types[Number(tipe) % 4] || 'sine';
+                osc.frequency.setValueAtTime(freq, now);
+                gain.gain.setValueAtTime(0.0001, now);
+                gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, Math.min(1.0, vol)), now + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(now); osc.stop(now + dur + 0.05);
+              } catch(e) {}
+            },
+            audio_efek_suara: (tipe) => {
+              try {
+                resumeAudio();
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                const t = Number(tipe);
+                if (t === 0) {
+                  osc.type = 'sine'; osc.frequency.setValueAtTime(1000, now);
+                  gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+                  osc.start(now); osc.stop(now + 0.09);
+                } else if (t === 1) {
+                  osc.type = 'square'; osc.frequency.setValueAtTime(150, now);
+                  osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                  gain.gain.setValueAtTime(0.25, now); gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+                  osc.start(now); osc.stop(now + 0.17);
+                } else if (t === 2) {
+                  osc.type = 'sine'; osc.frequency.setValueAtTime(987.77, now);
+                  osc.frequency.setValueAtTime(1318.51, now + 0.08);
+                  gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+                  osc.start(now); osc.stop(now + 0.36);
+                } else if (t === 3) {
+                  osc.type = 'sawtooth'; osc.frequency.setValueAtTime(220, now);
+                  osc.frequency.exponentialRampToValueAtTime(30, now + 0.35);
+                  gain.gain.setValueAtTime(0.4, now); gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+                  osc.start(now); osc.stop(now + 0.39);
+                }
+              } catch(e) {}
+            },
+            audio_frekuensi_nada: (ptr, len) => 440.0,
+            audio_set_volume: () => {},
+            audio_hentikan_semua: () => { if (audioCtx) audioCtx.close(); audioCtx = null; },
+          }
+        };
+
+        const { instance } = await WebAssembly.instantiate(bytes, importObject);
+        wasmInstance = instance;
+        wasmMemory = instance.exports.memory;
+
+        console.log('[DapCode Mobile] WebAssembly siap dieksekusi.');
+
+        if (instance.exports.utama) {
+          instance.exports.utama();
+        }
+
+        // Cari fungsi siklus render animasi grafis
+        const loopFn = instance.exports.render_game ||
+                       instance.exports.gambar_tata_surya ||
+                       instance.exports.perbarui_layar ||
+                       instance.exports.render ||
+                       instance.exports.gambar;
+
+        let frameCount = 0;
+        let lastFpsUpdate = performance.now();
+
+        function mainLoop(now) {
+          dapInput.deltaTime = Math.min(0.1, (now - dapInput.lastFrameTime) / 1000);
+          dapInput.lastFrameTime = now;
+
+          frameCount++;
+          if (now - lastFpsUpdate >= 1000) {
+            dapInput.fps = frameCount;
+            document.getElementById('fps-meter').textContent = `${frameCount} FPS`;
+            frameCount = 0;
+            lastFpsUpdate = now;
+          }
+
+          if (loopFn) {
+            loopFn();
+          }
+
+          requestAnimationFrame(mainLoop);
+        }
+
+        requestAnimationFrame(mainLoop);
+      } catch (err) {
+        console.error('[DapCode Mobile] Gagal menginisialisasi WASM:', err);
+      }
+    }
+
+    initMobileWasm();
+  </script>
+</body>
+</html>

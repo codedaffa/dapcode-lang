@@ -1,0 +1,33 @@
+// ============================================================================
+// 🧮 Logika Bisnis Murni Kalkulator DapCode
+// Mengimplementasikan operasi aritmatika tanpa ketergantungan UI/Kanvas
+// ============================================================================
+
+fungsi hitung_aritmatika(n1: f64, op: Teks, n2: f64) -> f64 {
+    jika op == "+" {
+        kembali n1 + n2
+    } selain_itu jika op == "-" {
+        kembali n1 - n2
+    } selain_itu jika op == "*" {
+        kembali n1 * n2
+    } selain_itu jika op == "/" {
+        jika n2 != 0.0 {
+            kembali n1 / n2
+        } selain_itu {
+            kembali 0.0
+        }
+    }
+    kembali n2
+}
+
+fungsi hitung_persen(n: f64) -> f64 {
+    kembali n / 100.0
+}
+
+fungsi hitung_negasi(n: f64) -> f64 {
+    kembali n * -1.0
+}
+
+fungsi potong_digit_terakhir(n: f64) -> f64 {
+    kembali lantai(n / 10.0)
+}

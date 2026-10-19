@@ -1,0 +1,376 @@
+// ============================================================================
+// 📱 Demo Kalkulator Mobile Native DapCode (Direct GPU 60 FPS)
+// Mendukung input sentuh / klik tombol angka, operasi +, -, *, /, %, +/-, Hapus
+// Tata Letak 100% Responsif Dinamis (Dapat Diperbesar & Diperkecil Bebas)
+// ============================================================================
+
+fungsi gambar_status_bar(w: f64) -> Unit {
+    kanvas_warna_isi(0.04, 0.06, 0.12, 0.95)
+    kanvas_persegi(0.0, 0.0, w, 24.0)
+    
+    // Teks Jam
+    kanvas_warna_isi(0.9, 0.95, 1.0, 0.9)
+    kanvas_teks("09:41", 14.0, 16.0, 10.5)
+    
+    // Ikon Sinyal
+    kanvas_warna_isi(0.2, 0.85, 0.5, 0.9)
+    kanvas_persegi(w - 56.0, 8.0, 3.0, 8.0)
+    kanvas_persegi(w - 50.0, 6.0, 3.0, 10.0)
+    kanvas_persegi(w - 44.0, 4.0, 3.0, 12.0)
+    
+    // Bingkai Baterai
+    kanvas_warna_garis(0.9, 0.95, 1.0, 0.7)
+    kanvas_tebal_garis(1.0)
+    kanvas_bingkai_persegi(w - 30.0, 5.0, 18.0, 10.0)
+    kanvas_warna_isi(0.2, 0.9, 0.5, 0.9)
+    kanvas_persegi(w - 28.0, 7.0, 12.0, 6.0)
+}
+
+fungsi gambar_app_bar(w: f64) -> Unit {
+    kanvas_warna_isi(0.06, 0.10, 0.20, 0.98)
+    kanvas_persegi(0.0, 24.0, w, 54.0)
+    
+    kanvas_warna_isi(0.12, 0.55, 0.95, 0.9)
+    kanvas_persegi(0.0, 77.0, w, 1.5)
+    
+    // Judul & Badge
+    kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
+    kanvas_teks("Kalkulator DapCode", 14.0, 48.0, 15.0)
+    
+    kanvas_warna_isi(0.02, 0.45, 0.85, 0.4)
+    kanvas_persegi(14.0, 56.0, 145.0, 14.0)
+    kanvas_warna_garis(0.25, 0.75, 1.0, 0.8)
+    kanvas_tebal_garis(1.0)
+    kanvas_bingkai_persegi(14.0, 56.0, 145.0, 14.0)
+    
+    kanvas_warna_isi(0.4, 0.9, 1.0, 1.0)
+    kanvas_teks("DIRECT GPU • TOUCH READY", 18.0, 67.0, 8.5)
+}
+
+fungsi gambar_layar_tampilan(w: f64, sy: f64, sh: f64, riwayat: Teks, tampilan: Teks) -> Unit {
+    sx := 14.0
+    sw := w - 28.0
+
+    // Kotak Display Glassmorphism
+    kanvas_warna_isi(0.07, 0.11, 0.22, 0.95)
+    kanvas_persegi(sx, sy, sw, sh)
+
+    kanvas_warna_garis(0.22, 0.48, 0.85, 0.6)
+    kanvas_tebal_garis(1.5)
+    kanvas_bingkai_persegi(sx, sy, sw, sh)
+
+    // Indikator Titik Status Hijau
+    kanvas_warna_isi(0.2, 0.9, 0.4, 0.8)
+    kanvas_lingkaran(sx + 14.0, sy + 18.0, 3.5)
+    kanvas_warna_isi(0.5, 0.75, 0.95, 0.8)
+    kanvas_teks("Display Aktif", sx + 24.0, sy + 21.0, 9.0)
+
+    // Riwayat Operasi Sebelumnya (Baris Atas)
+    kanvas_warna_isi(0.55, 0.72, 0.95, 0.85)
+    kanvas_teks(riwayat, sx + 14.0, sy + sh * 0.45, 12.0)
+
+    // Angka Utama / Hasil (Baris Bawah Besar)
+    kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
+    kanvas_teks(tampilan, sx + 14.0, sy + sh * 0.85, 20.0)
+}
+
+fungsi gambar_tombol(label: Teks, bx: f64, by: f64, bw: f64, bh: f64, jenis: u64, mx: f64, my: f64, klik: u64) -> Unit {
+    hover := (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh)
+    ditekan := hover && (klik == 1)
+
+    // Pemilihan warna latar belakang tombol
+    jika jenis == 3 {
+        // Tombol Sama Dengan (=): Aksen Hijau Emerald
+        jika ditekan {
+            kanvas_warna_isi(0.20, 0.90, 0.60, 1.0)
+        } selain_itu jika hover {
+            kanvas_warna_isi(0.16, 0.78, 0.50, 1.0)
+        } selain_itu {
+            kanvas_warna_isi(0.12, 0.68, 0.42, 0.95)
+        }
+    } selain_itu jika jenis == 2 {
+        // Tombol Operator (+, -, *, /): Aksen Biru Modern
+        jika ditekan {
+            kanvas_warna_isi(0.35, 0.78, 1.0, 1.0)
+        } selain_itu jika hover {
+            kanvas_warna_isi(0.20, 0.65, 0.95, 1.0)
+        } selain_itu {
+            kanvas_warna_isi(0.08, 0.50, 0.88, 0.95)
+        }
+    } selain_itu jika jenis == 1 {
+        // Tombol Fungsi (C, +/-, %): Abu-abu Keunguan
+        jika ditekan {
+            kanvas_warna_isi(0.35, 0.40, 0.55, 1.0)
+        } selain_itu jika hover {
+            kanvas_warna_isi(0.28, 0.32, 0.44, 1.0)
+        } selain_itu {
+            kanvas_warna_isi(0.18, 0.22, 0.32, 0.95)
+        }
+    } selain_itu {
+        // Tombol Angka (0-9, .): Gelap Elegan
+        jika ditekan {
+            kanvas_warna_isi(0.25, 0.30, 0.42, 1.0)
+        } selain_itu jika hover {
+            kanvas_warna_isi(0.18, 0.23, 0.35, 1.0)
+        } selain_itu {
+            kanvas_warna_isi(0.10, 0.14, 0.24, 0.95)
+        }
+    }
+
+    kanvas_persegi(bx, by, bw, bh)
+
+    // Border tombol
+    kanvas_warna_garis(0.25, 0.45, 0.75, 0.45)
+    kanvas_tebal_garis(1.0)
+    kanvas_bingkai_persegi(bx, by, bw, bh)
+
+    // Label Teks
+    kanvas_warna_isi(1.0, 1.0, 1.0, 1.0)
+    tx := bx + bw / 2.0 - 5.0
+    ty := by + bh / 2.0 + 5.0
+    kanvas_teks(label, tx, ty, 13.0)
+}
+
+fungsi tombol_ditekan(bx: f64, by: f64, bw: f64, bh: f64, mx: f64, my: f64, baru_klik: Bool) -> Bool {
+    jika baru_klik {
+        jika mx >= bx && mx <= bx + bw && my >= by && my <= by + bh {
+            kembali benar
+        }
+    }
+    kembali salah
+}
+
+fungsi input_angka(digit: Teks) -> Unit {
+    cur := kanvas_ambil_teks("tampilan")
+    reset := kanvas_ambil_u64("reset")
+
+    jika reset == 1 || cur == "0" {
+        kanvas_simpan_teks("tampilan", digit)
+        kanvas_simpan_u64("reset", 0)
+    } selain_itu {
+        baru := "{cur}{digit}"
+        kanvas_simpan_teks("tampilan", baru)
+    }
+}
+
+fungsi input_operator(op: Teks) -> Unit {
+    cur := kanvas_ambil_teks("tampilan")
+    num := ke_desimal(cur)
+
+    kanvas_simpan_angka("angka1", num)
+    kanvas_simpan_teks("op", op)
+    kanvas_simpan_teks("riwayat", "{cur} {op}")
+    kanvas_simpan_u64("reset", 1)
+}
+
+fungsi hitung_hasil() -> Unit {
+    op := kanvas_ambil_teks("op")
+    jika op == "" {
+        kembali
+    }
+
+    n1 := kanvas_ambil_angka("angka1")
+    cur_str := kanvas_ambil_teks("tampilan")
+    n2 := ke_desimal(cur_str)
+
+    hasil := 0.0
+    jika op == "+" {
+        hasil = n1 + n2
+    } selain_itu jika op == "-" {
+        hasil = n1 - n2
+    } selain_itu jika op == "*" {
+        hasil = n1 * n2
+    } selain_itu jika op == "/" {
+        jika n2 != 0.0 {
+            hasil = n1 / n2
+        } selain_itu {
+            kanvas_simpan_teks("tampilan", "Error (Bagi 0)")
+            kanvas_simpan_teks("riwayat", "")
+            kanvas_simpan_teks("op", "")
+            kanvas_simpan_u64("reset", 1)
+            kembali
+        }
+    }
+
+    hasil_str := format_desimal(hasil)
+    kanvas_simpan_teks("tampilan", hasil_str)
+    kanvas_simpan_teks("riwayat", "{n1} {op} {n2} =")
+    kanvas_simpan_teks("op", "")
+    kanvas_simpan_u64("reset", 1)
+}
+
+fungsi bersihkan_kalkulator() -> Unit {
+    kanvas_simpan_teks("tampilan", "0")
+    kanvas_simpan_teks("riwayat", "")
+    kanvas_simpan_angka("angka1", 0.0)
+    kanvas_simpan_teks("op", "")
+    kanvas_simpan_u64("reset", 0)
+}
+
+fungsi input_persen() -> Unit {
+    cur := kanvas_ambil_teks("tampilan")
+    num := ke_desimal(cur)
+    hasil := num / 100.0
+    kanvas_simpan_teks("tampilan", format_desimal(hasil))
+}
+
+fungsi input_negasi() -> Unit {
+    cur := kanvas_ambil_teks("tampilan")
+    num := ke_desimal(cur)
+    hasil := num * -1.0
+    kanvas_simpan_teks("tampilan", format_desimal(hasil))
+}
+
+fungsi hapus_satu_karakter() -> Unit {
+    cur := kanvas_ambil_teks("tampilan")
+    pjg := panjang_teks(cur)
+    jika pjg <= 1 {
+        kanvas_simpan_teks("tampilan", "0")
+    } selain_itu {
+        // Jika lebih dari 1 karakter, kurangi angka terakhir secara numerik
+        num := ke_desimal(cur)
+        dipotong := lantai(num / 10.0)
+        kanvas_simpan_teks("tampilan", format_desimal(dipotong))
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Siklus Render Animasi Utama (Dipanggil 60 FPS oleh Direct GPU Engine)
+// ----------------------------------------------------------------------------
+fungsi render() -> Unit {
+    w := kanvas_lebar()
+    h := kanvas_tinggi()
+    mx := kanvas_mouse_x()
+    my := kanvas_mouse_y()
+    klik := kanvas_mouse_klik()
+
+    // Inisialisasi State Kalkulator jika belum pernah
+    jika kanvas_ambil_u64("diinisialisasi") == 0 {
+        bersihkan_kalkulator()
+        kanvas_simpan_u64("diinisialisasi", 1)
+    }
+
+    // Deteksi Tap / Klik Tunggal (Edge Trigger)
+    klik_lama := kanvas_ambil_u64("klik_lama")
+    baru_klik := (klik == 1) && (klik_lama == 0)
+    kanvas_simpan_u64("klik_lama", klik)
+
+    // 1. Bersihkan Latar Belakang Kanvas (Deep Navy Premium)
+    kanvas_bersihkan(0.03, 0.05, 0.10, 1.0)
+
+    // 2. Header Atas
+    gambar_status_bar(w)
+    gambar_app_bar(w)
+
+    // 3. Tata Letak Responsif Keypad & Display
+    margin_x := 14.0
+    gap := 8.0
+    cols := 4.0
+    usable_w := w - margin_x * 2.0
+    btn_w := (usable_w - gap * (cols - 1.0)) / cols
+
+    footer_h := 36.0
+    keypad_bottom := h - footer_h - 10.0
+
+    // Keypad 5 Baris
+    rows := 5.0
+    keypad_h := btn_w * 5.0
+    jika keypad_h > (keypad_bottom - 170.0) {
+        keypad_h = keypad_bottom - 170.0
+    }
+    btn_h := (keypad_h - gap * (rows - 1.0)) / rows
+    keypad_y := keypad_bottom - keypad_h
+
+    // Display Area di atas Keypad
+    disp_y := 86.0
+    disp_h := keypad_y - disp_y - 12.0
+    jika disp_h < 50.0 { disp_h = 50.0 }
+
+    tampilan := kanvas_ambil_teks("tampilan")
+    riwayat := kanvas_ambil_teks("riwayat")
+    gambar_layar_tampilan(w, disp_y, disp_h, riwayat, tampilan)
+
+    // Baris 0: [ C ] [ +/- ] [ % ] [ / ]
+    bx0 := margin_x + 0.0 * (btn_w + gap)
+    bx1 := margin_x + 1.0 * (btn_w + gap)
+    bx2 := margin_x + 2.0 * (btn_w + gap)
+    bx3 := margin_x + 3.0 * (btn_w + gap)
+    by0 := keypad_y + 0.0 * (btn_h + gap)
+
+    gambar_tombol("C", bx0, by0, btn_w, btn_h, 1, mx, my, klik)
+    jika tombol_ditekan(bx0, by0, btn_w, btn_h, mx, my, baru_klik) { bersihkan_kalkulator() }
+
+    gambar_tombol("+/-", bx1, by0, btn_w, btn_h, 1, mx, my, klik)
+    jika tombol_ditekan(bx1, by0, btn_w, btn_h, mx, my, baru_klik) { input_negasi() }
+
+    gambar_tombol("%", bx2, by0, btn_w, btn_h, 1, mx, my, klik)
+    jika tombol_ditekan(bx2, by0, btn_w, btn_h, mx, my, baru_klik) { input_persen() }
+
+    gambar_tombol("/", bx3, by0, btn_w, btn_h, 2, mx, my, klik)
+    jika tombol_ditekan(bx3, by0, btn_w, btn_h, mx, my, baru_klik) { input_operator("/") }
+
+    // Baris 1: [ 7 ] [ 8 ] [ 9 ] [ * ]
+    by1 := keypad_y + 1.0 * (btn_h + gap)
+    gambar_tombol("7", bx0, by1, btn_w, btn_h, 0, mx, my, klik)
+    jika tombol_ditekan(bx0, by1, btn_w, btn_h, mx, my, baru_klik) { input_angka("7") }
+
+    gambar_tombol("8", bx1, by1, btn_w, btn_h, 0, mx, my, klik)
+    jika tombol_ditekan(bx1, by1, btn_w, btn_h, mx, my, baru_klik) { input_angka("8") }
+
+    gambar_tombol("9", bx2, by1, btn_w, btn_h, 0, mx, my, klik)
+    jika tombol_ditekan(bx2, by1, btn_w, btn_h, mx, my, baru_klik) { input_angka("9") }
+
+    gambar_tombol("*", bx3, by1, btn_w, btn_h, 2, mx, my, klik)
+    jika tombol_ditekan(bx3, by1, btn_w, btn_h, mx, my, baru_klik) { input_operator("*") }
+
+    // Baris 2: [ 4 ] [ 5 ] [ 6 ] [ - ]
+    by2 := keypad_y + 2.0 * (btn_h + gap)
+    gambar_tombol("4", bx0, by2, btn_w, btn_h, 0, mx, my, klik)
+    jika tombol_ditekan(bx0, by2, btn_w, btn_h, mx, my, baru_klik) { input_angka("4") }
+
+    gambar_tombol("5", bx1, by2, btn_w, btn_h, 0, mx, my, klik)
+    jika tombol_ditekan(bx1, by2, btn_w, btn_h, mx, my, baru_klik) { input_angka("5") }
+
+    gambar_tombol("6", bx2, by2, btn_w, btn_h, 0, mx, my, klik)
+    jika tombol_ditekan(bx2, by2, btn_w, btn_h, mx, my, baru_klik) { input_angka("6") }
+
+    gambar_tombol("-", bx3, by2, btn_w, btn_h, 2, mx, my, klik)
+    jika tombol_ditekan(bx3, by2, btn_w, btn_h, mx, my, baru_klik) { input_operator("-") }
+
+    // Baris 3: [ 1 ] [ 2 ] [ 3 ] [ + ]
+    by3 := keypad_y + 3.0 * (btn_h + gap)
+    gambar_tombol("1", bx0, by3, btn_w, btn_h, 0, mx, my, klik)
+    jika tombol_ditekan(bx0, by3, btn_w, btn_h, mx, my, baru_klik) { input_angka("1") }
+
+    gambar_tombol("2", bx1, by3, btn_w, btn_h, 0, mx, my, klik)
+    jika tombol_ditekan(bx1, by3, btn_w, btn_h, mx, my, baru_klik) { input_angka("2") }
+
+    gambar_tombol("3", bx2, by3, btn_w, btn_h, 0, mx, my, klik)
+    jika tombol_ditekan(bx2, by3, btn_w, btn_h, mx, my, baru_klik) { input_angka("3") }
+
+    gambar_tombol("+", bx3, by3, btn_w, btn_h, 2, mx, my, klik)
+    jika tombol_ditekan(bx3, by3, btn_w, btn_h, mx, my, baru_klik) { input_operator("+") }
+
+    // Baris 4: [ 0 ] [ . ] [ < ] [ = ]
+    by4 := keypad_y + 4.0 * (btn_h + gap)
+    gambar_tombol("0", bx0, by4, btn_w, btn_h, 0, mx, my, klik)
+    jika tombol_ditekan(bx0, by4, btn_w, btn_h, mx, my, baru_klik) { input_angka("0") }
+
+    gambar_tombol(".", bx1, by4, btn_w, btn_h, 0, mx, my, klik)
+    jika tombol_ditekan(bx1, by4, btn_w, btn_h, mx, my, baru_klik) { input_angka(".") }
+
+    gambar_tombol("<", bx2, by4, btn_w, btn_h, 1, mx, my, klik)
+    jika tombol_ditekan(bx2, by4, btn_w, btn_h, mx, my, baru_klik) { hapus_satu_karakter() }
+
+    gambar_tombol("=", bx3, by4, btn_w, btn_h, 3, mx, my, klik)
+    jika tombol_ditekan(bx3, by4, btn_w, btn_h, mx, my, baru_klik) { hitung_hasil() }
+
+    // Footer Info
+    kanvas_warna_isi(0.4, 0.6, 0.85, 0.7)
+    kanvas_teks("Sentuh tombol untuk menghitung • 60 FPS", margin_x, h - 14.0, 9.0)
+}
+
+fungsi utama() -> u64 {
+    render()
+    kembali 0
+}

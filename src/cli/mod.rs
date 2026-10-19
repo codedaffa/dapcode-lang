@@ -53,25 +53,25 @@ pub enum Commands {
         /// Berkas sumber .dap (opsional jika DapCode.toml ada di direktori saat ini)
         file: Option<PathBuf>,
     },
-    /// Mengompilasi program DapCode ke berkas binary mandiri (native, wasm, atau bundel mobile PWA)
+    /// Mengompilasi program DapCode ke berkas binary mandiri (native, wasm, atau proyek mobile native)
     Build {
         /// Berkas sumber .dap (opsional jika DapCode.toml ada di direktori saat ini)
         file: Option<PathBuf>,
-        /// Berkas keluaran binary (.exe atau .wasm) atau folder bundel mobile
+        /// Berkas keluaran binary (.exe atau .wasm) atau folder proyek mobile
         #[arg(short, long)]
         output: Option<PathBuf>,
-        /// Target kompilasi: "native" (default), "wasm", atau "mobile" / "pwa"
+        /// Target kompilasi: "native" (default), "wasm", atau "mobile"
         #[arg(short, long, default_value = "native")]
         target: String,
         /// Pintasan kompilasi ke WebAssembly (--target wasm)
         #[arg(long)]
         wasm: bool,
-        /// Bangun sebagai bundel aplikasi mobile lengkap (PWA + Android WebView Template)
+        /// Bangun sebagai proyek aplikasi mobile native (Android Studio NDK, iOS Xcode & Desktop Simulator)
         #[arg(long)]
         mobile: bool,
-        /// Pintasan untuk membangun PWA (Progressive Web App)
+        /// Pintasan bangun biner native terakselerasi GPU (Direct GPU Rendering ala Flutter)
         #[arg(long)]
-        pwa: bool,
+        gpu: bool,
     },
     /// Menampilkan pohon sintaks abstrak (Abstract Syntax Tree / AST)
     DumpAst {
@@ -179,39 +179,37 @@ pub enum Commands {
         #[arg(long, default_value_t = false)]
         open: bool,
     },
-    /// Membangun, mengemas, atau menyajikan aplikasi mobile DapCode (PWA & Android WebView Bundler)
+    /// Membangun dan menjalankan aplikasi mobile native DapCode (Direct GPU Rendering ala Flutter)
     #[command(subcommand)]
     Mobile(MobileCommands),
 }
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum MobileCommands {
-    /// Menginisialisasi proyek aplikasi mobile DapCode baru dengan dukungan layar sentuh (touch screen)
+    /// Menginisialisasi proyek aplikasi mobile native DapCode baru dengan arsitektur Direct GPU 60 FPS
     Init {
         /// Nama aplikasi atau direktori target (opsional, default: "app_mobile")
         name: Option<String>,
     },
-    /// Membangun bundel aplikasi mobile lengkap (PWA, WebAssembly, dan template Android WebView)
+    /// Membangun proyek aplikasi mobile native (Android Studio NDK, iOS Xcode & Desktop Simulator)
     Build {
         /// Berkas sumber .dap (opsional jika DapCode.toml ada di direktori saat ini)
         file: Option<PathBuf>,
-        /// Direktori keluaran bundel aplikasi mobile (default: "`<nama>`_mobile")
+        /// Direktori keluaran proyek aplikasi mobile (default: direktori proyek)
         #[arg(short, long)]
         output: Option<PathBuf>,
-        /// Nama tampilan aplikasi mobile (default: dari nama berkas)
+        /// Nama tampilan aplikasi mobile (default: dari nama berkas/manifes)
         #[arg(short, long)]
         name: Option<String>,
     },
-    /// Menjalankan server pengembangan mobile lokal dengan QR Code & akses Wi-Fi untuk pengujian instan di HP
-    Serve {
+    /// Menjalankan simulator layar ponsel desktop langsung (Direct GPU 60 FPS dengan Live Hot-Reload)
+    #[command(alias = "run")]
+    Preview {
         /// Berkas sumber .dap (opsional jika DapCode.toml ada di direktori saat ini)
         file: Option<PathBuf>,
-        /// Port HTTP server (default: 8080)
-        #[arg(short, long, default_value_t = 8080)]
-        port: u16,
-        /// Buka langsung di peramban web desktop
-        #[arg(long, default_value_t = false)]
-        open: bool,
+        /// Pantau perubahan berkas dan lakukan kompilasi ulang otomatis saat disimpan (Hot-Reload / Live Watch)
+        #[arg(short, long, default_value_t = true)]
+        watch: bool,
     },
 }
 
@@ -313,8 +311,8 @@ pub fn run_cli() -> io::Result<()> {
             target,
             wasm,
             mobile,
-            pwa,
-        } => cmd_build(file.as_deref(), output, &target, wasm, mobile || pwa),
+            gpu,
+        } => cmd_build(file.as_deref(), output, &target, wasm, mobile || gpu),
         Commands::Mobile(mob_cmd) => handle_mobile_cmd(mob_cmd),
         Commands::DumpAst { file } => cmd_dump_ast(file.as_deref()),
         Commands::DumpIr { file } => cmd_dump_ir(file.as_deref()),
@@ -601,29 +599,28 @@ fn cmd_build(
         return Ok(());
     }
 
-    if is_mobile || target_arch.to_lowercase() == "mobile" || target_arch.to_lowercase() == "pwa" {
+    if is_mobile || target_arch.to_lowercase() == "mobile" {
         let app_stem = target.file_stem().and_then(|s| s.to_str()).unwrap_or("app");
         let target_dir = output.unwrap_or_else(|| {
-            target.parent().unwrap_or(Path::new(".")).join(format!("{}_mobile", app_stem))
+            if let Some((manifest_path, _)) = ProjectManifest::find_upwards(&target) {
+                manifest_path.parent().unwrap_or(Path::new(".")).to_path_buf()
+            } else {
+                target.parent().unwrap_or(Path::new(".")).join(format!("{}_mobile", app_stem))
+            }
         });
         println!(
-            "{} Mengompilasi '{}' ke bundel aplikasi Mobile (PWA & Android WebView)...",
+            "{} Mengompilasi '{}' ke proyek aplikasi Mobile Native Direct GPU (Android, iOS & Desktop)...",
             "info:".blue().bold(),
             target.display()
         );
 
-        let mut emitter = crate::wasm::WasmEmitter::new();
-        match emitter.compile_program(&program) {
-            Ok(wasm_bytes) => {
-                if let Err(e) = crate::mobile::build_mobile_bundle(&wasm_bytes, app_stem, &target_dir) {
-                    eprintln!("{} Gagal membangun bundel mobile: {}", "kesalahan:".red().bold(), e);
-                    return Ok(());
-                }
-            }
-            Err(diag) => {
-                eprint!("{}", diag.render(&sm));
-            }
+        let ownership = crate::ownership::OwnershipAnalyzer::new().analyze_program(&program);
+        let mut codegen = crate::codegen::CodeGenerator::new(&ownership);
+        let c_code = codegen.generate_c(&program);
+        if let Err(e) = crate::mobile::gpu_engine::build_native_gpu_bundle(&c_code, app_stem, &target_dir) {
+            eprintln!("{} Gagal membangun proyek native GPU: {}", "kesalahan:".red().bold(), e);
         }
+
         return Ok(());
     }
 
@@ -1932,7 +1929,11 @@ pub fn handle_pkg_cmd(cmd: PkgCommands) -> io::Result<()> {
 pub fn handle_mobile_cmd(cmd: MobileCommands) -> io::Result<()> {
     match cmd {
         MobileCommands::Init { name } => crate::mobile::cmd_mobile_init(name.as_deref()),
-        MobileCommands::Build { file, output, name } => {
+        MobileCommands::Build {
+            file,
+            output,
+            name,
+        } => {
             let target = resolve_target_file(file.as_deref())?;
             let mut sm = SourceMap::new();
             let (file_id, mut program) = match load_program_and_modules(&target, &mut sm) {
@@ -1950,34 +1951,49 @@ pub fn handle_mobile_cmd(cmd: MobileCommands) -> io::Result<()> {
             }
 
             let app_title = name.unwrap_or_else(|| {
-                target.file_stem().and_then(|s| s.to_str()).unwrap_or("dapcode_app").to_string()
+                target
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("dapcode_app")
+                    .to_string()
             });
 
             let out_dir = output.unwrap_or_else(|| {
-                target.parent().unwrap_or(Path::new(".")).join(format!("{}_mobile", app_title))
+                if let Some((manifest_path, _)) = ProjectManifest::find_upwards(&target) {
+                    manifest_path.parent().unwrap_or(Path::new(".")).to_path_buf()
+                } else {
+                    target
+                        .parent()
+                        .unwrap_or(Path::new("."))
+                        .join(format!("{}_mobile", app_title))
+                }
             });
 
             println!(
-                "{} Mengompilasi '{}' ke bundel aplikasi Mobile...",
+                "{} Mengompilasi '{}' ke proyek aplikasi Mobile Native Direct GPU (Android, iOS & Desktop)...",
                 "info:".blue().bold(),
                 target.display()
             );
 
-            let mut emitter = crate::wasm::WasmEmitter::new();
-            match emitter.compile_program(&program) {
-                Ok(wasm_bytes) => {
-                    if let Err(e) = crate::mobile::build_mobile_bundle(&wasm_bytes, &app_title, &out_dir) {
-                        eprintln!("{} Gagal membuat bundel mobile: {}", "kesalahan:".red().bold(), e);
-                    }
-                }
-                Err(diag) => {
-                    eprint!("{}", diag.render(&sm));
-                }
+            // Ekspor Proyek Native Direct GPU (Flutter-style)
+            let ownership = crate::ownership::OwnershipAnalyzer::new().analyze_program(&program);
+            let mut codegen = crate::codegen::CodeGenerator::new(&ownership);
+            let c_code = codegen.generate_c(&program);
+            if let Err(e) = crate::mobile::gpu_engine::build_native_gpu_bundle(&c_code, &app_title, &out_dir) {
+                eprintln!("{} Gagal membuat proyek native GPU: {}", "kesalahan:".red().bold(), e);
             }
+
             Ok(())
         }
-        MobileCommands::Serve { file, port, open } => {
-            crate::mobile::cmd_mobile_serve(file.as_deref(), port, open)
+        MobileCommands::Preview { file, watch } => {
+            let target = resolve_target_file(file.as_deref())?;
+            let app_title = target
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("DapCode App")
+                .to_string();
+
+            crate::mobile::gpu_engine::run_desktop_gpu_preview(&target, &app_title, watch)
         }
     }
 }
@@ -1995,10 +2011,6 @@ pub fn cmd_test(file: Option<&Path>, filter: Option<&str>) -> io::Result<()> {
             return Err(io::Error::new(io::ErrorKind::NotFound, "Path tidak ditemukan"));
         }
     } else {
-        let tests_dir = Path::new("tests");
-        if tests_dir.is_dir() {
-            collect_dap_files(tests_dir, &mut files_to_test)?;
-        }
         if let Some((manifest_path, manifest)) = ProjectManifest::find_upwards(Path::new(".")) {
             let manifest_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
             let main_path = manifest_dir.join(&manifest.berkas_utama);
@@ -2009,13 +2021,31 @@ pub fn cmd_test(file: Option<&Path>, filter: Option<&str>) -> io::Result<()> {
             if src_dir.is_dir() {
                 collect_dap_files(&src_dir, &mut files_to_test)?;
             }
-        } else if files_to_test.is_empty() {
-            collect_dap_files(Path::new("."), &mut files_to_test)?;
+            let uji_sub = manifest_dir.join("uji");
+            if uji_sub.is_dir() {
+                collect_dap_files(&uji_sub, &mut files_to_test)?;
+            }
+            let tests_sub = manifest_dir.join("tests");
+            if tests_sub.is_dir() {
+                collect_dap_files(&tests_sub, &mut files_to_test)?;
+            }
+        } else {
+            let tests_dir = Path::new("tests");
+            if tests_dir.is_dir() {
+                collect_dap_files(tests_dir, &mut files_to_test)?;
+            }
+            let uji_dir = Path::new("uji");
+            if uji_dir.is_dir() {
+                collect_dap_files(uji_dir, &mut files_to_test)?;
+            }
+            if files_to_test.is_empty() {
+                collect_dap_files(Path::new("."), &mut files_to_test)?;
+            }
         }
     }
 
-    files_to_test.sort();
-    files_to_test.dedup();
+    files_to_test.sort_by_key(|p| p.canonicalize().unwrap_or_else(|_| p.clone()));
+    files_to_test.dedup_by_key(|p| p.canonicalize().unwrap_or_else(|_| p.clone()));
 
     if files_to_test.is_empty() {
         println!("{}: Tidak ada berkas .dap yang ditemukan untuk diuji.", "info:".blue().bold());

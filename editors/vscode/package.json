@@ -2,7 +2,7 @@
     "name": "dapcode-lang",
     "displayName": "DapCode Language Support",
     "description": "Syntax highlighting, LSP with Code Actions & Quick Fixes, interactive Debugger (DAP) with breakpoints & variable inspection, Go to Definition, outline symbols, snippets, doc generator, test runner, and interactive REPL for DapCode (.dap)",
-    "version": "0.7.4",
+    "version": "0.7.7",
     "publisher": "dapcode-core",
     "icon": "icons/dapcode.png",
     "repository": {
@@ -40,7 +40,7 @@
         "onCommand:dapcode.check",
         "onCommand:dapcode.build",
         "onCommand:dapcode.buildMobile",
-        "onCommand:dapcode.serveMobile",
+        "onCommand:dapcode.previewMobileGpu",
         "onCommand:dapcode.debug",
         "onCommand:dapcode.restartLsp"
     ],
@@ -122,64 +122,77 @@
             {
                 "command": "dapcode.run",
                 "title": "DapCode: Jalankan Berkas Aktif (Run)",
-                "category": "DapCode"
+                "category": "DapCode",
+                "icon": "$(play)"
             },
             {
                 "command": "dapcode.test",
                 "title": "DapCode: Jalankan Pengujian Unit (Test)",
-                "category": "DapCode"
+                "category": "DapCode",
+                "icon": "$(beaker)"
             },
             {
                 "command": "dapcode.repl",
                 "title": "DapCode: Buka Interactive REPL",
-                "category": "DapCode"
+                "category": "DapCode",
+                "icon": "$(terminal)"
             },
             {
                 "command": "dapcode.doc",
                 "title": "DapCode: Hasilkan Dokumentasi Proyek (Doc)",
-                "category": "DapCode"
+                "category": "DapCode",
+                "icon": "$(book)"
             },
             {
                 "command": "dapcode.check",
                 "title": "DapCode: Periksa Tipe & Kepemilikan (Check)",
-                "category": "DapCode"
+                "category": "DapCode",
+                "icon": "$(shield)"
             },
             {
                 "command": "dapcode.build",
                 "title": "DapCode: Kompilasi ke Biner Mandiri (Build)",
-                "category": "DapCode"
+                "category": "DapCode",
+                "icon": "$(package)"
             },
             {
                 "command": "dapcode.restartLsp",
                 "title": "DapCode: Mulai Ulang Language Server (LSP)",
-                "category": "DapCode"
+                "category": "DapCode",
+                "icon": "$(refresh)"
             },
             {
                 "command": "dapcode.debug",
                 "title": "DapCode: Debug Berkas Aktif (Debug)",
-                "category": "DapCode"
+                "category": "DapCode",
+                "icon": "$(debug-alt)"
             },
             {
                 "command": "dapcode.openPlayground",
-                "title": "DapCode: Buka Web Playground & Canvas Preview",
+                "title": "DapCode: Buka Live Canvas 2D & Playground Berkas Aktif",
                 "category": "DapCode",
                 "icon": "$(play-circle)"
             },
             {
                 "command": "dapcode.buildMobile",
-                "title": "DapCode: Bangun Aplikasi Mobile (PWA & Android Bundle)",
+                "title": "DapCode: Bangun Aplikasi Mobile Native (Android, iOS & Desktop)",
                 "category": "DapCode",
-                "icon": "$(device-mobile)"
+                "icon": "$(package)"
             },
             {
-                "command": "dapcode.serveMobile",
-                "title": "DapCode: Jalankan Server Mobile (QR Code & Wi-Fi)",
+                "command": "dapcode.previewMobileGpu",
+                "title": "DapCode: Pratinjau Mobile GPU (Direct 60 FPS Hot-Reload)",
                 "category": "DapCode",
-                "icon": "$(broadcast)"
+                "icon": "$(device-mobile)"
             }
         ],
         "menus": {
             "editor/title": [
+                {
+                    "command": "dapcode.previewMobileGpu",
+                    "when": "resourceLangId == dapcode",
+                    "group": "navigation@0"
+                },
                 {
                     "command": "dapcode.run",
                     "when": "resourceLangId == dapcode",
@@ -199,14 +212,14 @@
                     "command": "dapcode.openPlayground",
                     "when": "resourceLangId == dapcode",
                     "group": "navigation@4"
-                },
-                {
-                    "command": "dapcode.serveMobile",
-                    "when": "resourceLangId == dapcode",
-                    "group": "navigation@5"
                 }
             ],
             "editor/context": [
+                {
+                    "command": "dapcode.previewMobileGpu",
+                    "when": "resourceLangId == dapcode",
+                    "group": "1_modification@0"
+                },
                 {
                     "command": "dapcode.run",
                     "when": "resourceLangId == dapcode",
@@ -244,6 +257,14 @@
                 }
             ]
         },
+        "keybindings": [
+            {
+                "command": "dapcode.previewMobileGpu",
+                "key": "ctrl+f5",
+                "mac": "cmd+f5",
+                "when": "editorLangId == dapcode"
+            }
+        ],
         "configuration": {
             "type": "object",
             "title": "DapCode",

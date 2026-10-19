@@ -78,6 +78,7 @@ impl WasmEmitter {
         let bytes = s.as_bytes();
         let len = bytes.len() as u32;
         self.string_data.extend_from_slice(bytes);
+        self.string_data.push(0); // Null terminator untuk string WebAssembly
         self.string_offsets.insert(s.to_string(), (base_offset, len));
         (base_offset, len)
     }
@@ -136,6 +137,50 @@ impl WasmEmitter {
                 }
             }
             _ => {}
+        }
+    }
+
+    fn has_dynamic_interpolation(block: &Block) -> bool {
+        for stmt in &block.stmts {
+            match stmt {
+                Stmt::VarDecl { init, .. } => if Self::expr_has_dynamic_interpolation(init) { return true; },
+                Stmt::Assign { value, .. } => if Self::expr_has_dynamic_interpolation(value) { return true; },
+                Stmt::If { cond, then_branch, else_branch, .. } => {
+                    if Self::expr_has_dynamic_interpolation(cond) { return true; }
+                    if Self::has_dynamic_interpolation(then_branch) { return true; }
+                    if let Some(eb) = else_branch {
+                        if Self::has_dynamic_interpolation(eb) { return true; }
+                    }
+                }
+                Stmt::While { cond, body, .. } => {
+                    if Self::expr_has_dynamic_interpolation(cond) { return true; }
+                    if Self::has_dynamic_interpolation(body) { return true; }
+                }
+                Stmt::Return { value: Some(v), .. } => if Self::expr_has_dynamic_interpolation(v) { return true; },
+                Stmt::Expr(e) => if Self::expr_has_dynamic_interpolation(e) { return true; },
+                _ => {}
+            }
+        }
+        if let Some(ref e) = block.expr {
+            if Self::expr_has_dynamic_interpolation(e) { return true; }
+        }
+        false
+    }
+
+    fn expr_has_dynamic_interpolation(expr: &Expr) -> bool {
+        match expr {
+            Expr::InterpolatedString(parts, _) => {
+                parts.iter().any(|p| matches!(p, InterpolatedExprPart::Expr(_)))
+            }
+            Expr::Call { callee, args, .. } => {
+                if Self::expr_has_dynamic_interpolation(callee) { return true; }
+                args.iter().any(|a| Self::expr_has_dynamic_interpolation(&a.value))
+            }
+            Expr::Binary(lhs, _, rhs, _) => {
+                Self::expr_has_dynamic_interpolation(lhs) || Self::expr_has_dynamic_interpolation(rhs)
+            }
+            Expr::Unary(_, inner, _) => Self::expr_has_dynamic_interpolation(inner),
+            _ => false,
         }
     }
 
@@ -464,6 +509,93 @@ impl WasmEmitter {
             );
         }
 
+        // Kanvas KV & State Persistence Imports
+        if called.contains("kanvas_simpan_teks") {
+            let sig = self.get_or_add_sig(vec![WasmType::I32, WasmType::I32], vec![]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "kanvas_simpan_teks".to_string(), sig));
+            self.func_table.insert("kanvas_simpan_teks".to_string(), (func_idx, sig, FuncSignature { params: vec![WasmType::I32, WasmType::I32], results: vec![] }));
+        }
+
+        if called.contains("kanvas_ambil_teks") {
+            let sig = self.get_or_add_sig(vec![WasmType::I32], vec![WasmType::I32]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "kanvas_ambil_teks".to_string(), sig));
+            self.func_table.insert("kanvas_ambil_teks".to_string(), (func_idx, sig, FuncSignature { params: vec![WasmType::I32], results: vec![WasmType::I32] }));
+        }
+
+        if called.contains("kanvas_simpan_u64") {
+            let sig = self.get_or_add_sig(vec![WasmType::I32, WasmType::I64], vec![]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "kanvas_simpan_u64".to_string(), sig));
+            self.func_table.insert("kanvas_simpan_u64".to_string(), (func_idx, sig, FuncSignature { params: vec![WasmType::I32, WasmType::I64], results: vec![] }));
+        }
+
+        if called.contains("kanvas_ambil_u64") {
+            let sig = self.get_or_add_sig(vec![WasmType::I32], vec![WasmType::I64]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "kanvas_ambil_u64".to_string(), sig));
+            self.func_table.insert("kanvas_ambil_u64".to_string(), (func_idx, sig, FuncSignature { params: vec![WasmType::I32], results: vec![WasmType::I64] }));
+        }
+
+        if called.contains("kanvas_simpan_angka") {
+            let sig = self.get_or_add_sig(vec![WasmType::I32, WasmType::F64], vec![]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "kanvas_simpan_angka".to_string(), sig));
+            self.func_table.insert("kanvas_simpan_angka".to_string(), (func_idx, sig, FuncSignature { params: vec![WasmType::I32, WasmType::F64], results: vec![] }));
+        }
+
+        if called.contains("kanvas_ambil_angka") {
+            let sig = self.get_or_add_sig(vec![WasmType::I32], vec![WasmType::F64]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "kanvas_ambil_angka".to_string(), sig));
+            self.func_table.insert("kanvas_ambil_angka".to_string(), (func_idx, sig, FuncSignature { params: vec![WasmType::I32], results: vec![WasmType::F64] }));
+        }
+
+        if called.contains("ke_desimal") {
+            let sig = self.get_or_add_sig(vec![WasmType::I32], vec![WasmType::F64]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "ke_desimal".to_string(), sig));
+            self.func_table.insert("ke_desimal".to_string(), (func_idx, sig, FuncSignature { params: vec![WasmType::I32], results: vec![WasmType::F64] }));
+        }
+
+        if called.contains("format_desimal") {
+            let sig = self.get_or_add_sig(vec![WasmType::F64], vec![WasmType::I32]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "format_desimal".to_string(), sig));
+            self.func_table.insert("format_desimal".to_string(), (func_idx, sig, FuncSignature { params: vec![WasmType::F64], results: vec![WasmType::I32] }));
+        }
+
+        if called.contains("panjang_teks") {
+            let sig = self.get_or_add_sig(vec![WasmType::I32], vec![WasmType::I64]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "panjang_teks".to_string(), sig));
+            self.func_table.insert("panjang_teks".to_string(), (func_idx, sig, FuncSignature { params: vec![WasmType::I32], results: vec![WasmType::I64] }));
+        }
+
+        // Teks Concat & Formatting Helpers (untuk dynamic string interpolation)
+        let has_interpolated_expr = user_fns.iter().any(|f| Self::has_dynamic_interpolation(&f.body));
+        if has_interpolated_expr || called.contains("teks_gabung") {
+            let sig = self.get_or_add_sig(vec![WasmType::I32, WasmType::I32], vec![WasmType::I32]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "teks_gabung".to_string(), sig));
+            self.func_table.insert("teks_gabung".to_string(), (func_idx, sig, FuncSignature { params: vec![WasmType::I32, WasmType::I32], results: vec![WasmType::I32] }));
+        }
+
+        if has_interpolated_expr || called.contains("teks_format_angka") {
+            let sig = self.get_or_add_sig(vec![WasmType::F64], vec![WasmType::I32]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "teks_format_angka".to_string(), sig));
+            self.func_table.insert("teks_format_angka".to_string(), (func_idx, sig, FuncSignature { params: vec![WasmType::F64], results: vec![WasmType::I32] }));
+        }
+
+        if has_interpolated_expr || called.contains("teks_format_u64") {
+            let sig = self.get_or_add_sig(vec![WasmType::I64], vec![WasmType::I32]);
+            let func_idx = self.imports.len() as u32;
+            self.imports.push(("env".to_string(), "teks_format_u64".to_string(), sig));
+            self.func_table.insert("teks_format_u64".to_string(), (func_idx, sig, FuncSignature { params: vec![WasmType::I64], results: vec![WasmType::I32] }));
+        }
+
         self.num_imports = self.imports.len() as u32;
 
         // 1. Daftarkan tanda tangan setiap fungsi user
@@ -621,6 +753,8 @@ impl WasmEmitter {
             Some(TypeExpr::Named(name, _)) => {
                 if name == "f64" || name == "desimal" {
                     WasmType::F64
+                } else if name == "Teks" || name == "teks" || name == "String" || name == "str" {
+                    WasmType::I32
                 } else {
                     WasmType::I64
                 }
@@ -722,6 +856,8 @@ impl WasmEmitter {
     ) -> WasmType {
         match expr {
             Expr::Lit(Literal::Float(_), _) => WasmType::F64,
+            Expr::Lit(Literal::String(_), _) => WasmType::I32,
+            Expr::InterpolatedString(_, _) => WasmType::I32,
             Expr::Ident(name, _) => {
                 if name == "PI" || name == "TAU" || name == "E" {
                     WasmType::F64
@@ -738,11 +874,17 @@ impl WasmEmitter {
                         | "akar_kuadrat" | "akar_kubik" | "pangkat" | "nilai_mutlak"
                         | "bulat" | "lantai" | "langit_langit" | "tanda"
                         | "log" | "log10" | "log2" | "exp" | "ke_radian" | "ke_derajat"
-                        | "min" | "max" => WasmType::F64,
+                        | "min" | "max" | "kanvas_lebar" | "kanvas_tinggi"
+                        | "kanvas_mouse_x" | "kanvas_mouse_y" | "kanvas_delta_waktu"
+                        | "ke_desimal" | "kanvas_ambil_angka" => WasmType::F64,
+                        "kanvas_ambil_teks" | "format_desimal" | "teks_gabung" | "teks_format_angka" | "teks_format_u64" => WasmType::I32,
+                        "panjang_teks" | "kanvas_ambil_u64" => WasmType::I64,
                         _ => {
                             if let Some((_, _, sig)) = func_table.get(name) {
                                 if sig.results.first() == Some(&WasmType::F64) {
                                     return WasmType::F64;
+                                } else if sig.results.first() == Some(&WasmType::I32) {
+                                    return WasmType::I32;
                                 }
                             }
                             WasmType::I64
@@ -773,6 +915,8 @@ impl WasmEmitter {
                     let rty = Self::infer_wasm_expr_type(rhs, known_locals, func_table);
                     if lty == WasmType::F64 || rty == WasmType::F64 {
                         WasmType::F64
+                    } else if lty == WasmType::I32 && rty == WasmType::I32 {
+                        WasmType::I32
                     } else {
                         WasmType::I64
                     }
@@ -795,6 +939,8 @@ impl WasmEmitter {
                         if let TypeExpr::Named(tname, _) = t {
                             if tname == "f64" || tname == "desimal" {
                                 WasmType::F64
+                            } else if tname == "Teks" || tname == "teks" || tname == "String" || tname == "str" {
+                                WasmType::I32
                             } else {
                                 WasmType::I64
                             }
@@ -840,8 +986,14 @@ impl WasmEmitter {
                 if let Some(&(idx, expected_ty)) = locals_map.get(name) {
                     if expected_ty == WasmType::F64 && expr_ty == WasmType::I64 {
                         out.push(0xB9); // f64.convert_i64_s
+                    } else if expected_ty == WasmType::F64 && expr_ty == WasmType::I32 {
+                        out.push(0xB8); // f64.convert_i32_s
                     } else if expected_ty == WasmType::I64 && expr_ty == WasmType::F64 {
                         out.push(0xB0); // i64.trunc_f64_s
+                    } else if expected_ty == WasmType::I64 && expr_ty == WasmType::I32 {
+                        out.push(0xAD); // i64.extend_i32_u
+                    } else if expected_ty == WasmType::I32 && expr_ty == WasmType::I64 {
+                        out.push(0xA7); // i32.wrap_i64
                     }
                     out.push(0x21); // local.set
                     encode_u32_leb128(idx, out);
@@ -853,8 +1005,14 @@ impl WasmEmitter {
                     if let Some(&(idx, expected_ty)) = locals_map.get(name) {
                         if expected_ty == WasmType::F64 && expr_ty == WasmType::I64 {
                             out.push(0xB9); // f64.convert_i64_s
+                        } else if expected_ty == WasmType::F64 && expr_ty == WasmType::I32 {
+                            out.push(0xB8); // f64.convert_i32_s
                         } else if expected_ty == WasmType::I64 && expr_ty == WasmType::F64 {
                             out.push(0xB0); // i64.trunc_f64_s
+                        } else if expected_ty == WasmType::I64 && expr_ty == WasmType::I32 {
+                            out.push(0xAD); // i64.extend_i32_u
+                        } else if expected_ty == WasmType::I32 && expr_ty == WasmType::I64 {
+                            out.push(0xA7); // i32.wrap_i64
                         }
                         out.push(0x21); // local.set
                         encode_u32_leb128(idx, out);
@@ -866,8 +1024,14 @@ impl WasmEmitter {
                     let expr_ty = self.compile_expr(v, locals_map, out)?;
                     if expected_ret_ty == Some(WasmType::F64) && expr_ty == WasmType::I64 {
                         out.push(0xB9); // f64.convert_i64_s
+                    } else if expected_ret_ty == Some(WasmType::F64) && expr_ty == WasmType::I32 {
+                        out.push(0xB8); // f64.convert_i32_s
                     } else if expected_ret_ty == Some(WasmType::I64) && expr_ty == WasmType::F64 {
                         out.push(0xB0); // i64.trunc_f64_s
+                    } else if expected_ret_ty == Some(WasmType::I64) && expr_ty == WasmType::I32 {
+                        out.push(0xAD); // i64.extend_i32_u
+                    } else if expected_ret_ty == Some(WasmType::I32) && expr_ty == WasmType::I64 {
+                        out.push(0xA7); // i32.wrap_i64
                     }
                 }
                 out.push(0x0F); // return
@@ -958,16 +1122,67 @@ impl WasmEmitter {
                 Ok(WasmType::I32)
             }
             Expr::InterpolatedString(parts, _) => {
-                let mut static_str = String::new();
-                for p in parts {
-                    if let InterpolatedExprPart::Lit(s) = p {
-                        static_str.push_str(s);
+                let has_expr = parts.iter().any(|p| matches!(p, InterpolatedExprPart::Expr(_)));
+                if !has_expr {
+                    let mut static_str = String::new();
+                    for p in parts {
+                        if let InterpolatedExprPart::Lit(s) = p {
+                            static_str.push_str(s);
+                        }
                     }
+                    let (offset, _) = self.intern_string(&static_str);
+                    out.push(0x41); // i32.const
+                    encode_i64_leb128(offset as i64, out);
+                    Ok(WasmType::I32)
+                } else {
+                    let (empty_off, _) = self.intern_string("");
+                    out.push(0x41); // i32.const base accumulator
+                    encode_i64_leb128(empty_off as i64, out);
+
+                    let gabung_idx = self.func_table.get("teks_gabung").map(|(idx, _, _)| *idx);
+                    let fmt_f64_idx = self.func_table.get("teks_format_angka").map(|(idx, _, _)| *idx);
+                    let fmt_i64_idx = self.func_table.get("teks_format_u64").map(|(idx, _, _)| *idx);
+
+                    for part in parts {
+                        match part {
+                            InterpolatedExprPart::Lit(s) => {
+                                if !s.is_empty() {
+                                    let (off, _) = self.intern_string(s);
+                                    out.push(0x41); // i32.const
+                                    encode_i64_leb128(off as i64, out);
+                                    if let Some(idx) = gabung_idx {
+                                        out.push(0x10); // call teks_gabung
+                                        encode_u32_leb128(idx, out);
+                                    }
+                                }
+                            }
+                            InterpolatedExprPart::Expr(e) => {
+                                let ty = self.compile_expr(e, locals_map, out)?;
+                                match ty {
+                                    WasmType::I32 => {}
+                                    WasmType::F64 => {
+                                        if let Some(idx) = fmt_f64_idx {
+                                            out.push(0x10); // call teks_format_angka
+                                            encode_u32_leb128(idx, out);
+                                        }
+                                    }
+                                    WasmType::I64 => {
+                                        if let Some(idx) = fmt_i64_idx {
+                                            out.push(0x10); // call teks_format_u64
+                                            encode_u32_leb128(idx, out);
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                                if let Some(idx) = gabung_idx {
+                                    out.push(0x10); // call teks_gabung
+                                    encode_u32_leb128(idx, out);
+                                }
+                            }
+                        }
+                    }
+                    Ok(WasmType::I32)
                 }
-                let (offset, _) = self.intern_string(&static_str);
-                out.push(0x41); // i32.const
-                encode_i64_leb128(offset as i64, out);
-                Ok(WasmType::I32)
             }
             Expr::Ident(name, span) => {
                 if let Some(&(idx, ty)) = locals_map.get(name) {
@@ -992,11 +1207,26 @@ impl WasmEmitter {
                 }
             }
             Expr::Binary(lhs, op, rhs, _) => {
-                let ty_left = self.compile_expr(lhs, locals_map, out)?;
-                let ty_right = self.compile_expr(rhs, locals_map, out)?;
+                let mut lhs_buf = Vec::new();
+                let ty_left = self.compile_expr(lhs, locals_map, &mut lhs_buf)?;
+                let mut rhs_buf = Vec::new();
+                let ty_right = self.compile_expr(rhs, locals_map, &mut rhs_buf)?;
 
                 let is_float = ty_left == WasmType::F64 || ty_right == WasmType::F64;
                 if is_float {
+                    if ty_left == WasmType::I64 {
+                        lhs_buf.push(0xB9); // f64.convert_i64_s
+                    } else if ty_left == WasmType::I32 {
+                        lhs_buf.push(0xB8); // f64.convert_i32_s
+                    }
+                    if ty_right == WasmType::I64 {
+                        rhs_buf.push(0xB9); // f64.convert_i64_s
+                    } else if ty_right == WasmType::I32 {
+                        rhs_buf.push(0xB8); // f64.convert_i32_s
+                    }
+                    out.extend(lhs_buf);
+                    out.extend(rhs_buf);
+
                     match op {
                         BinaryOp::Add => { out.push(0xA0); Ok(WasmType::F64) }
                         BinaryOp::Sub => { out.push(0xA1); Ok(WasmType::F64) }
@@ -1010,7 +1240,35 @@ impl WasmEmitter {
                         BinaryOp::GtEq => { out.push(0x66); out.push(0xAD); Ok(WasmType::I64) }
                         _ => { out.push(0xA0); Ok(WasmType::F64) }
                     }
+                } else if ty_left == WasmType::I32 && ty_right == WasmType::I32 {
+                    out.extend(lhs_buf);
+                    out.extend(rhs_buf);
+
+                    match op {
+                        BinaryOp::Add => { out.push(0x6A); Ok(WasmType::I32) } // i32.add
+                        BinaryOp::Sub => { out.push(0x6B); Ok(WasmType::I32) } // i32.sub
+                        BinaryOp::Mul => { out.push(0x6C); Ok(WasmType::I32) } // i32.mul
+                        BinaryOp::Div => { out.push(0x6D); Ok(WasmType::I32) } // i32.div_s
+                        BinaryOp::Mod => { out.push(0x6F); Ok(WasmType::I32) } // i32.rem_s
+                        BinaryOp::And => { out.push(0x71); Ok(WasmType::I32) } // i32.and
+                        BinaryOp::Or => { out.push(0x72); Ok(WasmType::I32) }  // i32.or
+                        BinaryOp::Eq => { out.push(0x46); out.push(0xAD); Ok(WasmType::I64) } // i32.eq, i64.extend_i32_u
+                        BinaryOp::NotEq => { out.push(0x47); out.push(0xAD); Ok(WasmType::I64) } // i32.ne, i64.extend_i32_u
+                        BinaryOp::Lt => { out.push(0x48); out.push(0xAD); Ok(WasmType::I64) } // i32.lt_s, i64.extend_i32_u
+                        BinaryOp::Gt => { out.push(0x4A); out.push(0xAD); Ok(WasmType::I64) } // i32.gt_s, i64.extend_i32_u
+                        BinaryOp::LtEq => { out.push(0x4C); out.push(0xAD); Ok(WasmType::I64) } // i32.le_s, i64.extend_i32_u
+                        BinaryOp::GtEq => { out.push(0x4E); out.push(0xAD); Ok(WasmType::I64) } // i32.ge_s, i64.extend_i32_u
+                    }
                 } else {
+                    if ty_left == WasmType::I32 {
+                        lhs_buf.push(0xAD); // i64.extend_i32_u
+                    }
+                    if ty_right == WasmType::I32 {
+                        rhs_buf.push(0xAD); // i64.extend_i32_u
+                    }
+                    out.extend(lhs_buf);
+                    out.extend(rhs_buf);
+
                     match op {
                         BinaryOp::Add => { out.push(0x7C); Ok(WasmType::I64) }
                         BinaryOp::Sub => { out.push(0x7D); Ok(WasmType::I64) }
@@ -1331,6 +1589,26 @@ const path = require('path');
 
 const wasmBuffer = fs.readFileSync(path.join(__dirname, '{}'));
 let memory;
+const kvStore = new Map();
+let wasmStrHeap = 48000;
+function decodeStr(ptr) {{
+    if (!ptr || !memory) return '';
+    const u8 = new Uint8Array(memory.buffer);
+    let end = ptr;
+    while (end < u8.length && u8[end] !== 0) end++;
+    return new TextDecoder().decode(u8.subarray(ptr, end));
+}}
+function writeStr(str) {{
+    if (!memory) return 0;
+    const enc = new TextEncoder().encode(str);
+    const u8 = new Uint8Array(memory.buffer);
+    const p = wasmStrHeap;
+    u8.set(enc, p);
+    u8[p + enc.length] = 0;
+    wasmStrHeap += enc.length + 1;
+    if (wasmStrHeap > 64000) wasmStrHeap = 48000;
+    return p;
+}}
 
 const importObject = {{
     env: {{
@@ -1354,6 +1632,37 @@ const importObject = {{
         log2: Math.log2,
         exp: Math.exp,
         tanda: Math.sign,
+        kanvas_bersihkan: () => {{}},
+        kanvas_warna_isi: () => {{}},
+        kanvas_warna_garis: () => {{}},
+        kanvas_tebal_garis: () => {{}},
+        kanvas_persegi: () => {{}},
+        kanvas_bingkai_persegi: () => {{}},
+        kanvas_lingkaran: () => {{}},
+        kanvas_bingkai_lingkaran: () => {{}},
+        kanvas_garis: () => {{}},
+        kanvas_titik: () => {{}},
+        kanvas_teks: () => {{}},
+        kanvas_lebar: () => 800.0,
+        kanvas_tinggi: () => 480.0,
+        kanvas_mouse_x: () => 0.0,
+        kanvas_mouse_y: () => 0.0,
+        kanvas_mouse_klik: () => 0n,
+        kanvas_tombol_ditekan: () => 0n,
+        kanvas_delta_waktu: () => 0.0166,
+        waktu_sekarang_ms: () => BigInt(Date.now()),
+        kanvas_simpan_teks: (kPtr, vPtr) => {{ kvStore.set(decodeStr(kPtr), decodeStr(vPtr)); }},
+        kanvas_ambil_teks: (kPtr) => writeStr(kvStore.get(decodeStr(kPtr)) || ''),
+        kanvas_simpan_u64: (kPtr, val) => {{ kvStore.set(decodeStr(kPtr), BigInt(val)); }},
+        kanvas_ambil_u64: (kPtr) => kvStore.get(decodeStr(kPtr)) !== undefined ? BigInt(kvStore.get(decodeStr(kPtr))) : 0n,
+        kanvas_simpan_angka: (kPtr, val) => {{ kvStore.set(decodeStr(kPtr), Number(val)); }},
+        kanvas_ambil_angka: (kPtr) => kvStore.get(decodeStr(kPtr)) !== undefined ? Number(kvStore.get(decodeStr(kPtr))) : 0.0,
+        ke_desimal: (sPtr) => {{ const n = parseFloat(decodeStr(sPtr)); return isNaN(n) ? 0.0 : n; }},
+        format_desimal: (val) => writeStr((Math.round(val * 10000) / 10000).toString()),
+        panjang_teks: (sPtr) => BigInt(decodeStr(sPtr).length),
+        teks_gabung: (s1Ptr, s2Ptr) => writeStr(decodeStr(s1Ptr) + decodeStr(s2Ptr)),
+        teks_format_angka: (val) => writeStr((Math.round(val * 10000) / 10000).toString()),
+        teks_format_u64: (val) => writeStr(val.toString()),
     }}
 }};
 
@@ -1401,7 +1710,7 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
             display: flex;
             justify-content: center;
         }}
-        .container {{ width: 100%; max-width: 800px; }}
+        .container {{ width: 100%; max-width: 860px; }}
         .header {{ margin-bottom: 2rem; }}
         .badge {{
             display: inline-block;
@@ -1427,6 +1736,72 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
             margin-bottom: 1.5rem;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
         }}
+        .canvas-card {{
+            background: #0b1120;
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            padding: 1.25rem;
+        }}
+        .canvas-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 0.85rem;
+        }}
+        .canvas-title {{
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+        }}
+        .frame-controls {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }}
+        .frame-select {{
+            background: #1e293b;
+            color: #f8fafc;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            padding: 0.35rem 0.65rem;
+            border-radius: 0.4rem;
+            font-size: 0.85rem;
+            outline: none;
+            cursor: pointer;
+        }}
+        .dim-badge {{
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--primary);
+            background: rgba(56, 189, 248, 0.1);
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }}
+        .canvas-viewport {{
+            width: 100%;
+            background: #060913;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            border-radius: 0.6rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0.75rem;
+            overflow: hidden;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.7);
+        }}
+        #canvas {{
+            display: block;
+            max-width: 100%;
+            max-height: 60vh;
+            width: auto;
+            height: auto;
+            border-radius: 6px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+            touch-action: none;
+            cursor: crosshair;
+        }}
         .btn-group {{ display: flex; gap: 0.75rem; margin-bottom: 1.25rem; }}
         button {{
             background: linear-gradient(135deg, #0284c7, #2563eb);
@@ -1451,7 +1826,7 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 0.95rem;
             line-height: 1.6;
-            min-height: 220px;
+            min-height: 160px;
             white-space: pre-wrap;
             color: #4ade80;
             box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
@@ -1466,6 +1841,27 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
             <p class="subtitle">Modul biner <code>{}</code> dijalankan secara native di mesin peramban web Anda.</p>
         </div>
 
+        <div class="card canvas-card" id="canvas-card">
+            <div class="canvas-header">
+                <span class="canvas-title">🎨 Kanvas 2D Interaktif</span>
+                <div class="frame-controls">
+                    <label for="frame-select" style="font-size: 0.85rem; color: var(--muted);">Frame:</label>
+                    <select id="frame-select" class="frame-select">
+                        <option value="desktop_std" selected>Desktop (800×480)</option>
+                        <option value="desktop_hd">Desktop HD (960×540)</option>
+                        <option value="mobile_portrait">Ponsel (360×640)</option>
+                        <option value="mobile_landscape">Ponsel Lanskap (640×360)</option>
+                        <option value="tablet">Tablet (768×576)</option>
+                        <option value="persegi">Persegi (500×500)</option>
+                    </select>
+                    <span id="canvas-dim-badge" class="dim-badge">800 × 480 px</span>
+                </div>
+            </div>
+            <div class="canvas-viewport" id="canvas-viewport">
+                <canvas id="canvas" width="800" height="480"></canvas>
+            </div>
+        </div>
+
         <div class="card">
             <div class="btn-group">
                 <button id="btn-run">▶ Jalankan Program</button>
@@ -1477,6 +1873,79 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
 
     <script>
         const terminal = document.getElementById('terminal');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas ? canvas.getContext('2d') : null;
+        const frameSelect = document.getElementById('frame-select');
+        const dimBadge = document.getElementById('canvas-dim-badge');
+
+        let mouseX = 400.0, mouseY = 240.0, mouseClick = 0n;
+
+        function updateCanvasPointer(cx, cy) {{
+            if (!canvas) return;
+            const r = canvas.getBoundingClientRect();
+            if (r.width <= 0 || r.height <= 0) return;
+            mouseX = Math.max(0, Math.min(canvas.width, (cx - r.left) * (canvas.width / r.width)));
+            mouseY = Math.max(0, Math.min(canvas.height, (cy - r.top) * (canvas.height / r.height)));
+        }}
+
+        if (canvas) {{
+            canvas.addEventListener('mousemove', (e) => {{
+                updateCanvasPointer(e.clientX, e.clientY);
+                if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+            }});
+            canvas.addEventListener('mousedown', (e) => {{
+                mouseClick = 1n;
+                updateCanvasPointer(e.clientX, e.clientY);
+                if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+            }});
+            canvas.addEventListener('mouseup', () => {{
+                mouseClick = 0n;
+                if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+            }});
+            canvas.addEventListener('touchstart', (e) => {{
+                const t = e.touches[0];
+                if (t) {{
+                    mouseClick = 1n;
+                    updateCanvasPointer(t.clientX, t.clientY);
+                    if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+                }}
+                e.preventDefault();
+            }}, {{ passive: false }});
+            canvas.addEventListener('touchmove', (e) => {{
+                const t = e.touches[0];
+                if (t) {{
+                    updateCanvasPointer(t.clientX, t.clientY);
+                    if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+                }}
+                e.preventDefault();
+            }}, {{ passive: false }});
+            canvas.addEventListener('touchend', (e) => {{
+                mouseClick = 0n;
+                if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+                e.preventDefault();
+            }}, {{ passive: false }});
+        }}
+
+        function setFrame(w, h) {{
+            if (!canvas) return;
+            canvas.width = w;
+            canvas.height = h;
+            if (dimBadge) dimBadge.textContent = w + ' × ' + h + ' px';
+            if (wasmInstance && wasmInstance.exports.utama) wasmInstance.exports.utama();
+        }}
+
+        if (frameSelect) {{
+            frameSelect.addEventListener('change', (e) => {{
+                const v = e.target.value;
+                if (v === 'desktop_std') setFrame(800, 480);
+                else if (v === 'desktop_hd') setFrame(960, 540);
+                else if (v === 'mobile_portrait') setFrame(360, 640);
+                else if (v === 'mobile_landscape') setFrame(640, 360);
+                else if (v === 'tablet') setFrame(768, 576);
+                else if (v === 'persegi') setFrame(500, 500);
+            }});
+        }}
+
         function log(msg) {{
             const time = new Date().toLocaleTimeString();
             terminal.textContent += `\n[${{time}}] ${{msg}}`;
@@ -1490,6 +1959,27 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
                 terminal.textContent = '[Sistem] Memuat {} ...';
                 const resp = await fetch('{}');
                 const bytes = await resp.arrayBuffer();
+
+                const kvStore = new Map();
+                let wasmStrHeap = 48000;
+                function decodeStr(ptr) {{
+                    if (!ptr || !memory) return '';
+                    const u8 = new Uint8Array(memory.buffer);
+                    let end = ptr;
+                    while (end < u8.length && u8[end] !== 0) end++;
+                    return new TextDecoder().decode(u8.subarray(ptr, end));
+                }}
+                function writeStr(str) {{
+                    if (!memory) return 0;
+                    const enc = new TextEncoder().encode(str);
+                    const u8 = new Uint8Array(memory.buffer);
+                    const p = wasmStrHeap;
+                    u8.set(enc, p);
+                    u8[p + enc.length] = 0;
+                    wasmStrHeap += enc.length + 1;
+                    if (wasmStrHeap > 64000) wasmStrHeap = 48000;
+                    return p;
+                }}
 
                 const importObject = {{
                     env: {{
@@ -1513,27 +2003,53 @@ WebAssembly.instantiate(wasmBuffer, importObject).then(({{ instance }}) => {{
                         log2: Math.log2,
                         exp: Math.exp,
                         tanda: Math.sign,
-                        kanvas_bersihkan: (r, g, b, a) => log('[Kanvas] Bersihkan (' + r + ', ' + g + ', ' + b + ', ' + a + ')'),
-                        kanvas_warna_isi: () => undefined,
-                        kanvas_warna_garis: () => undefined,
-                        kanvas_tebal_garis: () => undefined,
-                        kanvas_persegi: (x, y, w, h) => log('[Kanvas] Persegi (' + x + ', ' + y + ', ' + w + ', ' + h + ')'),
-                        kanvas_bingkai_persegi: () => undefined,
-                        kanvas_lingkaran: (x, y, rad) => log('[Kanvas] Lingkaran (' + x + ', ' + y + ', r=' + rad + ')'),
-                        kanvas_bingkai_lingkaran: () => undefined,
-                        kanvas_garis: () => undefined,
-                        kanvas_titik: () => undefined,
-                        kanvas_teks: (ptr, len, x, y) => {{
-                            const arr = new Uint8Array(memory.buffer, ptr, len);
-                            log('[Kanvas Teks] "' + new TextDecoder().decode(arr) + '" pada (' + x + ', ' + y + ')');
+                        kanvas_bersihkan: (r, g, b, a) => {{
+                            if (!ctx) return;
+                            ctx.fillStyle = 'rgba(' + Math.round(r * 255) + ',' + Math.round(g * 255) + ',' + Math.round(b * 255) + ',' + a + ')';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
                         }},
-                        kanvas_lebar: () => 800.0,
-                        kanvas_tinggi: () => 600.0,
-                        kanvas_mouse_x: () => 400.0,
-                        kanvas_mouse_y: () => 300.0,
-                        kanvas_mouse_klik: () => 0n,
+                        kanvas_warna_isi: (r, g, b, a) => {{
+                            if (!ctx) return;
+                            ctx.fillStyle = 'rgba(' + Math.round(r * 255) + ',' + Math.round(g * 255) + ',' + Math.round(b * 255) + ',' + a + ')';
+                        }},
+                        kanvas_warna_garis: (r, g, b, a) => {{
+                            if (!ctx) return;
+                            ctx.strokeStyle = 'rgba(' + Math.round(r * 255) + ',' + Math.round(g * 255) + ',' + Math.round(b * 255) + ',' + a + ')';
+                        }},
+                        kanvas_tebal_garis: (t) => {{ if (ctx) ctx.lineWidth = t; }},
+                        kanvas_persegi: (x, y, w, h) => {{ if (ctx) ctx.fillRect(x, y, w, h); }},
+                        kanvas_bingkai_persegi: (x, y, w, h) => {{ if (ctx) ctx.strokeRect(x, y, w, h); }},
+                        kanvas_lingkaran: (x, y, rad) => {{ if (!ctx) return; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill(); }},
+                        kanvas_bingkai_lingkaran: (x, y, rad) => {{ if (!ctx) return; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.stroke(); }},
+                        kanvas_garis: (x1, y1, x2, y2) => {{ if (!ctx) return; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }},
+                        kanvas_titik: (x, y, rad) => {{ if (!ctx) return; ctx.beginPath(); ctx.arc(x, y, rad / 2, 0, Math.PI * 2); ctx.fill(); }},
+                        kanvas_teks: (ptr, len, x, y, s) => {{
+                            if (!ctx) return;
+                            const str = decodeStr(ptr);
+                            const sz = (typeof s === 'number' && s > 0) ? Math.round(s) : 14;
+                            ctx.font = sz + 'px sans-serif';
+                            ctx.fillText(str, x, y);
+                        }},
+                        kanvas_lebar: () => (canvas ? canvas.width : 800.0),
+                        kanvas_tinggi: () => (canvas ? canvas.height : 480.0),
+                        kanvas_mouse_x: () => mouseX,
+                        kanvas_mouse_y: () => mouseY,
+                        kanvas_mouse_klik: () => mouseClick,
                         kanvas_tombol_ditekan: () => 0n,
                         kanvas_delta_waktu: () => 0.0166,
+                        waktu_sekarang_ms: () => BigInt(Date.now()),
+                        kanvas_simpan_teks: (kPtr, vPtr) => {{ kvStore.set(decodeStr(kPtr), decodeStr(vPtr)); }},
+                        kanvas_ambil_teks: (kPtr) => writeStr(kvStore.get(decodeStr(kPtr)) || ''),
+                        kanvas_simpan_u64: (kPtr, val) => {{ kvStore.set(decodeStr(kPtr), BigInt(val)); }},
+                        kanvas_ambil_u64: (kPtr) => kvStore.get(decodeStr(kPtr)) !== undefined ? BigInt(kvStore.get(decodeStr(kPtr))) : 0n,
+                        kanvas_simpan_angka: (kPtr, val) => {{ kvStore.set(decodeStr(kPtr), Number(val)); }},
+                        kanvas_ambil_angka: (kPtr) => kvStore.get(decodeStr(kPtr)) !== undefined ? Number(kvStore.get(decodeStr(kPtr))) : 0.0,
+                        ke_desimal: (sPtr) => {{ const n = parseFloat(decodeStr(sPtr)); return isNaN(n) ? 0.0 : n; }},
+                        format_desimal: (val) => writeStr((Math.round(val * 10000) / 10000).toString()),
+                        panjang_teks: (sPtr) => BigInt(decodeStr(sPtr).length),
+                        teks_gabung: (s1Ptr, s2Ptr) => writeStr(decodeStr(s1Ptr) + decodeStr(s2Ptr)),
+                        teks_format_angka: (val) => writeStr((Math.round(val * 10000) / 10000).toString()),
+                        teks_format_u64: (val) => writeStr(val.toString()),
                         waktu_sekarang_ms: () => BigInt(Date.now()),
                         audio_mainkan_nada: (freq, dur, vol) => {{
                             try {{

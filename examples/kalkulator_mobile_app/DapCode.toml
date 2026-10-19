@@ -1,0 +1,10 @@
+[paket]
+nama = "kalkulator_mobile"
+versi = "0.1.0"
+penulis = ["Daffa", "Tim DapCode"]
+berkas_utama = "src/utama.dap"
+deskripsi = "Aplikasi Kalkulator Mobile Native Direct GPU (Flutter-style) dengan DapCode"
+
+[target]
+tipe = "mobile"
+engine = "flutter"
