@@ -47,6 +47,36 @@
 - [Modul: `demo_waktu`](#modul-demo_waktu) 
   - [fungsi: `cetak_garis`](#fungsi-cetak_garis) 
   - [fungsi: `utama`](#fungsi-utama) 
+- [Modul: `kalkulator`](#modul-kalkulator) 
+  - [fungsi: `hitung_aritmatika`](#fungsi-hitung_aritmatika) 
+  - [fungsi: `hitung_persen`](#fungsi-hitung_persen) 
+  - [fungsi: `hitung_negasi`](#fungsi-hitung_negasi) 
+  - [fungsi: `potong_digit_terakhir`](#fungsi-potong_digit_terakhir) 
+- [Modul: `komponen`](#modul-komponen) 
+  - [fungsi: `gambar_status_bar`](#fungsi-gambar_status_bar) 
+  - [fungsi: `gambar_app_bar`](#fungsi-gambar_app_bar) 
+  - [fungsi: `gambar_layar_tampilan`](#fungsi-gambar_layar_tampilan) 
+  - [fungsi: `gambar_tombol`](#fungsi-gambar_tombol) 
+  - [fungsi: `tombol_ditekan`](#fungsi-tombol_ditekan) 
+- [Modul: `utama`](#modul-utama) 
+  - [fungsi: `input_angka`](#fungsi-input_angka) 
+  - [fungsi: `input_operator`](#fungsi-input_operator) 
+  - [fungsi: `hitung_hasil`](#fungsi-hitung_hasil) 
+  - [fungsi: `bersihkan_kalkulator`](#fungsi-bersihkan_kalkulator) 
+  - [fungsi: `input_persen`](#fungsi-input_persen) 
+  - [fungsi: `input_negasi`](#fungsi-input_negasi) 
+  - [fungsi: `hapus_satu_karakter`](#fungsi-hapus_satu_karakter) 
+  - [fungsi: `render`](#fungsi-render) 
+  - [fungsi: `utama`](#fungsi-utama) 
+- [Modul: `kalkulator_uji`](#modul-kalkulator_uji) 
+  - [uji: `Operasi penjumlahan dasar`](#uji-operasi-penjumlahan-dasar) 
+  - [uji: `Operasi pengurangan`](#uji-operasi-pengurangan) 
+  - [uji: `Operasi perkalian`](#uji-operasi-perkalian) 
+  - [uji: `Operasi pembagian normal`](#uji-operasi-pembagian-normal) 
+  - [uji: `Operasi pembagian dengan nol`](#uji-operasi-pembagian-dengan-nol) 
+  - [uji: `Kalkulasi persentase`](#uji-kalkulasi-persentase) 
+  - [uji: `Kalkulasi negasi tanda angka`](#uji-kalkulasi-negasi-tanda-angka) 
+  - [uji: `Potong digit terakhir (Backspace)`](#uji-potong-digit-terakhir-(backspace)) 
 - [Modul: `geometri`](#modul-geometri) 
   - [struktur: `Titik`](#struktur-titik) 
   - [struktur: `Lingkaran`](#struktur-lingkaran) 
@@ -422,6 +452,246 @@ fungsi cetak_garis()
 ```dap
 fungsi utama()
 ```
+
+---
+
+## 📦 Modul `kalkulator`
+
+**Berkas:** `.\examples\kalkulator_mobile_app\src\logika\kalkulator.dap`  
+
+### ⚡ Fungsi
+
+#### `fungsi hitung_aritmatika`
+
+```dap
+fungsi hitung_aritmatika(n1: f64, op: Teks, n2: f64) -> f64
+```
+
+**Parameter:**
+- `n1`: `f64`
+- `op`: `Teks`
+- `n2`: `f64`
+
+**Nilai Kembalian:** `f64`
+
+#### `fungsi hitung_persen`
+
+```dap
+fungsi hitung_persen(n: f64) -> f64
+```
+
+**Parameter:**
+- `n`: `f64`
+
+**Nilai Kembalian:** `f64`
+
+#### `fungsi hitung_negasi`
+
+```dap
+fungsi hitung_negasi(n: f64) -> f64
+```
+
+**Parameter:**
+- `n`: `f64`
+
+**Nilai Kembalian:** `f64`
+
+#### `fungsi potong_digit_terakhir`
+
+```dap
+fungsi potong_digit_terakhir(n: f64) -> f64
+```
+
+**Parameter:**
+- `n`: `f64`
+
+**Nilai Kembalian:** `f64`
+
+---
+
+## 📦 Modul `komponen`
+
+**Berkas:** `.\examples\kalkulator_mobile_app\src\ui\komponen.dap`  
+
+### ⚡ Fungsi
+
+#### `fungsi gambar_status_bar`
+
+```dap
+fungsi gambar_status_bar(w: f64) -> Unit
+```
+
+**Parameter:**
+- `w`: `f64`
+
+**Nilai Kembalian:** `Unit`
+
+#### `fungsi gambar_app_bar`
+
+```dap
+fungsi gambar_app_bar(w: f64, judul: Teks) -> Unit
+```
+
+**Parameter:**
+- `w`: `f64`
+- `judul`: `Teks`
+
+**Nilai Kembalian:** `Unit`
+
+#### `fungsi gambar_layar_tampilan`
+
+```dap
+fungsi gambar_layar_tampilan(sx: f64, sy: f64, sw: f64, sh: f64, riwayat: Teks, tampilan: Teks) -> Unit
+```
+
+**Parameter:**
+- `sx`: `f64`
+- `sy`: `f64`
+- `sw`: `f64`
+- `sh`: `f64`
+- `riwayat`: `Teks`
+- `tampilan`: `Teks`
+
+**Nilai Kembalian:** `Unit`
+
+#### `fungsi gambar_tombol`
+
+```dap
+fungsi gambar_tombol(label: Teks, bx: f64, by: f64, bw: f64, bh: f64, jenis: u64, mx: f64, my: f64, klik: u64) -> Unit
+```
+
+**Parameter:**
+- `label`: `Teks`
+- `bx`: `f64`
+- `by`: `f64`
+- `bw`: `f64`
+- `bh`: `f64`
+- `jenis`: `u64`
+- `mx`: `f64`
+- `my`: `f64`
+- `klik`: `u64`
+
+**Nilai Kembalian:** `Unit`
+
+#### `fungsi tombol_ditekan`
+
+```dap
+fungsi tombol_ditekan(bx: f64, by: f64, bw: f64, bh: f64, mx: f64, my: f64, baru_klik: Bool) -> Bool
+```
+
+**Parameter:**
+- `bx`: `f64`
+- `by`: `f64`
+- `bw`: `f64`
+- `bh`: `f64`
+- `mx`: `f64`
+- `my`: `f64`
+- `baru_klik`: `Bool`
+
+**Nilai Kembalian:** `Bool`
+
+---
+
+## 📦 Modul `utama`
+
+**Berkas:** `.\examples\kalkulator_mobile_app\src\utama.dap`  
+
+### ⚡ Fungsi
+
+#### `fungsi input_angka`
+
+```dap
+fungsi input_angka(digit: Teks) -> Unit
+```
+
+**Parameter:**
+- `digit`: `Teks`
+
+**Nilai Kembalian:** `Unit`
+
+#### `fungsi input_operator`
+
+```dap
+fungsi input_operator(op: Teks) -> Unit
+```
+
+**Parameter:**
+- `op`: `Teks`
+
+**Nilai Kembalian:** `Unit`
+
+#### `fungsi hitung_hasil`
+
+```dap
+fungsi hitung_hasil() -> Unit
+```
+
+**Nilai Kembalian:** `Unit`
+
+#### `fungsi bersihkan_kalkulator`
+
+```dap
+fungsi bersihkan_kalkulator() -> Unit
+```
+
+**Nilai Kembalian:** `Unit`
+
+#### `fungsi input_persen`
+
+```dap
+fungsi input_persen() -> Unit
+```
+
+**Nilai Kembalian:** `Unit`
+
+#### `fungsi input_negasi`
+
+```dap
+fungsi input_negasi() -> Unit
+```
+
+**Nilai Kembalian:** `Unit`
+
+#### `fungsi hapus_satu_karakter`
+
+```dap
+fungsi hapus_satu_karakter() -> Unit
+```
+
+**Nilai Kembalian:** `Unit`
+
+#### `fungsi render`
+
+```dap
+fungsi render() -> Unit
+```
+
+**Nilai Kembalian:** `Unit`
+
+#### `fungsi utama`
+
+```dap
+fungsi utama() -> u64
+```
+
+**Nilai Kembalian:** `u64`
+
+---
+
+## 📦 Modul `kalkulator_uji`
+
+**Berkas:** `.\examples\kalkulator_mobile_app\uji\kalkulator_uji.dap`  
+
+### 🧪 Pengujian Unit (Test Cases)
+
+- `uji "Operasi penjumlahan dasar"` (baris 8)
+- `uji "Operasi pengurangan"` (baris 13)
+- `uji "Operasi perkalian"` (baris 18)
+- `uji "Operasi pembagian normal"` (baris 23)
+- `uji "Operasi pembagian dengan nol"` (baris 28)
+- `uji "Kalkulasi persentase"` (baris 33)
+- `uji "Kalkulasi negasi tanda angka"` (baris 38)
+- `uji "Potong digit terakhir (Backspace)"` (baris 46)
 
 ---
 
