@@ -10,15 +10,15 @@ Paket biner mandiri **`.vsix`** siap pakai tersedia di folder `editors/vscode/`:
 
 ### Cara 1: Melalui Command Line (PowerShell / Terminal)
 ```powershell
-code --install-extension editors/vscode/dapcode-lang-0.7.2.vsix
+code --install-extension editors/vscode/dapcode-lang-0.8.0.vsix
 ```
 
 ### Cara 2: Melalui Antarmuka VS Code
-1. Buka Visual Studio Code.
+1. Buka Visual Studio Code (atau Antigravity IDE / Cursor / Windsurf).
 2. Buka panel **Extensions** (`Ctrl+Shift+X`).
 3. Klik ikon menu titik tiga (`...`) di pojok kanan atas panel Extensions.
 4. Pilih **"Install from VSIX..."**.
-5. Arahkan dan pilih berkas `dapcode-lang-0.7.2.vsix`.
+5. Arahkan dan pilih berkas `dapcode-lang-0.8.0.vsix`.
 
 ---
 
@@ -36,6 +36,7 @@ Pewarnaan sintaksis kaya dan estetis untuk seluruh elemen bahasa DapCode:
 ### ⚡ 2. Language Server Protocol (LSP) Terintegrasi
 Terhubung langsung secara *real-time* ke engine kompilator resmi `dapcodec lsp`:
 - **Navigasi Go to Definition (`F12`):** Lompat seketika ke definisi simbol lokal (variabel, parameter), fungsi, struktur, sifat, hingga impor lintas berkas (`impor "modul.dap"`).
+- **Dukungan Modul Multi-Berkas Tanpa Diagnostik Semu:** LSP memuat dan meresolusi modul yang diimpor secara otomatis sehingga simbol antar-berkas tervalidasi secara akurat tanpa peringatan kesalahan semu (*false positive*).
 - **Penjelajah Hierarki Dokumen (Outline & Document Symbols):** Visualisasi struktur berkas lengkap mencakup struktur data, sifat, blok implementasi, fungsi, dan blok pengujian `uji`.
 - **Diagnostik Galat Seketika:** Pelaporan kesalahan kompilasi tipe (*TypeMismatch*), sintaksis, dan pelacak kepemilikan (*borrow check* Perceus) langsung di baris kode saat mengetik.
 - **Quick Fixes & Code Actions (`Ctrl+.`):**
@@ -49,7 +50,23 @@ Terhubung langsung secara *real-time* ke engine kompilator resmi `dapcodec lsp`:
 
 ---
 
-### 🐞 3. Debug Adapter Protocol (DAP) - Debugging Interaktif
+### 📱 3. Pratinjau Mobile Native GPU & Live Webview Playground
+Pengalaman visual interaktif langsung di dalam editor:
+- **Simulator Mobile Direct GPU 60 FPS (`dapcode.previewMobileGpu`):**
+  - Meluncurkan simulator layar ponsel desktop mandiri berbasis Direct GPU OpenGL ES (pendekatan ala Flutter & Kotlin Multiplatform).
+  - Mendukung siklus render 60 FPS yang halus dengan input layar sentuh real-time.
+  - **Live Watch Hot-Reload:** Setiap kali kode di berkas aktif disimpan (`Ctrl+S`), aplikasi di simulator terkompilasi ulang dan diperbarui secara instan!
+- **Pembangun Mobile Native (`dapcode.buildMobile`):**
+  - Mengompilasi dan mengekspor proyek DapCode ke bundel native multiplatform: proyek Android Studio NDK CMake (`android/`), proyek iOS Xcode native GLKit/Metal (`ios/`), dan runner simulator desktop (`desktop/`).
+- **Live Canvas 2D Webview Playground (`dapcode.openPlayground`):**
+  - Editor webview interaktif yang mengompilasi kode DapCode langsung ke WebAssembly (WASM) di sisi klien.
+  - Pemilihan frame resolusi layar dinamis: *Auto-Fit Responsif*, *Desktop (800×480)*, *Desktop HD (960×540)*, *Ponsel Modern / iPhone (390×844)*, *Ponsel Standar / Android (360×640)*, *Tablet (768×1024)*, dan *Kanvas Persegi (600×600)*.
+  - Tombol rotasi orientasi (Potret ⇄ Lanskap) dengan penyelarasan proporsional.
+  - Tombol **"🌐 Buka di Web"** untuk menjalankan playground di peramban web eksternal serta tombol ekspor mobile native langsung.
+
+---
+
+### 🐞 4. Debug Adapter Protocol (DAP) - Debugging Interaktif
 Debugger grafis bawaan yang terintegrasi penuh dengan panel debugger VS Code:
 - **Breakpoint Visual:** Pasang dan lepas titik henti (*breakpoint*) langsung pada gutter baris editor (`F9`).
 - **Kontrol Eksekusi Penuh:**
@@ -62,7 +79,7 @@ Debugger grafis bawaan yang terintegrasi penuh dengan panel debugger VS Code:
 
 ---
 
-### 📝 4. Koleksi Snippets Produktivitas Cepat
+### 📝 5. Koleksi Snippets Produktivitas Cepat
 Cuplikan kode siap pakai untuk mempercepat pengembangan:
 - **Dasar & Kontrol Alur:** `utama`, `fungsi`, `struktur`, `terapkan`, `jika`, `selama`, `untuk`, `tangkap`.
 - **Lambda & Fungsional Koleksi:**
@@ -79,21 +96,23 @@ Cuplikan kode siap pakai untuk mempercepat pengembangan:
 - **HTTP REST API Server:** `server_http`, `respons_json`, `respons_teks`.
 - **Real-Time WebSocket Server:** `buat_server_websocket`.
 - **Mesin Reguler Ekspresi:** `cocok_regex`, `cari_regex`, `ganti_regex`, `ekstrak_regex`.
-- **Kanvas Grafis 2D WebAssembly:** `kanvas_bersihkan`, `kanvas_warna_isi`, `kanvas_persegi`, `kanvas_lingkaran`, `kanvas_garis`, `kanvas_teks`.
+- **Kanvas Grafis 2D & UI Sentuh:** `kanvas_bersihkan`, `kanvas_warna_isi`, `kanvas_warna_garis`, `kanvas_tebal_garis`, `kanvas_persegi`, `kanvas_bingkai_persegi`, `kanvas_persegi_bulat`, `kanvas_bingkai_persegi_bulat`, `kanvas_lingkaran`, `kanvas_bingkai_lingkaran`, `kanvas_garis`, `kanvas_titik`, `kanvas_teks`, `kanvas_teks_tengah`.
 - **Pengujian & Asersi:** `uji`, `pastikan`, `pastikan_sama`.
 
 ---
 
-### 🚀 5. Menu Editor & Tombol Aksi Cepat
+### 🚀 6. Menu Editor & Tombol Aksi Cepat
 Tombol aksi langsung di pojok kanan atas editor dan menu klik kanan:
+- 📱 **DapCode: Pratinjau Mobile GPU (Direct 60 FPS Hot-Reload)** -> Menjalankan simulator layar ponsel desktop dengan live hot-reload otomatis.
 - ▶️ **DapCode: Jalankan Berkas Aktif (Run)** -> Menjalankan interpreter `dapcodec run`.
 - 🧪 **DapCode: Jalankan Pengujian Unit (Test)** -> Menjalankan test runner terintegrasi `dapcodec test`.
 - 💬 **DapCode: Buka Interactive REPL** -> Meluncurkan sesi interaktif `dapcodec repl`.
-- 🎨 **DapCode: Buka Web Playground & Canvas Preview** -> Menjalankan server live compile WebAssembly & kanvas 2D lokal.
+- 🎨 **DapCode: Buka Live Canvas 2D & Playground** -> Membuka webview interactive live playground & WebAssembly simulator.
+- 📱 **DapCode: Bangun Aplikasi Mobile Native** -> Merakit proyek Android Studio NDK, iOS Xcode, & simulator desktop.
 - 📖 **DapCode: Hasilkan Dokumentasi Proyek (Doc)** -> Membuat dokumentasi proyek HTML/Markdown otomatis.
 - 🔍 **DapCode: Periksa Tipe & Kepemilikan (Check)** -> Menjalankan typecheck & analisis Perceus statis.
 - ⚙️ **DapCode: Kompilasi ke Biner Mandiri (Build)** -> Menghasilkan executable mandiri `.exe` via GCC/Clang.
-- 🔄 **DapCode: Mulai Ulang Language Server (LSP)** -> Me-restart background server bahasa.
+- 🔄 **DapCode: Mulai Ulang Language Server (LSP)** -> Me-restart background server bahasa dan menyegarkan diagnostik.
 
 ---
 
