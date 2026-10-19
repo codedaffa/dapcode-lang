@@ -1349,6 +1349,14 @@ function getPlaygroundWebviewHtml() {
         .device-frame-mockup.with-bezel .device-notch {
             display: block;
         }
+        .device-frame-mockup.landscape .device-notch {
+            top: 50%;
+            left: 2px;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 70px;
+            border-radius: 0 8px 8px 0;
+        }
         canvas#dap-canvas {
             display: block;
             max-width: 100%;
@@ -1377,6 +1385,7 @@ function getPlaygroundWebviewHtml() {
             font-family: monospace;
             color: var(--accent-cyan);
             backdrop-filter: blur(4px);
+            white-space: nowrap;
         }
         .metrics-bar {
             display: flex;
@@ -2349,11 +2358,17 @@ fungsi utama() -> u64 {
         function applyFrameDimensions(w, h, updateHud = true) {
             canvas.width = Math.max(100, Math.round(w));
             canvas.height = Math.max(100, Math.round(h));
+            const isLandscape = canvas.width > canvas.height;
             if (deviceMockup) {
                 deviceMockup.style.aspectRatio = \`\${canvas.width} / \${canvas.height}\`;
+                deviceMockup.classList.toggle("landscape", isLandscape);
             }
             if (updateHud && frameDimHud) {
                 frameDimHud.textContent = \`\${canvas.width} × \${canvas.height}\`;
+            }
+            if (frameSelect) {
+                if (canvas.width === 640 && canvas.height === 360) frameSelect.value = "mobile_l";
+                else if (canvas.width === 360 && canvas.height === 640) frameSelect.value = "mobile_p";
             }
             if (currentWasmInstance) {
                 rerunCurrentFrame();
@@ -2513,7 +2528,7 @@ fungsi utama() -> u64 {
                 }
             } catch (err) {
                 setStatus("error", "Galat Runtime");
-                errorCard.textContent = "⚠️ Galat Runtime WASM:\n" + err.message;
+                errorCard.textContent = "⚠️ Galat Runtime WASM:\\n" + err.message;
                 errorCard.style.display = "block";
                 if (emptyCanvasOverlay) emptyCanvasOverlay.style.display = "none";
             }
@@ -2558,7 +2573,7 @@ fungsi utama() -> u64 {
                 }
                 case "compileError":
                     setStatus("error", "Galat Kompilasi");
-                    errorCard.textContent = "⚠️ Galat Kompilasi:\n" + msg.error;
+                    errorCard.textContent = "⚠️ Galat Kompilasi:\\n" + msg.error;
                     errorCard.style.display = "block";
                     metricCompile.textContent = (msg.compileTimeMs || 0) + " ms";
                     if (emptyCanvasOverlay) emptyCanvasOverlay.style.display = "none";
