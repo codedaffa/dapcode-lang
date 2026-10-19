@@ -828,6 +828,7 @@ function activate(context) {
 
             if (playgroundPanel) {
                 playgroundPanel.reveal(column);
+                playgroundPanel.webview.html = getPlaygroundWebviewHtml();
                 triggerPlaygroundCompilation(uri);
                 return;
             }
@@ -1176,6 +1177,9 @@ function getPlaygroundWebviewHtml() {
             font-size: 14px;
             color: var(--text-main);
             line-height: 1.3;
+            width: 100%;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
         .header-sub {
             display: flex;
@@ -1183,6 +1187,7 @@ function getPlaygroundWebviewHtml() {
             flex-wrap: wrap;
             gap: 8px;
             width: 100%;
+            padding-top: 2px;
         }
         .header-badge {
             background: rgba(56, 189, 248, 0.12);

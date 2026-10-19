@@ -18,4 +18,10 @@ if (!(Test-Path $v077Dir)) {
     Copy-Item (Join-Path $srcDir "*") $v077Dir -Recurse -Force
 }
 
+$v078Dir = Join-Path $extBase "dapcode-core.dapcode-lang-0.7.8"
+if (!(Test-Path $v078Dir)) {
+    New-Item -ItemType Directory -Path $v078Dir -Force | Out-Null
+}
+Copy-Item (Join-Path $srcDir "*") $v078Dir -Recurse -Force
+
 Write-Host "DapCode Extension successfully updated across all VS Code extension folders!"

@@ -2,7 +2,7 @@
     "name": "dapcode-lang",
     "displayName": "DapCode Language Support",
     "description": "Syntax highlighting, LSP with Code Actions & Quick Fixes, interactive Debugger (DAP) with breakpoints & variable inspection, Go to Definition, outline symbols, snippets, doc generator, test runner, and interactive REPL for DapCode (.dap)",
-    "version": "0.7.7",
+    "version": "0.7.8",
     "publisher": "dapcode-core",
     "icon": "icons/dapcode.png",
     "repository": {
