@@ -88,8 +88,25 @@
     "Struktur Tabel (Describe)": {
         "prefix": "struktur",
         "body": [
-            "struktur ${1:Pengguna}"
+            "struktur ${1:Pengguna};"
         ],
         "description": "Menampilkan definisi struktur kolom pada tabel (DESCRIBE)"
+    },
+    "Tambah Data Spasi": {
+        "prefix": "tambah",
+        "body": [
+            "tambah ke ${1:Tabel} {",
+            "    ${2:kolom}: ${3:'nilai'},",
+            "    ${4:harga}: ${5:10000}",
+            "};"
+        ],
+        "description": "Perintah menambah record baru dengan spasi 'tambah ke'"
+    },
+    "Ambil Semua Data": {
+        "prefix": "ambil_semua",
+        "body": [
+            "ambil * dari ${1:Tabel};"
+        ],
+        "description": "Membaca seluruh kolom dari tabel (SELECT * FROM)"
     }
 }

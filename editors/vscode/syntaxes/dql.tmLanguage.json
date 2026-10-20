@@ -7,6 +7,7 @@
         { "include": "#strings" },
         { "include": "#constants" },
         { "include": "#aggregates" },
+        { "include": "#scalar-functions" },
         { "include": "#keywords" },
         { "include": "#predicates" },
         { "include": "#numbers" },
@@ -72,6 +73,14 @@
                 }
             ]
         },
+        "scalar-functions": {
+            "patterns": [
+                {
+                    "name": "support.function.scalar.dql",
+                    "match": "\\b(huruf_besar|huruf_kecil|panjang|sekarang|bulatkan|gabung|jika|coalesce|upper|lower|length|len|round|concat|if)\\b(?=\\s*\\()"
+                }
+            ]
+        },
         "keywords": {
             "patterns": [
                 {
@@ -96,7 +105,7 @@
                 },
                 {
                     "name": "keyword.control.mutation.dql",
-                    "match": "\\b(tambah_ke|sisip|insert_into|perbarui|update|atur|set|hapus_dari|delete_from)\\b"
+                    "match": "\\b(tambah_ke|tambah|sisip|insert_into|perbarui|update|atur|set|hapus_dari|delete_from)\\b"
                 },
                 {
                     "name": "keyword.control.ddl.dql",
@@ -104,7 +113,7 @@
                 },
                 {
                     "name": "storage.modifier.constraint.dql",
-                    "match": "\\b(kunci_utama|primary_key|tidak_kosong|not_null|unik|unique|bawaan|default|otomatis|auto_increment|sekarang|now)\\b"
+                    "match": "\\b(kunci_utama|primary_key|pk|tidak_kosong|bukan_null|not_null|unik|unique|bawaan|default|otomatis|auto_increment|sekarang|now)\\b"
                 },
                 {
                     "name": "storage.type.dql",
@@ -149,6 +158,10 @@
                 {
                     "name": "keyword.operator.pipeline.dql",
                     "match": "(\\|)"
+                },
+                {
+                    "name": "punctuation.terminator.statement.dql",
+                    "match": ";"
                 }
             ]
         },

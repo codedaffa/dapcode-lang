@@ -102,6 +102,46 @@ function findDqlBinary() {
     return customPath || 'dql';
 }
 
+function findDapqlBinary() {
+    const config = vscode.workspace.getConfiguration('dapcode');
+    const customPath = config.get('dapqlPath');
+    if (customPath && customPath !== 'dapql' && fs.existsSync(customPath)) {
+        return customPath;
+    }
+
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (workspaceFolders) {
+        for (const folder of workspaceFolders) {
+            const candidates = [
+                path.join(folder.uri.fsPath, 'target', 'release', 'dapql.exe'),
+                path.join(folder.uri.fsPath, 'target', 'debug', 'dapql.exe'),
+                path.join(folder.uri.fsPath, 'target', 'release', 'dapql'),
+                path.join(folder.uri.fsPath, 'target', 'debug', 'dapql'),
+            ];
+            for (const c of candidates) {
+                if (fs.existsSync(c)) {
+                    return c;
+                }
+            }
+        }
+    }
+
+    const homeDir = os.homedir();
+    const globalCandidates = [
+        path.join(homeDir, '.cargo', 'bin', 'dapql.exe'),
+        'D:\\dapql\\target\\release\\dapql.exe',
+        'D:\\dapql\\target\\debug\\dapql.exe',
+        path.join(homeDir, '.cargo', 'bin', 'dapql'),
+    ];
+    for (const c of globalCandidates) {
+        if (fs.existsSync(c)) {
+            return c;
+        }
+    }
+
+    return customPath || 'dapql';
+}
+
 let lastKnownDapFilePath = null;
 let lastKnownDapDocument = null;
 
@@ -698,7 +738,7 @@ function activate(context) {
 
         const argsStr = formattedArgs.length > 0 ? ' ' + formattedArgs.join(' ') : '';
 
-        if (comp === 'dql' || (!comp.includes('/') && !comp.includes('\\') && !comp.includes(' '))) {
+        if (comp === 'dql' || comp === 'dapql' || (!comp.includes('/') && !comp.includes('\\') && !comp.includes(' '))) {
             // Perintah langsung di PATH (dql) - berjalan identik di PowerShell, Git Bash, dan CMD
             terminal.sendText(`${comp}${argsStr}`);
         } else if (shellType === 'powershell') {
@@ -878,6 +918,11 @@ function activate(context) {
             const targetPick = await vscode.window.showQuickPick(
                 [
                     {
+                        label: 'dapql',
+                        description: 'Mesin Basis Data Native DAPQL (.dapdb)',
+                        detail: 'Eksekusi mandiri tanpa MySQL/PostgreSQL/SQLite'
+                    },
+                    {
                         label: 'sqlite',
                         description: 'Basis Data SQLite Lokal (.db)',
                         detail: 'Langsung tersambung ke file database SQLite'
@@ -903,7 +948,17 @@ function activate(context) {
 
             const dqlBin = findDqlBinary();
 
-            if (targetPick.label === 'sqlite') {
+            if (targetPick.label === 'dapql') {
+                const dbPath = await vscode.window.showInputBox({
+                    prompt: 'Masukkan nama atau jalur file database DAPQL (.dapdb)',
+                    value: 'database.dapdb',
+                });
+                if (!dbPath) return;
+                const dapqlBin = findDapqlBinary();
+                const terminal = vscode.window.createTerminal(`DAPQL [Live: ${path.basename(dbPath)}]`);
+                terminal.show();
+                runInTerminal(terminal, dapqlBin, dbPath);
+            } else if (targetPick.label === 'sqlite') {
                 const dbPath = await vscode.window.showInputBox({
                     prompt: 'Masukkan nama atau jalur file SQLite',
                     value: 'database.db',
@@ -931,6 +986,92 @@ function activate(context) {
                 terminal.show();
                 runInTerminal(terminal, dqlBin, 'live', 'postgres', '-U', 'postgres', '-d', dbName);
             }
+        })
+    );
+
+    // DAPQL Native DBMS Commands
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dapcode.dapqlRun', async (uri) => {
+            let targetPath = null;
+            if (uri && uri.fsPath) {
+                targetPath = uri.fsPath;
+            } else {
+                const editor = vscode.window.activeTextEditor;
+                if (editor && editor.document && editor.document.fileName.endsWith('.dql')) {
+                    targetPath = editor.document.fileName;
+                }
+            }
+
+            if (!targetPath) {
+                vscode.window.showWarningMessage('Buka atau pilih berkas .dql terlebih dahulu untuk dieksekusi di DAPQL.');
+                return;
+            }
+
+            const defaultDb = path.join(path.dirname(targetPath), 'database.dapdb');
+            const dbPath = await vscode.window.showInputBox({
+                prompt: 'Masukkan nama atau jalur file database DAPQL (.dapdb)',
+                value: defaultDb,
+                placeHolder: 'database.dapdb'
+            });
+
+            if (!dbPath) return;
+
+            const dapqlBin = findDapqlBinary();
+            const terminal = vscode.window.createTerminal(`DAPQL [Eksekusi: ${path.basename(dbPath)}]`);
+            terminal.show();
+            runInTerminal(terminal, dapqlBin, 'file', targetPath, '-d', dbPath);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dapcode.dapqlRepl', async () => {
+            let defaultDb = 'dapql.dapdb';
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (workspaceFolders && workspaceFolders.length > 0) {
+                defaultDb = path.join(workspaceFolders[0].uri.fsPath, 'dapql.dapdb');
+            }
+
+            const dbPath = await vscode.window.showInputBox({
+                prompt: 'Masukkan nama atau jalur file database DAPQL (.dapdb) untuk sesi REPL',
+                value: defaultDb,
+                placeHolder: 'dapql.dapdb'
+            });
+
+            if (!dbPath) return;
+
+            const dapqlBin = findDapqlBinary();
+            const terminal = vscode.window.createTerminal(`DAPQL REPL [${path.basename(dbPath)}]`);
+            terminal.show();
+            runInTerminal(terminal, dapqlBin, dbPath);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dapcode.dapqlServer', async () => {
+            const port = await vscode.window.showInputBox({
+                prompt: 'Masukkan port untuk Server TCP Daemon DAPQL',
+                value: '5433',
+                placeHolder: '5433'
+            });
+            if (!port) return;
+
+            let defaultDb = 'server.dapdb';
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (workspaceFolders && workspaceFolders.length > 0) {
+                defaultDb = path.join(workspaceFolders[0].uri.fsPath, 'server.dapdb');
+            }
+
+            const dbPath = await vscode.window.showInputBox({
+                prompt: 'Masukkan nama atau jalur file database (.dapdb) untuk server',
+                value: defaultDb,
+                placeHolder: 'server.dapdb'
+            });
+            if (!dbPath) return;
+
+            const dapqlBin = findDapqlBinary();
+            const terminal = vscode.window.createTerminal(`DAPQL Server [Port: ${port}]`);
+            terminal.show();
+            runInTerminal(terminal, dapqlBin, 'server', '-p', port, '-d', dbPath);
         })
     );
 
