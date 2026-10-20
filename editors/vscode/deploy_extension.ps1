@@ -12,6 +12,7 @@ foreach ($extBase in $extBases) {
             Copy-Item (Join-Path $srcDir "extension.js") $targetDir -Force
             Copy-Item (Join-Path $srcDir "package.json") $targetDir -Force
             Copy-Item (Join-Path $srcDir "language-configuration.json") $targetDir -Force
+            if (Test-Path (Join-Path $srcDir "dql-language-configuration.json")) { Copy-Item (Join-Path $srcDir "dql-language-configuration.json") $targetDir -Force }
             if (Test-Path (Join-Path $srcDir "syntaxes")) { Copy-Item (Join-Path $srcDir "syntaxes") $targetDir -Recurse -Force }
             if (Test-Path (Join-Path $srcDir "snippets")) { Copy-Item (Join-Path $srcDir "snippets") $targetDir -Recurse -Force }
             if (Test-Path (Join-Path $srcDir "icons")) { Copy-Item (Join-Path $srcDir "icons") $targetDir -Recurse -Force }

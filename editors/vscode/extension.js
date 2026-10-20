@@ -60,6 +60,48 @@ function findCompilerPath() {
     return customPath || 'dapcodec';
 }
 
+function findDqlBinary() {
+    const config = vscode.workspace.getConfiguration('dapcode');
+    const customPath = config.get('dqlPath');
+    if (customPath && customPath !== 'dql' && fs.existsSync(customPath)) {
+        return customPath;
+    }
+
+    // Search inside workspace folders
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (workspaceFolders) {
+        for (const folder of workspaceFolders) {
+            const candidates = [
+                path.join(folder.uri.fsPath, 'target', 'release', 'dql.exe'),
+                path.join(folder.uri.fsPath, 'target', 'debug', 'dql.exe'),
+                path.join(folder.uri.fsPath, 'target', 'release', 'dql'),
+                path.join(folder.uri.fsPath, 'target', 'debug', 'dql'),
+            ];
+            for (const c of candidates) {
+                if (fs.existsSync(c)) {
+                    return c;
+                }
+            }
+        }
+    }
+
+    // Search in user cargo bin and well-known paths
+    const homeDir = os.homedir();
+    const globalCandidates = [
+        path.join(homeDir, '.cargo', 'bin', 'dql.exe'),
+        'D:\\dapcode query language\\target\\release\\dql.exe',
+        'D:\\dapcode query language\\target\\debug\\dql.exe',
+        path.join(homeDir, '.cargo', 'bin', 'dql'),
+    ];
+    for (const c of globalCandidates) {
+        if (fs.existsSync(c)) {
+            return c;
+        }
+    }
+
+    return customPath || 'dql';
+}
+
 let lastKnownDapFilePath = null;
 let lastKnownDapDocument = null;
 
@@ -656,7 +698,10 @@ function activate(context) {
 
         const argsStr = formattedArgs.length > 0 ? ' ' + formattedArgs.join(' ') : '';
 
-        if (shellType === 'powershell') {
+        if (comp === 'dql' || (!comp.includes('/') && !comp.includes('\\') && !comp.includes(' '))) {
+            // Perintah langsung di PATH (dql) - berjalan identik di PowerShell, Git Bash, dan CMD
+            terminal.sendText(`${comp}${argsStr}`);
+        } else if (shellType === 'powershell') {
             terminal.sendText(`& "${comp}"${argsStr}`);
         } else {
             // Bash atau CMD
@@ -694,11 +739,198 @@ function activate(context) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('dapcode.repl', () => {
+        vscode.commands.registerCommand('dapcode.repl', async () => {
+            const activeEditor = vscode.window.activeTextEditor;
+            if (activeEditor && (activeEditor.document.languageId === 'dql' || (activeEditor.document.fileName && activeEditor.document.fileName.endsWith('.dql')))) {
+                return vscode.commands.executeCommand('dapcode.dqlRepl');
+            }
+
+            const isDap = activeEditor && (activeEditor.document.languageId === 'dapcode' || (activeEditor.document.fileName && activeEditor.document.fileName.endsWith('.dap')));
+            if (!isDap) {
+                const modePick = await vscode.window.showQuickPick(
+                    [
+                        { label: 'DQL REPL', description: 'Interactive Query REPL (Postgres, MySQL, SQLite)' },
+                        { label: 'DapCode REPL', description: 'Interactive DapCode Language REPL' }
+                    ],
+                    { placeHolder: 'Pilih jenis REPL yang ingin dijalankan' }
+                );
+                if (!modePick) return;
+                if (modePick.label === 'DQL REPL') {
+                    return vscode.commands.executeCommand('dapcode.dqlRepl');
+                }
+            }
+
             const compiler = findCompilerPath();
             const terminal = vscode.window.createTerminal('DapCode REPL');
             terminal.show();
             runInTerminal(terminal, compiler, 'repl');
+        })
+    );
+
+    // DQL Commands
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dapcode.dqlCompile', async (uri) => {
+            let targetPath = null;
+            if (uri && uri.fsPath) {
+                targetPath = uri.fsPath;
+            } else {
+                const editor = vscode.window.activeTextEditor;
+                if (editor && editor.document && editor.document.fileName.endsWith('.dql')) {
+                    targetPath = editor.document.fileName;
+                }
+            }
+
+            if (!targetPath) {
+                vscode.window.showWarningMessage('Buka atau pilih berkas .dql terlebih dahulu untuk dikompilasi.');
+                return;
+            }
+
+            const dialectPick = await vscode.window.showQuickPick(
+                [
+                    { label: 'postgres', description: 'Dialek PostgreSQL ($1, $2 parameter binding)' },
+                    { label: 'sqlite', description: 'Dialek SQLite (?1, ?2 parameter binding)' },
+                    { label: 'mysql', description: 'Dialek MySQL / MariaDB' },
+                ],
+                { placeHolder: 'Pilih target dialek SQL yang diinginkan' }
+            );
+
+            if (!dialectPick) return;
+
+            const dqlBin = findDqlBinary();
+            const terminal = vscode.window.activeTerminal || vscode.window.createTerminal('DQL');
+            terminal.show();
+            runInTerminal(terminal, dqlBin, 'file', targetPath, '-d', dialectPick.label, '-p');
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dapcode.dqlRepl', async () => {
+            const dialectPick = await vscode.window.showQuickPick(
+                [
+                    {
+                        label: 'postgres',
+                        description: 'Dialek PostgreSQL ($1, $2 parameter binding)',
+                        detail: 'Kompilasi kueri DQL ke PostgreSQL (Compiler Mode)'
+                    },
+                    {
+                        label: 'mysql',
+                        description: 'Dialek MySQL / MariaDB (`backtick`, ? parameter binding)',
+                        detail: 'Kompilasi kueri DQL ke MySQL / MariaDB (Compiler Mode)'
+                    },
+                    {
+                        label: 'sqlite',
+                        description: 'Dialek SQLite ("double-quote", ?1, ?2 parameter binding)',
+                        detail: 'Kompilasi kueri DQL ke SQLite (Compiler Mode)'
+                    },
+                    {
+                        label: '⚡ Live: SQLite',
+                        description: 'Koneksi langsung ke database SQLite (.db)',
+                        detail: 'Eksekusi kueri DQL secara real-time dan tampilkan hasil tabel'
+                    },
+                    {
+                        label: '⚡ Live: MySQL',
+                        description: 'Koneksi langsung ke database MySQL lokal',
+                        detail: 'Eksekusi kueri DQL secara real-time ke MySQL server aktif'
+                    },
+                ],
+                {
+                    placeHolder: 'Pilih target dialek atau mode Live Database untuk DQL REPL',
+                    title: 'DQL REPL: Pilih Target atau Live Mode'
+                }
+            );
+
+            if (!dialectPick) return;
+
+            const dqlBin = findDqlBinary();
+
+            if (dialectPick.label === '⚡ Live: SQLite') {
+                const dbPath = await vscode.window.showInputBox({
+                    prompt: 'Masukkan nama atau jalur berkas database SQLite',
+                    value: 'database.db',
+                });
+                if (!dbPath) return;
+                const terminal = vscode.window.createTerminal(`DQL Live [Sqlite: ${dbPath}]`);
+                terminal.show();
+                runInTerminal(terminal, dqlBin, 'live', 'sqlite', dbPath);
+                return;
+            }
+
+            if (dialectPick.label === '⚡ Live: MySQL') {
+                const dbName = await vscode.window.showInputBox({
+                    prompt: 'Masukkan nama basis data MySQL (user default: root)',
+                    value: 'test',
+                });
+                if (!dbName) return;
+                const terminal = vscode.window.createTerminal(`DQL Live [MySQL: ${dbName}]`);
+                terminal.show();
+                runInTerminal(terminal, dqlBin, 'live', 'mysql', '-u', 'root', '-d', dbName);
+                return;
+            }
+
+            const terminal = vscode.window.createTerminal(`DQL REPL [${dialectPick.label}]`);
+            terminal.show();
+            runInTerminal(terminal, dqlBin, 'repl', '-d', dialectPick.label);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('dapcode.dqlLive', async () => {
+            const targetPick = await vscode.window.showQuickPick(
+                [
+                    {
+                        label: 'sqlite',
+                        description: 'Basis Data SQLite Lokal (.db)',
+                        detail: 'Langsung tersambung ke file database SQLite'
+                    },
+                    {
+                        label: 'mysql',
+                        description: 'Server Basis Data MySQL / MariaDB',
+                        detail: 'Tersambung ke server MySQL lokal (port 3306)'
+                    },
+                    {
+                        label: 'postgres',
+                        description: 'Server Basis Data PostgreSQL',
+                        detail: 'Tersambung ke server PostgreSQL lokal (port 5432)'
+                    },
+                ],
+                {
+                    placeHolder: 'Pilih target basis data untuk sesi Live DQL',
+                    title: 'DQL Live: Pilih Target Database'
+                }
+            );
+
+            if (!targetPick) return;
+
+            const dqlBin = findDqlBinary();
+
+            if (targetPick.label === 'sqlite') {
+                const dbPath = await vscode.window.showInputBox({
+                    prompt: 'Masukkan nama atau jalur file SQLite',
+                    value: 'database.db',
+                });
+                if (!dbPath) return;
+                const terminal = vscode.window.createTerminal(`DQL Live [Sqlite: ${dbPath}]`);
+                terminal.show();
+                runInTerminal(terminal, dqlBin, 'live', 'sqlite', dbPath);
+            } else if (targetPick.label === 'mysql') {
+                const dbName = await vscode.window.showInputBox({
+                    prompt: 'Masukkan nama database MySQL (user: root)',
+                    value: 'test',
+                });
+                if (!dbName) return;
+                const terminal = vscode.window.createTerminal(`DQL Live [MySQL: ${dbName}]`);
+                terminal.show();
+                runInTerminal(terminal, dqlBin, 'live', 'mysql', '-u', 'root', '-d', dbName);
+            } else if (targetPick.label === 'postgres') {
+                const dbName = await vscode.window.showInputBox({
+                    prompt: 'Masukkan nama database PostgreSQL (user: postgres)',
+                    value: 'postgres',
+                });
+                if (!dbName) return;
+                const terminal = vscode.window.createTerminal(`DQL Live [Postgres: ${dbName}]`);
+                terminal.show();
+                runInTerminal(terminal, dqlBin, 'live', 'postgres', '-U', 'postgres', '-d', dbName);
+            }
         })
     );
 

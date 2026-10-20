@@ -1,0 +1,95 @@
+{
+    "Ambil Sederhana": {
+        "prefix": "ambil",
+        "body": [
+            "ambil ${1:Tabel}",
+            "pilih ${2:*}",
+            "di_mana ${3:status == 'aktif'}",
+            "urutkan ${4:id} naik",
+            "batasi ${5:10}"
+        ],
+        "description": "Kueri dasar mengambil data dengan filter dan batas"
+    },
+    "Ambil dengan Join": {
+        "prefix": "ambil_gabung",
+        "body": [
+            "ambil ${1:TabelUtama} sebagai ${2:u}",
+            "pilih ${2:u}.${3:id}, ${4:t}.${5:nama}",
+            "gabung ${6:TabelTerkait} sebagai ${4:t} pada ${2:u}.${7:id} == ${4:t}.${8:relasi_id}",
+            "di_mana ${2:u}.${9:status} == '${10:aktif}'",
+            "batasi ${11:10}"
+        ],
+        "description": "Kueri mengambil data dengan penggabungan tabel (JOIN)"
+    },
+    "Tambah Data (Insert)": {
+        "prefix": "tambah_ke",
+        "body": [
+            "tambah_ke ${1:Tabel} {",
+            "    ${2:kolom}: ${3:'nilai'},",
+            "    ${4:kolom2}: ${5:100}",
+            "}"
+        ],
+        "description": "Perintah menambah record baru ke tabel"
+    },
+    "Tambah Banyak Data (Batch Insert)": {
+        "prefix": "tambah_banyak",
+        "body": [
+            "tambah_ke ${1:Tabel} [",
+            "    { ${2:kolom}: ${3:'nilai1'} },",
+            "    { ${2:kolom}: ${4:'nilai2'} }",
+            "]"
+        ],
+        "description": "Perintah menambah beberapa record sekaligus"
+    },
+    "Perbarui Data (Update)": {
+        "prefix": "perbarui",
+        "body": [
+            "perbarui ${1:Tabel}",
+            "atur ${2:kolom} = ${3:'nilai_baru'}",
+            "di_mana ${4:id} == ${5:1}"
+        ],
+        "description": "Perintah memperbarui data pada tabel"
+    },
+    "Hapus Data (Delete)": {
+        "prefix": "hapus_dari",
+        "body": [
+            "hapus_dari ${1:Tabel}",
+            "di_mana ${2:id} == ${3:1}"
+        ],
+        "description": "Perintah menghapus data dari tabel"
+    },
+    "Buat Tabel (DDL)": {
+        "prefix": "buat_tabel",
+        "body": [
+            "buat tabel jika_belum_ada ${1:Pengguna} {",
+            "    id: seri kunci_utama,",
+            "    ${2:nama}: teks tidak_kosong,",
+            "    ${3:email}: teks unik,",
+            "    ${4:umur}: bulat bawaan ${5:18},",
+            "    ${6:dibuat_pada}: waktu bawaan sekarang",
+            "}"
+        ],
+        "description": "Perintah DDL membuat tabel baru beserta tipe data dan kendala (constraints)"
+    },
+    "Hapus Tabel (DDL)": {
+        "prefix": "hapus_tabel",
+        "body": [
+            "hapus tabel jika_ada ${1:Pengguna}"
+        ],
+        "description": "Perintah DDL menghapus tabel (DROP TABLE)"
+    },
+    "Tampilkan Tabel": {
+        "prefix": "tampilkan_tabel",
+        "body": [
+            "tampilkan tabel"
+        ],
+        "description": "Menampilkan seluruh tabel yang ada pada database"
+    },
+    "Struktur Tabel (Describe)": {
+        "prefix": "struktur",
+        "body": [
+            "struktur ${1:Pengguna}"
+        ],
+        "description": "Menampilkan definisi struktur kolom pada tabel (DESCRIBE)"
+    }
+}

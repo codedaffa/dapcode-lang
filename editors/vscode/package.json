@@ -2,7 +2,7 @@
     "name": "dapcode-lang",
     "displayName": "DapCode Language Support",
     "description": "Syntax highlighting, LSP with Code Actions & Quick Fixes, interactive Debugger (DAP) with breakpoints & variable inspection, Go to Definition, outline symbols, snippets, doc generator, test runner, and interactive REPL for DapCode (.dap)",
-    "version": "0.8.0",
+    "version": "0.9.2",
     "publisher": "dapcode-core",
     "icon": "icons/dapcode.png",
     "repository": {
@@ -21,6 +21,9 @@
     "keywords": [
         "dapcode",
         "dapcodec",
+        "dql",
+        "database",
+        "query-language",
         "compiler",
         "indonesia",
         "rust",
@@ -32,6 +35,7 @@
     "main": "./extension.js",
     "activationEvents": [
         "onLanguage:dapcode",
+        "onLanguage:dql",
         "onCommand:dapcode.openPlayground",
         "onCommand:dapcode.run",
         "onCommand:dapcode.test",
@@ -42,7 +46,10 @@
         "onCommand:dapcode.buildMobile",
         "onCommand:dapcode.previewMobileGpu",
         "onCommand:dapcode.debug",
-        "onCommand:dapcode.restartLsp"
+        "onCommand:dapcode.restartLsp",
+        "onCommand:dapcode.dqlCompile",
+        "onCommand:dapcode.dqlRepl",
+        "onCommand:dapcode.dqlLive"
     ],
     "contributes": {
         "languages": [
@@ -61,6 +68,18 @@
                     "light": "./icons/dapcode-light.svg",
                     "dark": "./icons/dapcode.svg"
                 }
+            },
+            {
+                "id": "dql",
+                "aliases": [
+                    "DapCode Query Language",
+                    "DQL",
+                    "dql"
+                ],
+                "extensions": [
+                    ".dql"
+                ],
+                "configuration": "./dql-language-configuration.json"
             }
         ],
         "grammars": [
@@ -68,12 +87,21 @@
                 "language": "dapcode",
                 "scopeName": "source.dap",
                 "path": "./syntaxes/dapcode.tmLanguage.json"
+            },
+            {
+                "language": "dql",
+                "scopeName": "source.dql",
+                "path": "./syntaxes/dql.tmLanguage.json"
             }
         ],
         "snippets": [
             {
                 "language": "dapcode",
                 "path": "./snippets/dapcode.json"
+            },
+            {
+                "language": "dql",
+                "path": "./snippets/dql.json"
             }
         ],
         "breakpoints": [
@@ -184,10 +212,43 @@
                 "title": "DapCode: Pratinjau Mobile GPU (Direct 60 FPS Hot-Reload)",
                 "category": "DapCode",
                 "icon": "$(device-mobile)"
+            },
+            {
+                "command": "dapcode.dqlCompile",
+                "title": "DQL: Kompilasi ke SQL (Compile to SQL)",
+                "category": "DQL",
+                "icon": "$(database)"
+            },
+            {
+                "command": "dapcode.dqlRepl",
+                "title": "DQL: Buka Sesi Interaktif REPL",
+                "category": "DQL",
+                "icon": "$(terminal)"
+            },
+            {
+                "command": "dapcode.dqlLive",
+                "title": "DQL: Buka Sesi Live Database (Eksekusi Nyata)",
+                "category": "DQL",
+                "icon": "$(zap)"
             }
         ],
         "menus": {
             "editor/title": [
+                {
+                    "command": "dapcode.dqlCompile",
+                    "when": "resourceLangId == dql",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "dapcode.dqlRepl",
+                    "when": "resourceLangId == dql",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "dapcode.dqlLive",
+                    "when": "resourceLangId == dql",
+                    "group": "navigation@3"
+                },
                 {
                     "command": "dapcode.previewMobileGpu",
                     "when": "resourceLangId == dapcode",
@@ -215,6 +276,21 @@
                 }
             ],
             "editor/context": [
+                {
+                    "command": "dapcode.dqlCompile",
+                    "when": "resourceLangId == dql",
+                    "group": "1_modification@1"
+                },
+                {
+                    "command": "dapcode.dqlRepl",
+                    "when": "resourceLangId == dql",
+                    "group": "1_modification@2"
+                },
+                {
+                    "command": "dapcode.dqlLive",
+                    "when": "resourceLangId == dql",
+                    "group": "1_modification@3"
+                },
                 {
                     "command": "dapcode.previewMobileGpu",
                     "when": "resourceLangId == dapcode",
@@ -273,6 +349,11 @@
                     "type": "string",
                     "default": "dapcodec",
                     "description": "Jalur executable kompilator dapcodec (default: 'dapcodec')."
+                },
+                "dapcode.dqlPath": {
+                    "type": "string",
+                    "default": "dql",
+                    "description": "Jalur executable toolchain DQL (default: 'dql')."
                 },
                 "dapcode.enableLsp": {
                     "type": "boolean",

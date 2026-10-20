@@ -1,6 +1,7 @@
 {
     "files.associations": {
-        "*.dap": "dapcode"
+        "*.dap": "dapcode",
+        "*.dql": "dql"
     },
     "material-icon-theme.files.associations": {
         "*.dap": "rust"
