@@ -604,13 +604,15 @@ DapCode memiliki fleksibilitas eksekusi dengan menyediakan 4 backend target mand
 - Membangun seluruh seksi biner Wasm: *Type Section (1)*, *Import Section (2)*, *Function Section (3)*, *Table Section (4)*, *Memory Section (5)*, *Global Section (6)*, *Export Section (7)*, dan *Code Section (10)*.
 - Menghasilkan biner WebAssembly mandiri yang siap dijalankan di browser, Node.js, atau runtime Wasmtime/Wasmer.
 
-### D. Mobile PWA & Hybrid Android WebView Bundler (`src/mobile/`)
-- Mengintegrasikan biner WebAssembly ke dalam bundel Progressive Web App (PWA) lengkap:
-  - `manifest.webmanifest`: Konfigurasi nama aplikasi, tema warna, dan display `standalone`.
-  - `sw.js`: Service Worker untuk caching aset offline penuh.
-  - Ikon resolusi tinggi otomatis (SVG, PNG 192px, PNG 512px).
-- **Template Proyek Android Studio:** Menghasilkan folder proyek Android lengkap dengan aktivitas Java/Kotlin berkecepatan tinggi yang memuat WebView terakselerasi perangkat keras, siap di-build menjadi biner `.apk` via Gradle.
-- **Dev-Server Wi-Fi dengan Terminal QR Code:** Menjalankan server HTTP lokal dan merender kode QR grafis ASCII langsung di terminal (`dapcodec mobile serve`) untuk pengujian instan pada ponsel fisik di jaringan Wi-Fi yang sama.
+### D. Arsitektur Mobile Native Direct GPU & Bundler Multiplatform (`src/mobile/`)
+- **Direct GPU Rendering 60-120 FPS (Flutter-Style):** Mengompilasi kode antarmuka DapCode langsung ke C11 berakselerasi hardware native (OpenGL ES 2.0/3.0 di Android & Metal/GLKit di iOS) tanpa WebView dan zero touch latency.
+- **Simulator Desktop Layar Sentuh dengan Live-Watch Hot-Reload (`dapcodec mobile preview`):** Simulator layar ponsel desktop 60 FPS mandiri yang memantau perubahan berkas saat disimpan (`Ctrl+S`) dan memperbarui tampilan seketika.
+- **Inisialisasi Proyek Modular Penuh (`dapcodec mobile init`):** Menghasilkan manifes `DapCode.toml`, logika bisnis murni di `src/logika/`, komponen UI sentuh di `src/ui/`, pengujian otomatis di `uji/`, serta aset di `aset/`.
+- **Ekspor Bundel Multiplatform Lengkap (`dapcodec mobile build`):**
+  - **Android Studio NDK CMake (`android/`):** Proyek native Gradle C++ siap rakit APK/AAB (`./gradlew assembleDebug` & `./gradlew bundleRelease`).
+  - **iOS Xcode Native (`ios/`):** Proyek Xcode dengan `GLKViewController` dan touch events siap kompilasi IPA.
+  - **Desktop Standalone (`desktop/`):** Simulator native Win32/POSIX C11 via MinGW GCC.
+  - **WebAssembly PWA (`dapcodec wasm`):** Bundel WebAssembly ringan dengan Service Worker & manifest.webmanifest siap install di homescreen smartphone.
 
 ---
 

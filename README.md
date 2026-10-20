@@ -789,28 +789,162 @@ dapcodec playground --open
 ---
 
 ### 25. Pengembangan Aplikasi Mobile Native Direct GPU 60 FPS (`dapcodec mobile`)
-DapCode menghadirkan arsitektur aplikasi mobile native berkinerja tinggi menggunakan pendekatan **Direct GPU Rendering 60 FPS** (arsitektur mandiri ala Flutter & Kotlin Multiplatform) tanpa perantara webview:
+
+DapCode menghadirkan arsitektur aplikasi mobile native berkinerja tinggi menggunakan pendekatan **Direct GPU Rendering 60–120 FPS** (arsitektur mandiri bare-metal ala Flutter & Kotlin Multiplatform) tanpa ketergantungan WebView atau DOM HTML:
+- **100% Native C11:** Seluruh siklus render dan penanganan antarmuka dikompilasi ke biner C11 berakselerasi hardware.
+- **Direct GPU Acceleration:** OpenGL ES 2.0 / 3.0 pada Android dan Metal / GLKit pada iOS.
+- **Zero Touch Latency:** Latensi sentuhan jari 0ms dengan refresh rate layar hingga 120 FPS.
+- **Simulator Desktop Mandiri:** Dilengkapi fitur **Live-Watch Hot-Reload** (simpan berkas dengan `Ctrl+S` untuk pembaruan instan tanpa restart).
+
+---
+
+#### 📱 Tahap 1: Cara Memulai Proyek Mobile Baru (`init`)
+
+Inisialisasi kerangka kerja aplikasi mobile baru dengan struktur modular standar industri:
+```powershell
+# Inisialisasi proyek aplikasi mobile baru
+dapcodec mobile init kalkulator_app
+cd kalkulator_app
+```
+
+**Konfigurasi Manifes `DapCode.toml`:**
+```toml
+[paket]
+nama = "kalkulator_app"
+versi = "0.1.0"
+berkas_utama = "src/utama.dap"
+deskripsi = "Aplikasi Mobile Native Direct GPU dengan DapCode"
+
+[target]
+tipe = "mobile"
+engine = "flutter"
+```
+
+**Hierarki Direktori Proyek yang Dihasilkan:**
+```text
+kalkulator_app/
+├── DapCode.toml              # Manifes paket dan konfigurasi target mobile
+├── README.md                 # Petunjuk alur kerja proyek
+├── src/                      # Kode sumber aplikasi DapCode
+│   ├── utama.dap             # Entry point & siklus render 60 FPS (Controller State)
+│   ├── ui/
+│   │   └── komponen.dap      # Komponen antarmuka sentuh (Status Bar, App Bar, Keypad)
+│   └── logika/
+│       └── kalkulator.dap    # Logika bisnis murni terisolasi dari antarmuka
+├── uji/                      # Pengujian unit otomatis
+│   └── kalkulator_uji.dap    # Test suite logika matematika (dapcodec test)
+├── aset/                     # Ikon aplikasi, gambar, font, dan audio
+├── android/                  # Proyek Android Studio NDK CMake (OpenGL ES 2.0/3.0)
+├── ios/                      # Proyek iOS Xcode Native (GLKit & Metal)
+├── desktop/                  # Simulator layar ponsel desktop mandiri (Win32/POSIX)
+└── engine/                   # Source code C11 transpiled & DapCode GPU Canvas Engine
+```
+
+**Contoh Kode Sumber Entry Point & Controller (`src/utama.dap`):**
+```dap
+impor "logika/kalkulator.dap"
+impor "ui/komponen.dap"
+
+fungsi utama() {
+    w := kanvas_lebar()
+    h := kanvas_tinggi()
+    mx := kanvas_mouse_x()        // Koordinat X sentuhan jari
+    my := kanvas_mouse_y()        // Koordinat Y sentuhan jari
+    sentuh := kanvas_mouse_klik() // Status sentuhan (1 = aktif, 0 = lepas)
+
+    // 1. Gambar latar belakang gelap elegan
+    kanvas_bersihkan()
+    kanvas_warna_isi(0.04, 0.06, 0.11, 1.0)
+    kanvas_persegi(0.0, 0.0, w, h)
+
+    // 2. Gambar status bar ponsel & jam
+    gambar_status_bar(w)
+
+    // 3. Render kartu display glassmorphic & angka
+    layar := kanvas_ambil_teks("tampilan")
+    riwayat := kanvas_ambil_teks("riwayat")
+    gambar_layar_tampilan(w, 40.0, 80.0, riwayat, layar)
+
+    // 4. Render tombol sentuh interaktif ber-radius membulat (squircle)
+    tombol("Hitung Sekarang", 20.0, 140.0, w - 40.0, 50.0, mx, my, sentuh)
+}
+```
+
+---
+
+#### ⚡ Tahap 2: Cara Menjalankan & Menguji Proyek (`preview` / `run`)
+
+Uji coba aplikasi Anda langsung di PC desktop tanpa perlu emulator Android yang lambat:
 
 ```powershell
-# 1. Inisialisasi proyek mobile native baru dengan template arsitektur modular penuh
-dapcodec mobile init aplikasi_saya
-cd aplikasi_saya
-
-# 2. Jalankan simulator layar ponsel desktop langsung (Direct GPU 60 FPS dengan Live Hot-Reload!)
+# 1. Jalankan simulator layar ponsel desktop dengan Live Hot-Reload
 dapcodec mobile preview src/utama.dap
-# Mode live-watch aktif: ubah kode dan simpan (Ctrl+S) untuk update instan tanpa restart simulator.
+# (Atau cukup jalankan: dapcodec mobile preview jika di dalam folder proyek)
+```
 
-# 3. Rakit proyek ke target Android Studio NDK & iOS Xcode
+**Fitur Unggulan Simulator:**
+- **Live-Watch Hot-Reload:** Watcher memantau berkas sumber secara otomatis. Cukup simpan kode dengan `Ctrl+S`, simulator seketika mengompilasi ulang C11 dan memperbarui tampilan tanpa menutup jendela!
+- **Simulasi Layar Sentuh:** Kursor mouse berfungsi sebagai koordinat sentuhan jari (*single-touch / multi-touch*).
+- **Preset Ukuran Layar:** Tekan tombol `1` (Portrait 360x640), `2` (Ponsel Besar 400x750), atau `3` (Landscape 640x360).
+- **Pengujian Unit Logika:** Jalankan `dapcodec test` untuk memverifikasi logika bisnis tanpa membuka jendela grafis.
+- **Integrasi VS Code:** Tekan `Ctrl+Shift+P` -> Pilih `DapCode: Preview Mobile Screen (Direct GPU Simulator with Hot-Reload)`.
+
+---
+
+#### 📦 Tahap 3: Cara Build Proyek Sampai Siap Distribusi (`build`)
+
+Kompilasi dan bundel kode DapCode Anda ke platform native yang diinginkan:
+```powershell
+# Rakit seluruh bundel platform native
 dapcodec mobile build src/utama.dap
 ```
 
-**Struktur Proyek Mobile yang Dihasilkan:**
-- `DapCode.toml`: Manifes paket aplikasi dengan konfigurasi target mobile & engine direct-gpu.
-- `src/`: Berkas sumber DapCode (`utama.dap`, `ui/komponen.dap`, `logika/...`).
-- `android/`: Proyek native Android Studio NDK CMake (OpenGL ES 2.0/3.0) siap kompilasi APK/AAB via `./gradlew assembleDebug`.
-- `ios/`: Proyek native iOS Xcode (GLKit/Metal) siap dibuka di Xcode pada macOS.
-- `desktop/`: Simulator mandiri layar sentuh desktop (C11 MinGW/GCC) untuk siklus pengembangan ultra-cepat.
-- `engine/`: Source code C11 transpiled dan backend GPU Canvas Engine.
+Perintah di atas menghasilkan 4 target perakitan:
+
+##### A. Target Android (APK / Android App Bundle - AAB via NDK CMake)
+1. Buka folder `android/` di **Android Studio**.
+2. Pastikan **Android SDK**, **NDK**, dan **CMake** telah terpasang via *SDK Manager*.
+3. Klik tombol **Run** (`Shift + F10`) untuk menguji langsung di Emulator Android atau Ponsel fisik via kabel USB.
+4. Atau kompilasi file biner via terminal:
+   ```bash
+   cd android
+   # Build APK Debug:
+   ./gradlew assembleDebug
+   # Lokasi output: android/app/build/outputs/apk/debug/app-debug.apk
+
+   # Build AAB Release untuk Google Play Store:
+   ./gradlew bundleRelease
+   # Lokasi output: android/app/build/outputs/bundle/release/app-release.aab
+   ```
+   *Arsitektur:* `DapCodeEngine.java` dan `DapCodeSurfaceView.java` (GLSurfaceView kontinu 60 FPS) menghubungkan siklus render dan touch event (`MotionEvent`) langsung ke kernel C11 `dapcode_engine.c`.
+
+##### B. Target iOS Native (Xcode / iPhone IPA)
+1. Buka folder `ios/` di **Xcode** pada komputer macOS.
+2. Framework yang disertakan: `OpenGLES.framework` dan `GLKit.framework` / Metal C-Bridge.
+3. Jalankan di **Simulator iOS** atau perangkat **iPhone** fisik dengan menekan `Command + R`.
+4. Atau rakit biner via terminal macOS menggunakan perintah `xcodebuild`.
+   *Arsitektur:* `DapCodeViewController.m` mengelola `EAGLContext` 60 FPS dan meneruskan event sentuhan (`touchesBegan`, `touchesMoved`, `touchesEnded`) ke `dap_engine_on_touch()`.
+
+##### C. Target Desktop Simulator Mandiri (Windows / Linux)
+Buka folder `desktop/` dan jalankan script batch instan:
+```cmd
+cd desktop
+kompilasi_dan_jalankan.bat
+```
+Atau kompilasi langsung menggunakan MinGW GCC:
+```bash
+gcc preview_main.c ../engine/app_dapcode.c ../engine/dapcode_engine.c -lopengl32 -lgdi32 -lm -O3 -o pratinjau_mobile.exe
+```
+
+##### D. Target WebAssembly & Mobile PWA (Browser Smartphone)
+```powershell
+# Kompilasi ke modul WASM mandiri
+dapcodec wasm src/utama.dap -o web_dist/
+
+# Jalankan server lokal untuk pengujian di browser
+dapcodec playground --open
+```
+Aplikasi dapat dibuka di browser Android Chrome atau iOS Safari, lalu pilih menu **"Add to Home Screen"** untuk menginstalnya sebagai Progressive Web App (PWA) layar penuh (*standalone*).
 
 ---
 
